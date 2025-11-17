@@ -74,36 +74,42 @@ jobs:
           BRANCH="${GITHUB_REF##*/}"
 
           if [[ "$BRANCH" == "test" ]]; then 
-            TARGET_DIR="eventsmap-backend-test"; 
-            TAG="test"; 
-            COMPOSE=podman-compose.test.yml; 
-            ENV_FILE="${{ secrets.LARAVEL_ENV_FILE_TEST }}"; 
+            TARGET_DIR="eventsmap-backend-test"
+            TAG="test"
+            COMPOSE=podman-compose.test.yml
+            ENV_SECRET="${{ secrets.LARAVEL_ENV_FILE_TEST }}"
           fi
 
           if [[ "$BRANCH" == "stage" ]]; then 
-            TARGET_DIR="eventsmap-backend-stage"; 
-            TAG="stage"; 
-            COMPOSE=podman-compose.stage.yml; 
-            ENV_FILE="${{ secrets.LARAVEL_ENV_FILE_STAGE }}"; 
+            TARGET_DIR="eventsmap-backend-stage"
+            TAG="stage"
+            COMPOSE=podman-compose.stage.yml
+            ENV_SECRET="${{ secrets.LARAVEL_ENV_FILE_STAGE }}"
           fi
 
           if [[ "$BRANCH" == "master" ]]; then 
-            TARGET_DIR="eventsmap-backend-prod"; 
-            TAG="latest"; 
-            COMPOSE=podman-compose.prod.yml; 
-            ENV_FILE="${{ secrets.LARAVEL_ENV_FILE_PROD }}"; 
+            TARGET_DIR="eventsmap-backend-prod"
+            TAG="latest"
+            COMPOSE=podman-compose.prod.yml
+            ENV_SECRET="${{ secrets.LARAVEL_ENV_FILE_PROD }}"
           fi
 
           if [[ -z "$TARGET_DIR" ]]; then 
-            echo "No deploy for this branch"; 
-            exit 0; 
+            echo "No deploy for this branch"
+            exit 0
           fi
 
+          # Upload compose file
           scp -P ${{ secrets.DEPLOY_PORT }} $COMPOSE \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_SERVER }}:/home/minaxi/$TARGET_DIR/
 
+          # Deploy via SSH
           ssh -p ${{ secrets.DEPLOY_PORT }} ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_SERVER }} "
-            echo \"$ENV_FILE\" > /home/minaxi/$TARGET_DIR/.env &&
+            # Write .env safely using HEREDOC
+            cat << 'EOF' > /home/minaxi/$TARGET_DIR/.env
+            $ENV_SECRET
+            EOF
+
             echo '${{ secrets.GHCR_PAT }}' | podman login ghcr.io -u ${{ github.actor }} --password-stdin &&
             cd /home/minaxi/$TARGET_DIR &&
             podman pull ghcr.io/${{ env.IMAGE_NAME }}:$TAG &&
