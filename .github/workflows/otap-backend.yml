@@ -43,7 +43,6 @@ jobs:
           progress: yes
           php_extensions: mbstring pdo pdo_mysql
 
-
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -65,7 +64,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        # Required to access local files like podman-compose.*.yml for scp
 
       - name: Setup SSH
         uses: shimataro/ssh-key-action@v2
@@ -81,21 +79,18 @@ jobs:
             TARGET_DIR="eventsmap-backend-test"
             TAG="test"
             COMPOSE="podman-compose.test.yml"
-            ENV_SECRET="${{ secrets.LARAVEL_ENV_FILE_TEST }}"
           fi
 
           if [[ "$BRANCH" == "stage" ]]; then 
             TARGET_DIR="eventsmap-backend-stage"
             TAG="stage"
             COMPOSE="podman-compose.stage.yml"
-            ENV_SECRET="${{ secrets.LARAVEL_ENV_FILE_STAGE }}"
           fi
 
           if [[ "$BRANCH" == "master" ]]; then 
             TARGET_DIR="eventsmap-backend-prod"
             TAG="latest"
             COMPOSE="podman-compose.prod.yml"
-            ENV_SECRET="${{ secrets.LARAVEL_ENV_FILE }}"
           fi
 
           if [[ -z "$TARGET_DIR" ]]; then 
@@ -103,21 +98,11 @@ jobs:
             exit 0
           fi
 
-          # Create .env locally from secret (preserves multi-line formatting)
-          echo "$ENV_SECRET" > .env.temp
-
-          # Upload .env to server
-          scp -P ${{ secrets.DEPLOY_PORT }} .env.temp \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_SERVER }}:/home/minaxi/$TARGET_DIR/.env
-
-          # Clean up local temp file
-          rm .env.temp
-
           # Upload compose file
           scp -P ${{ secrets.DEPLOY_PORT }} "$COMPOSE" \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_SERVER }}:/home/minaxi/$TARGET_DIR/
 
-          # Deploy via SSH (no .env handling needed here)
+          # Deploy via SSH (no .env handling)
           ssh -p ${{ secrets.DEPLOY_PORT }} ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_SERVER }} "
             echo '${{ secrets.GHCR_PAT }}' | podman login ghcr.io -u ${{ github.actor }} --password-stdin &&
             cd /home/minaxi/$TARGET_DIR &&
@@ -125,4 +110,3 @@ jobs:
             podman-compose -f $COMPOSE up -d --force-recreate &&
             podman exec -i \$(podman ps -a --format '{{.Names}}' | grep eventsmap-backend) php artisan migrate --force
           "
-
