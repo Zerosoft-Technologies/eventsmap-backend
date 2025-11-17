@@ -74,23 +74,26 @@ jobs:
       - name: Deploy to server
         run: |
           BRANCH="${GITHUB_REF##*/}"
-
+          
           if [[ "$BRANCH" == "test" ]]; then 
             TARGET_DIR="eventsmap-backend-test"
             TAG="test"
             COMPOSE="podman-compose.test.yml"
+            CONTAINER_NAME="eventsmap-backend-test"
           fi
 
           if [[ "$BRANCH" == "stage" ]]; then 
             TARGET_DIR="eventsmap-backend-stage"
             TAG="stage"
             COMPOSE="podman-compose.stage.yml"
+            CONTAINER_NAME="eventsmap-backend-stage"
           fi
 
           if [[ "$BRANCH" == "master" ]]; then 
             TARGET_DIR="eventsmap-backend-prod"
             TAG="latest"
             COMPOSE="podman-compose.prod.yml"
+            CONTAINER_NAME="eventsmap-backend-prod"
           fi
 
           if [[ -z "$TARGET_DIR" ]]; then 
@@ -108,5 +111,5 @@ jobs:
             cd /home/minaxi/$TARGET_DIR &&
             podman pull ghcr.io/${{ env.IMAGE_NAME }}:$TAG &&
             podman-compose -f $COMPOSE up -d --force-recreate &&
-            podman exec -i \$(podman ps -a --format '{{.Names}}' | grep eventsmap-backend) php artisan migrate --force
+            podman exec -i $CONTAINER_NAME php artisan migrate --force
           "
