@@ -1,0 +1,113 @@
+name: Backend CI/CD (OTAP)
+
+on:
+  push:
+    branches:
+      - dev
+      - test
+      - stage
+      - master
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: zerosoft-technologies/eventsmap-backend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      env: ${{ steps.envname.outputs.env }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set environment name
+        id: envname
+        run: |
+          BRANCH="${GITHUB_REF##*/}"
+          if [[ "$BRANCH" == "dev" ]]; then echo "env=dev" >> $GITHUB_OUTPUT; fi
+          if [[ "$BRANCH" == "test" ]]; then echo "env=test" >> $GITHUB_OUTPUT; fi
+          if [[ "$BRANCH" == "stage" ]]; then echo "env=stage" >> $GITHUB_OUTPUT; fi
+          if [[ "$BRANCH" == "master" ]]; then echo "env=production" >> $GITHUB_OUTPUT; fi
+
+      - name: Set TAG
+        id: sett
+        run: |
+          BRANCH="${GITHUB_REF##*/}"
+          if [[ "$BRANCH" == "master" ]]; then echo "tag=latest" >> $GITHUB_OUTPUT; else echo "tag=$BRANCH" >> $GITHUB_OUTPUT; fi
+
+      - name: Install PHP deps (composer)
+        uses: php-actions/composer@v6
+        with:
+          php_version: "8.2"
+          command: install --no-dev --optimize-autoloader
+          progress: yes
+          php_extensions: mbstring pdo pdo_mysql
+
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build & push image
+        run: |
+          IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.sett.outputs.tag }}
+          docker build --no-cache -t $IMAGE .
+          docker push $IMAGE
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ needs.build.outputs.env }}
+
+    steps:
+      - name: Setup SSH
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+
+      - name: Deploy to server
+        run: |
+          BRANCH="${GITHUB_REF##*/}"
+
+          if [[ "$BRANCH" == "test" ]]; then 
+            TARGET_DIR="eventsmap-backend-test"; 
+            TAG="test"; 
+            COMPOSE=podman-compose.test.yml; 
+            ENV_FILE="${{ secrets.LARAVEL_ENV_FILE_TEST }}"; 
+          fi
+
+          if [[ "$BRANCH" == "stage" ]]; then 
+            TARGET_DIR="eventsmap-backend-stage"; 
+            TAG="stage"; 
+            COMPOSE=podman-compose.stage.yml; 
+            ENV_FILE="${{ secrets.LARAVEL_ENV_FILE_STAGE }}"; 
+          fi
+
+          if [[ "$BRANCH" == "master" ]]; then 
+            TARGET_DIR="eventsmap-backend-prod"; 
+            TAG="latest"; 
+            COMPOSE=podman-compose.prod.yml; 
+            ENV_FILE="${{ secrets.LARAVEL_ENV_FILE_PROD }}"; 
+          fi
+
+          if [[ -z "$TARGET_DIR" ]]; then 
+            echo "No deploy for this branch"; 
+            exit 0; 
+          fi
+
+          scp -P ${{ secrets.DEPLOY_PORT }} $COMPOSE \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_SERVER }}:/home/minaxi/$TARGET_DIR/
+
+          ssh -p ${{ secrets.DEPLOY_PORT }} ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_SERVER }} "
+            echo \"$ENV_FILE\" > /home/minaxi/$TARGET_DIR/.env &&
+            echo '${{ secrets.GHCR_PAT }}' | podman login ghcr.io -u ${{ github.actor }} --password-stdin &&
+            cd /home/minaxi/$TARGET_DIR &&
+            podman pull ghcr.io/${{ env.IMAGE_NAME }}:$TAG &&
+            podman-compose -f $COMPOSE up -d --force-recreate &&
+            podman exec -i \$(podman ps -a --format '{{.Names}}' | grep eventsmap-backend) php artisan migrate --force
+          "
+

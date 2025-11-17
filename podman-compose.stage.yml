@@ -1,0 +1,11 @@
+version: "3.9"
+
+services:
+  backend:
+    image: ghcr.io/zerosoft-technologies/eventsmap-backend:stage
+    container_name: eventsmap-backend-stage
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "4002:8000"
