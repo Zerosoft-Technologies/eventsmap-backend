@@ -28,7 +28,7 @@ jobs:
           BRANCH="${GITHUB_REF##*/}"
           if [[ "$BRANCH" == "dev" ]]; then echo "env=dev" >> $GITHUB_OUTPUT; fi
           if [[ "$BRANCH" == "test" ]]; then echo "env=test" >> $GITHUB_OUTPUT; fi
-          if [[ "$BRANCH" == "stage" ]]; then echo "env=acc" >> $GITHUB_OUTPUT; fi
+          if [[ "$BRANCH" == "stage" ]]; then echo "env=stage" >> $GITHUB_OUTPUT; fi
           if [[ "$BRANCH" == "master" ]]; then echo "env=production" >> $GITHUB_OUTPUT; fi
 
       - name: Set image tag (build once)
