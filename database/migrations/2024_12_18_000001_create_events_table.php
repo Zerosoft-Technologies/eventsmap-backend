@@ -16,8 +16,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Ensure PostGIS extension is enabled
-        DB::statement('CREATE EXTENSION IF NOT EXISTS postgis');
+        // Only create PostGIS extension for PostgreSQL
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('CREATE EXTENSION IF NOT EXISTS postgis');
+        }
 
         Schema::create('events', function (Blueprint $table) {
             // Core fields
@@ -42,12 +44,20 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Add PostGIS GEOGRAPHY column for location
-        // GEOGRAPHY type automatically handles distance in meters on Earth's surface
-        DB::statement('ALTER TABLE events ADD COLUMN location GEOGRAPHY(Point, 4326)');
-
-        // Create spatial index for efficient geo queries (ST_DWithin, etc.)
-        DB::statement('CREATE INDEX events_location_gist ON events USING GIST (location)');
+        // Add PostGIS GEOGRAPHY column for location (PostgreSQL only)
+        // For SQLite, we'll store latitude and longitude as separate columns
+        if (DB::getDriverName() === 'pgsql') {
+            // GEOGRAPHY type automatically handles distance in meters on Earth's surface
+            DB::statement('ALTER TABLE events ADD COLUMN location GEOGRAPHY(Point, 4326)');
+            // Create spatial index for efficient geo queries (ST_DWithin, etc.)
+            DB::statement('CREATE INDEX events_location_gist ON events USING GIST (location)');
+        } else {
+            // For SQLite and other databases, add latitude and longitude columns
+            Schema::table('events', function (Blueprint $table) {
+                $table->decimal('latitude', 10, 8)->nullable();
+                $table->decimal('longitude', 11, 8)->nullable();
+            });
+        }
     }
 
     /**
