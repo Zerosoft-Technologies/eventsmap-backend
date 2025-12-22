@@ -139,7 +139,7 @@ class Event extends Model
 
     /**
      * Scope: Filter events within a radius from a point.
-     * Uses ST_DWithin for efficient spatial indexing.
+     * Uses ST_DWithin for PostgreSQL, Haversine formula for SQLite.
      *
      * @param Builder $query
      * @param float $latitude
@@ -149,12 +149,19 @@ class Event extends Model
      */
     public function scopeWithinRadius(Builder $query, float $latitude, float $longitude, float $radiusKm): Builder
     {
-        $radiusMeters = $radiusKm * 1000;
-
-        return $query->whereRaw(
-            'ST_DWithin(location, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)',
-            [$longitude, $latitude, $radiusMeters]
-        );
+        if (DB::getDriverName() === 'pgsql') {
+            $radiusMeters = $radiusKm * 1000;
+            return $query->whereRaw(
+                'ST_DWithin(location, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)',
+                [$longitude, $latitude, $radiusMeters]
+            );
+        } else {
+            // SQLite - use Haversine formula
+            return $query->whereRaw(
+                '(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) <= ?',
+                [$latitude, $longitude, $latitude, $radiusKm]
+            );
+        }
     }
 
     /**
@@ -235,7 +242,7 @@ class Event extends Model
     }
 
     /**
-     * Scope: Select with latitude and longitude extracted from PostGIS.
+     * Scope: Select with latitude and longitude extracted from PostGIS or SQLite columns.
      * This adds lat/lng as separate columns for API responses.
      *
      * @param Builder $query
@@ -243,14 +250,23 @@ class Event extends Model
      */
     public function scopeWithCoordinates(Builder $query): Builder
     {
-        return $query->addSelect([
-            DB::raw('ST_Y(location::geometry) as latitude'),
-            DB::raw('ST_X(location::geometry) as longitude'),
-        ]);
+        if (DB::getDriverName() === 'pgsql') {
+            return $query->addSelect([
+                DB::raw('ST_Y(location::geometry) as latitude'),
+                DB::raw('ST_X(location::geometry) as longitude'),
+            ]);
+        } else {
+            // SQLite and other databases - use latitude and longitude columns
+            return $query->addSelect([
+                'latitude',
+                'longitude',
+            ]);
+        }
     }
 
     /**
      * Scope: Select with distance from a point.
+     * Uses ST_Distance for PostgreSQL, Haversine formula for SQLite.
      *
      * @param Builder $query
      * @param float $latitude
@@ -259,14 +275,21 @@ class Event extends Model
      */
     public function scopeWithDistanceFrom(Builder $query, float $latitude, float $longitude): Builder
     {
-        return $query->addSelect([
-            DB::raw("ST_Distance(location, ST_SetSRID(ST_MakePoint({$longitude}, {$latitude}), 4326)::geography) as distance_meters"),
-        ]);
+        if (DB::getDriverName() === 'pgsql') {
+            return $query->addSelect([
+                DB::raw("ST_Distance(location, ST_SetSRID(ST_MakePoint({$longitude}, {$latitude}), 4326)::geography) as distance_meters"),
+            ]);
+        } else {
+            // SQLite - use Haversine formula to calculate distance in meters
+            return $query->addSelect([
+                DB::raw("(6371000 * acos(cos(radians({$latitude})) * cos(radians(latitude)) * cos(radians(longitude) - radians({$longitude})) + sin(radians({$latitude})) * sin(radians(latitude)))) as distance_meters"),
+            ]);
+        }
     }
 
     /**
      * Set the location using latitude and longitude.
-     * Converts to PostGIS GEOGRAPHY point.
+     * Converts to PostGIS GEOGRAPHY point for PostgreSQL, updates lat/lng columns for SQLite.
      *
      * @param float $latitude
      * @param float $longitude
@@ -274,9 +297,17 @@ class Event extends Model
      */
     public function setLocationFromCoordinates(float $latitude, float $longitude): void
     {
-        DB::statement(
-            "UPDATE events SET location = ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography WHERE id = ?",
-            [$longitude, $latitude, $this->id]
-        );
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement(
+                "UPDATE events SET location = ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography WHERE id = ?",
+                [$longitude, $latitude, $this->id]
+            );
+        } else {
+            // SQLite - update latitude and longitude columns
+            DB::statement(
+                "UPDATE events SET latitude = ?, longitude = ? WHERE id = ?",
+                [$latitude, $longitude, $this->id]
+            );
+        }
     }
 }
