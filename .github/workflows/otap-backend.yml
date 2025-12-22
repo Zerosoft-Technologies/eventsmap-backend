@@ -127,7 +127,10 @@ jobs:
           ssh -p ${{ secrets.DEPLOY_PORT }} ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_SERVER }} "
             echo '${{ secrets.GHCR_PAT }}' | podman login ghcr.io -u ${{ github.actor }} --password-stdin &&
             cd /home/minaxi/$TARGET_DIR &&
+
+            echo 'IMAGE_TAG=$TAG' > .image.env &&
+
             podman pull ghcr.io/${{ env.IMAGE_NAME }}:$TAG &&
-            podman-compose -f $COMPOSE up -d --force-recreate &&
+            podman-compose --env-file .image.env -f $COMPOSE up -d --force-recreate &&
             podman exec -i $CONTAINER_NAME php artisan migrate --force
           "
