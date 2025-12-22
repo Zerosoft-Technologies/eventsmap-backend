@@ -7,5 +7,23 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    depends_on:
+      - db
     ports:
       - "4001:8000"
+
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: eventsmap-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eventsmap
+      POSTGRES_USER: eventsmap
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata_test:/var/lib/postgresql/data
+
+volumes:
+  pgdata_test:
