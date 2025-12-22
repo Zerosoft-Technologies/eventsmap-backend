@@ -23,7 +23,9 @@ FROM php:8.2-fpm
 # System dependencies
 RUN apt-get update && apt-get install -y \
     libpng-dev libonig-dev libxml2-dev zip unzip git curl libzip-dev \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+    libpq-dev \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip \
+    pdo_pgsql pgsql
 
 WORKDIR /var/www
 
