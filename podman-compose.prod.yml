@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   backend:
-    image: ghcr.io/zerosoft-technologies/eventsmap-backend:latest
+    image: ghcr.io/zerosoft-technologies/eventsmap-backend:${TAG}
     container_name: eventsmap-backend-prod
     restart: unless-stopped
     env_file:
