@@ -1329,10 +1329,19 @@ class EventsSeeder extends Seeder
                 'updated_at' => $now->toDateTimeString(),
             ];
 
-            // Insert event with PostGIS location using DB::raw()
-            DB::table('events')->insert(array_merge($eventInsertData, [
-                'location' => DB::raw("ST_SetSRID(ST_MakePoint({$longitude}, {$latitude}), 4326)::geography"),
-            ]));
+            // Insert event with location data based on database type
+            if (DB::getDriverName() === 'pgsql') {
+                // PostgreSQL with PostGIS
+                DB::table('events')->insert(array_merge($eventInsertData, [
+                    'location' => DB::raw("ST_SetSRID(ST_MakePoint({$longitude}, {$latitude}), 4326)::geography"),
+                ]));
+            } else {
+                // SQLite and other databases - use latitude and longitude columns
+                DB::table('events')->insert(array_merge($eventInsertData, [
+                    'latitude' => $latitude,
+                    'longitude' => $longitude,
+                ]));
+            }
         }
 
         $this->command->info('Seeded ' . count($events) . ' events across Amsterdam, Rotterdam, Utrecht, and Berlin.');
