@@ -3,6 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Http\Resources\EventResource;
+use App\Http\Resources\TalentResource;
+use App\Http\Resources\EventImageResource;
+use App\Http\Resources\EventAboutResource;
+use App\Http\Resources\EventLocationResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -57,7 +62,7 @@ class EventController extends Controller
         $query = Event::query()
             ->select('events.*')
             ->withCoordinates()
-            ->with(['category:id,name,slug', 'subcategory:id,name,slug'])
+            ->with(['category:id,name,slug', 'subcategory:id,name,slug', 'talents:id,name,image'])
             ->published();
 
         // Search filtering: search in title and description
@@ -154,13 +159,26 @@ class EventController extends Controller
         $page = $request->input('page', 1);
         $events = $query->paginate($perPage, ['*'], 'page', $page);
 
-        // Transform response to include is_live_now and format distance
+        // Transform response to include is_live_now, format distance, and include talents
         $events->getCollection()->transform(function ($event) {
             $data = $event->toArray();
 
             // Convert distance to km if present
             if (isset($data['distance_meters'])) {
                 $data['distance_km'] = round($data['distance_meters'] / 1000, 2);
+            }
+
+            // Format talents data
+            if (isset($data['talents'])) {
+                $data['talents'] = collect($data['talents'])->map(function ($talent) {
+                    return [
+                        'id' => $talent['id'],
+                        'name' => $talent['name'],
+                        'image' => $talent['image'],
+                        'role' => $talent['pivot']['role'] ?? null,
+                        'sort_order' => $talent['pivot']['sort_order'] ?? 0,
+                    ];
+                })->sortBy('sort_order')->values()->all();
             }
 
             return $data;
@@ -181,7 +199,7 @@ class EventController extends Controller
     /**
      * GET /events/{id}
      *
-     * Get a single event by ID.
+     * Get a single event by ID with full details.
      *
      * @param int $id
      * @return JsonResponse
@@ -191,13 +209,112 @@ class EventController extends Controller
         $event = Event::query()
             ->select('events.*')
             ->withCoordinates()
-            ->with(['category:id,name,slug', 'subcategory:id,name,slug'])
+            ->with([
+                'category:id,name,slug',
+                'subcategory:id,name,slug',
+                'talents',
+                'eventImages',
+            ])
             ->published()
+            ->notCancelled()
+            ->findOrFail($id);
+
+        // Increment view count
+        $event->incrementViewCount();
+
+        return response()->json([
+            'success' => true,
+            'data' => new EventResource($event),
+        ]);
+    }
+
+    /**
+     * GET /events/{id}/talents
+     *
+     * Get talents for a specific event.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function talents(int $id): JsonResponse
+    {
+        $event = Event::query()
+            ->published()
+            ->notCancelled()
+            ->findOrFail($id);
+
+        $talents = $event->talents()->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => TalentResource::collection($talents),
+        ]);
+    }
+
+    /**
+     * GET /events/{id}/about
+     *
+     * Get about information for a specific event.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function about(int $id): JsonResponse
+    {
+        $event = Event::query()
+            ->published()
+            ->notCancelled()
             ->findOrFail($id);
 
         return response()->json([
             'success' => true,
-            'data' => $event,
+            'data' => new EventAboutResource($event),
+        ]);
+    }
+
+    /**
+     * GET /events/{id}/location
+     *
+     * Get location details for a specific event.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function location(int $id): JsonResponse
+    {
+        $event = Event::query()
+            ->select('events.*')
+            ->withCoordinates()
+            ->published()
+            ->notCancelled()
+            ->findOrFail($id);
+
+        return response()->json([
+            'success' => true,
+            'data' => new EventLocationResource($event),
+        ]);
+    }
+
+    /**
+     * GET /events/{id}/images
+     *
+     * Get images for a specific event.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function images(int $id): JsonResponse
+    {
+        $event = Event::query()
+            ->published()
+            ->notCancelled()
+            ->findOrFail($id);
+
+        $images = $event->eventImages()->ordered()->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => EventImageResource::collection($images),
         ]);
     }
 }

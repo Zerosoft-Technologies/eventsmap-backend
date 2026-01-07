@@ -17,6 +17,10 @@ Route::prefix('v1')->group(function () {
     // Events endpoints
     Route::get('/events', [EventController::class, 'index']);
     Route::get('/events/{id}', [EventController::class, 'show']);
+    Route::get('/events/{id}/talents', [EventController::class, 'talents']);
+    Route::get('/events/{id}/about', [EventController::class, 'about']);
+    Route::get('/events/{id}/location', [EventController::class, 'location']);
+    Route::get('/events/{id}/images', [EventController::class, 'images']);
 
     // Categories endpoints
     Route::get('/categories', [CategoryController::class, 'index']);

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -20,17 +22,40 @@ class Event extends Model
      */
     protected $fillable = [
         'title',
+        'slug',
         'description',
         'category_id',
         'subcategory_id',
         'price',
+        'min_price',
+        'max_price',
+        'currency',
         'dresscode',
         'min_age',
+        'max_age',
         'start_datetime',
         'end_datetime',
+        'timezone',
         'city',
+        'country',
         'address',
+        'venue_name',
+        'organizer_name',
+        'organizer_id',
+        'contact_info',
+        'cover_image',
+        'video_url',
+        'about',
+        'location_details',
+        'booking',
+        'social_links',
         'is_published',
+        'is_featured',
+        'is_cancelled',
+        'meta_title',
+        'meta_description',
+        'tags',
+        'view_count',
         'morning',
         'afternoon',
         'evening',
@@ -48,10 +73,23 @@ class Event extends Model
             'start_datetime' => 'datetime',
             'end_datetime' => 'datetime',
             'price' => 'decimal:2',
+            'min_price' => 'decimal:2',
+            'max_price' => 'decimal:2',
             'min_age' => 'integer',
+            'max_age' => 'integer',
+            'contact_info' => 'array',
+            'about' => 'array',
+            'location_details' => 'array',
+            'booking' => 'array',
+            'social_links' => 'array',
+            'tags' => 'array',
             'is_published' => 'boolean',
+            'is_featured' => 'boolean',
+            'is_cancelled' => 'boolean',
+            'view_count' => 'integer',
             'category_id' => 'integer',
             'subcategory_id' => 'integer',
+            'organizer_id' => 'integer',
             'morning' => 'boolean',
             'afternoon' => 'boolean',
             'evening' => 'boolean',
@@ -64,7 +102,7 @@ class Event extends Model
      *
      * @var array
      */
-    protected $appends = ['is_live_now', 'latitude', 'longitude'];
+    protected $appends = ['is_live_now', 'latitude', 'longitude', 'images'];
 
     /**
      * Get the category that owns the event.
@@ -84,6 +122,49 @@ class Event extends Model
     public function subcategory(): BelongsTo
     {
         return $this->belongsTo(SubCategory::class);
+    }
+
+    /**
+     * Get the talents for the event.
+     *
+     * @return BelongsToMany
+     */
+    public function talents(): BelongsToMany
+    {
+        return $this->belongsToMany(Talent::class, 'event_talent')
+            ->withPivot(['role', 'sort_order'])
+            ->withTimestamps()
+            ->orderBy('pivot_sort_order');
+    }
+
+    /**
+     * Get the images for the event.
+     *
+     * @return HasMany
+     */
+    public function eventImages(): HasMany
+    {
+        return $this->hasMany(EventImage::class)->ordered();
+    }
+
+    /**
+     * Get the organizer (user) of the event.
+     *
+     * @return BelongsTo
+     */
+    public function organizer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'organizer_id');
+    }
+
+    /**
+     * Accessor: Get images array from relationship.
+     *
+     * @return array
+     */
+    public function getImagesAttribute(): array
+    {
+        return $this->eventImages->pluck('url')->toArray();
     }
 
     /**
@@ -239,6 +320,60 @@ class Event extends Model
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('is_published', true);
+    }
+
+    /**
+     * Scope: Only featured events.
+     *
+     * @param Builder $query
+     * @return Builder
+     */
+    public function scopeFeatured(Builder $query): Builder
+    {
+        return $query->where('is_featured', true);
+    }
+
+    /**
+     * Scope: Exclude cancelled events.
+     *
+     * @param Builder $query
+     * @return Builder
+     */
+    public function scopeNotCancelled(Builder $query): Builder
+    {
+        return $query->where('is_cancelled', false);
+    }
+
+    /**
+     * Scope: Find by slug.
+     *
+     * @param Builder $query
+     * @param string $slug
+     * @return Builder
+     */
+    public function scopeBySlug(Builder $query, string $slug): Builder
+    {
+        return $query->where('slug', $slug);
+    }
+
+    /**
+     * Increment view count.
+     *
+     * @return void
+     */
+    public function incrementViewCount(): void
+    {
+        $this->increment('view_count');
+    }
+
+    /**
+     * Generate slug from title.
+     *
+     * @return void
+     */
+    public function generateSlug(): void
+    {
+        $this->slug = \Illuminate\Support\Str::slug($this->title);
     }
 
     /**
