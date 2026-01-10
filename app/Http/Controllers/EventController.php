@@ -11,6 +11,8 @@ use App\Http\Resources\EventLocationResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use App\Helpers\EventDateFormatter;
+use NumberFormatter;
 
 class EventController extends Controller
 {
@@ -162,12 +164,29 @@ class EventController extends Controller
         // Transform response to include is_live_now, format distance, and include talents
         $events->getCollection()->transform(function ($event) {
             $data = $event->toArray();
+            
+            // Format date string for frontend
+            $data['formatted_date'] = EventDateFormatter::format(
+                $event->start_datetime,
+                $event->end_datetime,
+                $event->timezone // nullable
+            );
 
             // Convert distance to km if present
             if (isset($data['distance_meters'])) {
                 $data['distance_km'] = round($data['distance_meters'] / 1000, 2);
             }
 
+            if ($event->price !== null && (float)$event->price > 0) {
+                $data['formatted_price'] = number_format((float)$event->price, 2, ',', '') . ' EUR';
+            } else {
+                $data['formatted_price'] = 'Free';
+            }
+
+            if ($event->dresscode !== null) {
+                $data['formatted_dresscode'] = ucfirst(strtolower($event->dresscode));
+            }
+            
             // Format talents data
             if (isset($data['talents'])) {
                 $data['talents'] = collect($data['talents'])->map(function ($talent) {
