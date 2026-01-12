@@ -5,11 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class Category extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -19,6 +20,12 @@ class Category extends Model
     protected $fillable = [
         'name',
         'slug',
+        'description',
+        'icon',
+        'color',
+        'display_order',
+        'is_active',
+        'is_featured',
     ];
 
     /**
@@ -31,7 +38,20 @@ class Category extends Model
         return [
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
+            'display_order' => 'integer',
+            'is_active' => 'boolean',
+            'is_featured' => 'boolean',
         ];
+    }
+
+    /**
+     * Get events for this category.
+     *
+     * @return HasMany
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(\App\Models\Event::class);
     }
 
     /**

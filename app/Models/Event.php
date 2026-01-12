@@ -8,12 +8,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class Event extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -60,6 +61,11 @@ class Event extends Model
         'afternoon',
         'evening',
         'night',
+        'is_archived',
+        'published_at',
+        'featured_at',
+        'cancelled_at',
+        'archived_at',
     ];
 
     /**
@@ -94,6 +100,11 @@ class Event extends Model
             'afternoon' => 'boolean',
             'evening' => 'boolean',
             'night' => 'boolean',
+            'is_archived' => 'boolean',
+            'published_at' => 'datetime',
+            'featured_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'archived_at' => 'datetime',
         ];
     }
 

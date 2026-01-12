@@ -21,6 +21,8 @@ return [
 
     'allowed_origins' => [
         'http://localhost:5173',
+        'http://localhost:3000',
+        'http://localhost:3001',
         'http://185.133.88.194:3001',
     ],
 

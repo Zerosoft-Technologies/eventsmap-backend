@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->call([
+            AdminUserSeeder::class,
             CategorySeeder::class,
             EventsSeeder::class,
             TalentSeeder::class,
