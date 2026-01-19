@@ -24,6 +24,7 @@ return [
         'http://localhost:3000',
         'http://localhost:3001',
         'http://185.133.88.194:3001',
+        'https://admin.eventsmap.zerosoft.com',
     ],
 
     'allowed_origins_patterns' => [],
