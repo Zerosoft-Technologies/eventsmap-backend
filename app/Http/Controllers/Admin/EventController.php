@@ -752,9 +752,10 @@ class EventController extends Controller
         return response()->json([
             'success' => true,
             'data' => $images->map(function ($image) {
+                $storagePath = $this->resolveMediaPath($image->url);
                 return [
                     'id' => $image->id,
-                    'url' => $image->url,
+                    'url' => url('storage/' . $storagePath),
                     'alt_text' => $image->alt_text,
                     'caption' => $image->caption,
                     'is_primary' => $image->is_primary,
@@ -765,44 +766,91 @@ class EventController extends Controller
     }
 
     /**
+     * Resolve media path - handles both legacy UUIDs and full paths
+     */
+    private function resolveMediaPath(string $url): string
+    {
+        // If it already contains a folder path (has /), return as is
+        if (str_contains($url, '/')) {
+            return $url;
+        }
+
+        // Legacy UUID without extension - try to find the actual file
+        $folders = ['events', 'talents', 'categories', 'uploads'];
+        $extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+
+        foreach ($folders as $folder) {
+            foreach ($extensions as $ext) {
+                $path = "{$folder}/{$url}.{$ext}";
+                if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+                    return $path;
+                }
+            }
+        }
+
+        // Fallback: return as-is (may not work but at least won't error)
+        return $url;
+    }
+
+    /**
      * POST /api/admin/events/{id}/media
      *
      * Attach media to an event.
+     * Expects 'path' parameter with full path including folder and extension (e.g., 'events/uuid.jpg')
      */
     public function attachMedia(Request $request, int $id): JsonResponse
     {
         $event = Event::findOrFail($id);
 
         $validated = $request->validate([
-            'media' => 'required|array',
-            'media.*.url' => 'required|string|max:500',
-            'media.*.alt_text' => 'nullable|string|max:200',
-            'media.*.caption' => 'nullable|string|max:500',
-            'media.*.is_primary' => 'nullable|boolean',
-            'media.*.sort_order' => 'nullable|integer|min:0',
+            'path' => 'required|string|max:500',
+            'alt_text' => 'nullable|string|max:200',
+            'caption' => 'nullable|string|max:500',
+            'is_primary' => 'nullable|boolean',
         ]);
 
-        $maxOrder = $event->eventImages()->max('sort_order') ?? -1;
-
-        foreach ($validated['media'] as $index => $mediaData) {
-            // If this is primary, unset others
-            if (!empty($mediaData['is_primary'])) {
-                $event->eventImages()->update(['is_primary' => false]);
-            }
-
-            $event->eventImages()->create([
-                'url' => $mediaData['url'],
-                'alt_text' => $mediaData['alt_text'] ?? null,
-                'caption' => $mediaData['caption'] ?? null,
-                'is_primary' => $mediaData['is_primary'] ?? false,
-                'sort_order' => $mediaData['sort_order'] ?? ($maxOrder + $index + 1),
-            ]);
+        // Verify file exists in storage
+        $path = $validated['path'];
+        if (!\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'FILE_NOT_FOUND',
+                    'message' => 'The specified file does not exist in storage.',
+                ],
+            ], 404);
         }
+
+        // If this is primary, unset others
+        if (!empty($validated['is_primary'])) {
+            $event->eventImages()->update(['is_primary' => false]);
+        }
+
+        // Get the next sort order
+        $maxOrder = $event->eventImages()->max('sort_order') ?? 0;
+        $sortOrder = $maxOrder + 1;
+
+        // Create the event image record
+        $eventImage = $event->eventImages()->create([
+            'url' => $path,
+            'alt_text' => $validated['alt_text'] ?? null,
+            'caption' => $validated['caption'] ?? null,
+            'is_primary' => $validated['is_primary'] ?? false,
+            'sort_order' => $sortOrder,
+        ]);
 
         return response()->json([
             'success' => true,
             'data' => [
                 'message' => 'Media attached successfully.',
+                'media' => [
+                    'id' => $eventImage->id,
+                    'url' => url('storage/' . $path),
+                    'alt_text' => $eventImage->alt_text,
+                    'caption' => $eventImage->caption,
+                    'is_primary' => $eventImage->is_primary,
+                    'sort_order' => $eventImage->sort_order,
+                ],
             ],
         ]);
     }

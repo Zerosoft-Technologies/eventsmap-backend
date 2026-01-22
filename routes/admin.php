@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\BulkOperationsController;
+use App\Http\Controllers\Admin\MediaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -125,5 +126,12 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::get('/dashboard', [AnalyticsController::class, 'dashboard']);
         Route::get('/events', [AnalyticsController::class, 'events']);
         Route::get('/categories', [AnalyticsController::class, 'categories']);
+    });
+
+    // Media Management
+    Route::prefix('media')->group(function () {
+        Route::post('/upload', [MediaController::class, 'upload']);
+        Route::delete('/', [MediaController::class, 'delete']);
+        Route::get('/', [MediaController::class, 'list']);
     });
 });
