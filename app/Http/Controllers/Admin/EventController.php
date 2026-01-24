@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Helpers\MediaHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\AdminEventResource;
 use App\Models\Event;
@@ -156,22 +157,29 @@ class EventController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|min:3|max:200',
             'slug' => 'nullable|string|unique:events,slug|regex:/^[a-z0-9-]+$/',
+            'status' => 'nullable|string|in:draft,published,featured,cancelled,archived',
             'description' => 'nullable|string',
+            'short_description' => 'nullable|string|max:500',
             'category_id' => 'required|integer|exists:categories,id',
             'subcategory_id' => 'nullable|integer|exists:subcategories,id',
             'price' => 'nullable|numeric|min:0',
             'min_price' => 'nullable|numeric|min:0',
             'max_price' => 'nullable|numeric|min:0',
             'currency' => 'nullable|string|size:3',
-            'dresscode' => 'nullable|string|max:100',
+            'dress_code' => 'nullable|string|max:100',
+            'age_restriction' => 'nullable|string|max:200',
             'min_age' => 'nullable|integer|min:0',
             'max_age' => 'nullable|integer|min:0',
             'start_datetime' => 'required|date',
             'end_datetime' => 'required|date|after:start_datetime',
             'timezone' => 'nullable|string|max:50',
+            'is_all_day' => 'nullable|boolean',
+            'is_recurring' => 'nullable|boolean',
             'venue_name' => 'nullable|string|max:200',
-            'address' => 'nullable|string|max:500',
+            'venue_address' => 'nullable|string|max:500',
             'city' => 'required|string|max:100',
+            'state' => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:20',
             'country' => 'nullable|string|max:100',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
@@ -184,6 +192,13 @@ class EventController extends Controller
             'location_details' => 'nullable|array',
             'booking' => 'nullable|array',
             'social_links' => 'nullable|array',
+            'highlights' => 'nullable|array',
+            'requirements' => 'nullable|array',
+            'additional_info' => 'nullable|array',
+            'accessibility_info' => 'nullable|string',
+            'is_ticketed' => 'nullable|boolean',
+            'is_free' => 'nullable|boolean',
+            'custom_fields' => 'nullable|array',
             'meta_title' => 'nullable|string|max:70',
             'meta_description' => 'nullable|string|max:160',
             'tags' => 'nullable|array',
@@ -204,12 +219,43 @@ class EventController extends Controller
             }
         }
 
-        // Set defaults
-        $validated['is_published'] = false;
-        $validated['is_featured'] = false;
-        $validated['is_cancelled'] = false;
-        $validated['is_archived'] = false;
-        $validated['view_count'] = 0;
+        // Map field names
+        if (isset($validated['dress_code'])) {
+            $validated['dresscode'] = $validated['dress_code'];
+            unset($validated['dress_code']);
+        }
+        if (isset($validated['venue_address'])) {
+            $validated['address'] = $validated['venue_address'];
+            unset($validated['venue_address']);
+        }
+
+        // Set status and related flags
+        $status = $validated['status'] ?? 'draft';
+        $validated['status'] = $status;
+        
+        // Set boolean flags based on status
+        $validated['is_published'] = $status === 'published' || $status === 'featured';
+        $validated['is_featured'] = $status === 'featured';
+        $validated['is_cancelled'] = $status === 'cancelled';
+        $validated['is_archived'] = $status === 'archived';
+        
+        // Set timestamps based on status
+        $now = now();
+        if ($validated['is_published']) {
+            $validated['published_at'] = $now;
+        }
+        if ($validated['is_featured']) {
+            $validated['featured_at'] = $now;
+        }
+        if ($validated['is_cancelled']) {
+            $validated['cancelled_at'] = $now;
+        }
+        if ($validated['is_archived']) {
+            $validated['archived_at'] = $now;
+        }
+
+        // Set other defaults
+        $validated['view_count'] = $validated['view_count'] ?? 0;
 
         $event = Event::create($validated);
 
@@ -243,22 +289,29 @@ class EventController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|min:3|max:200',
             'slug' => 'nullable|string|regex:/^[a-z0-9-]+$/|unique:events,slug,' . $id,
+            'status' => 'nullable|string|in:draft,published,featured,cancelled,archived',
             'description' => 'nullable|string',
+            'short_description' => 'nullable|string|max:500',
             'category_id' => 'required|integer|exists:categories,id',
             'subcategory_id' => 'nullable|integer|exists:subcategories,id',
             'price' => 'nullable|numeric|min:0',
             'min_price' => 'nullable|numeric|min:0',
             'max_price' => 'nullable|numeric|min:0',
             'currency' => 'nullable|string|size:3',
-            'dresscode' => 'nullable|string|max:100',
+            'dress_code' => 'nullable|string|max:100',
+            'age_restriction' => 'nullable|string|max:200',
             'min_age' => 'nullable|integer|min:0',
             'max_age' => 'nullable|integer|min:0',
             'start_datetime' => 'required|date',
             'end_datetime' => 'required|date|after:start_datetime',
             'timezone' => 'nullable|string|max:50',
+            'is_all_day' => 'nullable|boolean',
+            'is_recurring' => 'nullable|boolean',
             'venue_name' => 'nullable|string|max:200',
-            'address' => 'nullable|string|max:500',
+            'venue_address' => 'nullable|string|max:500',
             'city' => 'required|string|max:100',
+            'state' => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:20',
             'country' => 'nullable|string|max:100',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
@@ -271,6 +324,13 @@ class EventController extends Controller
             'location_details' => 'nullable|array',
             'booking' => 'nullable|array',
             'social_links' => 'nullable|array',
+            'highlights' => 'nullable|array',
+            'requirements' => 'nullable|array',
+            'additional_info' => 'nullable|array',
+            'accessibility_info' => 'nullable|string',
+            'is_ticketed' => 'nullable|boolean',
+            'is_free' => 'nullable|boolean',
+            'custom_fields' => 'nullable|array',
             'meta_title' => 'nullable|string|max:70',
             'meta_description' => 'nullable|string|max:160',
             'tags' => 'nullable|array',
@@ -279,6 +339,42 @@ class EventController extends Controller
             'evening' => 'nullable|boolean',
             'night' => 'nullable|boolean',
         ]);
+
+        // Map field names
+        if (isset($validated['dress_code'])) {
+            $validated['dresscode'] = $validated['dress_code'];
+            unset($validated['dress_code']);
+        }
+        if (isset($validated['venue_address'])) {
+            $validated['address'] = $validated['venue_address'];
+            unset($validated['venue_address']);
+        }
+
+        // Set status and related flags if status is provided
+        if (isset($validated['status'])) {
+            $status = $validated['status'];
+            
+            // Set boolean flags based on status
+            $validated['is_published'] = $status === 'published' || $status === 'featured';
+            $validated['is_featured'] = $status === 'featured';
+            $validated['is_cancelled'] = $status === 'cancelled';
+            $validated['is_archived'] = $status === 'archived';
+            
+            // Set timestamps based on status
+            $now = now();
+            if ($validated['is_published'] && !$event->published_at) {
+                $validated['published_at'] = $now;
+            }
+            if ($validated['is_featured'] && !$event->featured_at) {
+                $validated['featured_at'] = $now;
+            }
+            if ($validated['is_cancelled'] && !$event->cancelled_at) {
+                $validated['cancelled_at'] = $now;
+            }
+            if ($validated['is_archived'] && !$event->archived_at) {
+                $validated['archived_at'] = $now;
+            }
+        }
 
         $event->update($validated);
 
@@ -755,7 +851,7 @@ class EventController extends Controller
                 $storagePath = $this->resolveMediaPath($image->url);
                 return [
                     'id' => $image->id,
-                    'url' => url('storage/' . $storagePath),
+                    'url' => MediaHelper::url($storagePath),
                     'alt_text' => $image->alt_text,
                     'caption' => $image->caption,
                     'is_primary' => $image->is_primary,
@@ -796,29 +892,54 @@ class EventController extends Controller
      * POST /api/admin/events/{id}/media
      *
      * Attach media to an event.
-     * Expects 'path' parameter with full path including folder and extension (e.g., 'events/uuid.jpg')
+     * Supports two modes:
+     * 1. By path: Expects 'path' parameter with full path including folder and extension (e.g., 'events/uuid.jpg')
+     * 2. By media_id: Expects 'media_id' (UUID) to find existing media file in storage
      */
     public function attachMedia(Request $request, int $id): JsonResponse
     {
         $event = Event::findOrFail($id);
 
         $validated = $request->validate([
-            'path' => 'required|string|max:500',
+            'media_id' => 'nullable|string|uuid',
+            'path' => 'required_without:media_id|nullable|string|max:500',
             'alt_text' => 'nullable|string|max:200',
             'caption' => 'nullable|string|max:500',
             'is_primary' => 'nullable|boolean',
         ]);
 
-        // Verify file exists in storage
-        $path = $validated['path'];
-        if (!\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+        $path = null;
+
+        if (!empty($validated['media_id'])) {
+            $path = $this->findMediaPathByUuid($validated['media_id']);
+            if (!$path) {
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'MEDIA_NOT_FOUND',
+                        'message' => 'No media file found with the specified media_id.',
+                    ],
+                ], 404);
+            }
+        } elseif (!empty($validated['path'])) {
+            $path = $validated['path'];
+            if (!\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'FILE_NOT_FOUND',
+                        'message' => 'The specified file does not exist in storage.',
+                    ],
+                ], 404);
+            }
+        } else {
             return response()->json([
                 'success' => false,
                 'error' => [
-                    'code' => 'FILE_NOT_FOUND',
-                    'message' => 'The specified file does not exist in storage.',
+                    'code' => 'INVALID_REQUEST',
+                    'message' => 'Either media_id or path must be provided.',
                 ],
-            ], 404);
+            ], 422);
         }
 
         // If this is primary, unset others
@@ -845,7 +966,7 @@ class EventController extends Controller
                 'message' => 'Media attached successfully.',
                 'media' => [
                     'id' => $eventImage->id,
-                    'url' => url('storage/' . $path),
+                    'url' => MediaHelper::url($path),
                     'alt_text' => $eventImage->alt_text,
                     'caption' => $eventImage->caption,
                     'is_primary' => $eventImage->is_primary,
@@ -927,5 +1048,43 @@ class EventController extends Controller
                 'message' => 'Primary image set successfully.',
             ],
         ]);
+    }
+
+    /**
+     * Find media file path by UUID.
+     *
+     * Searches common media folders for a file matching the UUID pattern.
+     *
+     * @param string $uuid
+     * @return string|null
+     */
+    private function findMediaPathByUuid(string $uuid): ?string
+    {
+        $storage = \Illuminate\Support\Facades\Storage::disk('public');
+        $foldersToSearch = ['events', 'media', 'uploads', 'images'];
+
+        foreach ($foldersToSearch as $folder) {
+            if (!$storage->exists($folder)) {
+                continue;
+            }
+
+            $files = $storage->files($folder);
+            foreach ($files as $file) {
+                $filename = pathinfo($file, PATHINFO_FILENAME);
+                if ($filename === $uuid) {
+                    return $file;
+                }
+            }
+        }
+
+        $allFiles = $storage->allFiles();
+        foreach ($allFiles as $file) {
+            $filename = pathinfo($file, PATHINFO_FILENAME);
+            if ($filename === $uuid) {
+                return $file;
+            }
+        }
+
+        return null;
     }
 }

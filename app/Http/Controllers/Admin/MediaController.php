@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Helpers\MediaHelper;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -34,8 +35,9 @@ class MediaController extends Controller
             $file = $request->file('file');
             $folder = $request->input('folder');
             
-            // Generate unique filename
-            $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            // Generate unique identifier and filename
+            $fileId = Str::uuid();
+            $filename = $fileId . '.' . $file->getClientOriginalExtension();
             
             // Store the file
             $path = $file->storeAs($folder, $filename, 'public');
@@ -50,11 +52,11 @@ class MediaController extends Controller
             return response()->json([
                 'message' => 'File uploaded successfully',
                 'data' => [
-                    'id' => Str::uuid(),
+                    'id' => $fileId,
                     'filename' => $filename,
                     'original_name' => $file->getClientOriginalName(),
                     'path' => $path,
-                    'url' => url('storage/' . $path),
+                    'url' => MediaHelper::url($path),
                     'mime_type' => $mimeType,
                     'size' => $size,
                     'file_type' => $fileType,
@@ -114,7 +116,7 @@ class MediaController extends Controller
     }
     
     /**
-     * List files in a folder
+     * List media files with pagination and optional filtering
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -122,7 +124,10 @@ class MediaController extends Controller
     public function list(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'folder' => 'required|string|max:255',
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
+            'search' => 'nullable|string|max:255',
+            'folder' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -133,12 +138,41 @@ class MediaController extends Controller
         }
 
         try {
+            $page = $request->input('page', 1);
+            $perPage = $request->input('per_page', 24);
+            $search = $request->input('search');
             $folder = $request->input('folder');
-            $files = Storage::disk('public')->files($folder);
-            $directories = Storage::disk('public')->directories($folder);
             
+            // Get all files from storage
+            $allFiles = Storage::disk('public')->allFiles();
+            
+            // Filter by folder if specified
+            if ($folder) {
+                $allFiles = array_filter($allFiles, function($file) use ($folder) {
+                    return str_starts_with($file, $folder . '/');
+                });
+            }
+            
+            // Filter by search term if specified
+            if ($search) {
+                $allFiles = array_filter($allFiles, function($file) use ($search) {
+                    $filename = pathinfo($file, PATHINFO_FILENAME);
+                    $extension = pathinfo($file, PATHINFO_EXTENSION);
+                    return str_contains($filename, $search) || str_contains($extension, $search);
+                });
+            }
+            
+            // Sort files by name
+            sort($allFiles);
+            
+            // Calculate pagination
+            $total = count($allFiles);
+            $offset = ($page - 1) * $perPage;
+            $paginatedFiles = array_slice($allFiles, $offset, $perPage);
+            
+            // Build file list with metadata
             $fileList = [];
-            foreach ($files as $file) {
+            foreach ($paginatedFiles as $file) {
                 $fileInfo = pathinfo($file);
                 $mimeType = Storage::disk('public')->mimeType($file);
                 $size = Storage::disk('public')->size($file);
@@ -146,7 +180,7 @@ class MediaController extends Controller
                 $fileList[] = [
                     'filename' => $fileInfo['basename'],
                     'path' => $file,
-                    'url' => url('storage/' . $file),
+                    'url' => MediaHelper::url($file),
                     'mime_type' => $mimeType,
                     'size' => $size,
                     'file_type' => $this->getFileType($mimeType),
@@ -154,13 +188,27 @@ class MediaController extends Controller
                 ];
             }
             
+            // Build pagination metadata
+            $lastPage = ceil($total / $perPage);
+            $pagination = [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $total,
+                'from' => $total > 0 ? $offset + 1 : null,
+                'to' => $total > 0 ? $offset + count($paginatedFiles) : null,
+            ];
+            
             return response()->json([
-                'message' => 'Files retrieved successfully',
-                'data' => [
-                    'files' => $fileList,
-                    'directories' => $directories,
-                    'folder' => $folder,
-                ]
+                'message' => 'Media files retrieved successfully',
+                'data' => $fileList,
+                'meta' => [
+                    'pagination' => $pagination,
+                    'filters' => [
+                        'search' => $search,
+                        'folder' => $folder,
+                    ],
+                ],
             ]);
             
         } catch (\Exception $e) {
