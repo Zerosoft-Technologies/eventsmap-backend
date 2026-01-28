@@ -166,7 +166,7 @@ class EventController extends Controller
             'min_price' => 'nullable|numeric|min:0',
             'max_price' => 'nullable|numeric|min:0',
             'currency' => 'nullable|string|size:3',
-            'dress_code' => 'nullable|string|max:100',
+            'dresscode' => 'nullable|string|max:100',
             'age_restriction' => 'nullable|string|max:200',
             'min_age' => 'nullable|integer|min:0',
             'max_age' => 'nullable|integer|min:0',
@@ -194,10 +194,15 @@ class EventController extends Controller
             'social_links' => 'nullable|array',
             'highlights' => 'nullable|array',
             'requirements' => 'nullable|array',
-            'additional_info' => 'nullable|array',
+            'additional_info' => 'nullable|string',
             'accessibility_info' => 'nullable|string',
             'is_ticketed' => 'nullable|boolean',
             'is_free' => 'nullable|boolean',
+            'capacity' => 'nullable|integer|min:0',
+            'registration_url' => 'nullable|url|max:500',
+            'registration_deadline' => 'nullable|date',
+            'meta_keywords' => 'nullable|array',
+            'internal_notes' => 'nullable|string',
             'custom_fields' => 'nullable|array',
             'meta_title' => 'nullable|string|max:70',
             'meta_description' => 'nullable|string|max:160',
@@ -220,10 +225,6 @@ class EventController extends Controller
         }
 
         // Map field names
-        if (isset($validated['dress_code'])) {
-            $validated['dresscode'] = $validated['dress_code'];
-            unset($validated['dress_code']);
-        }
         if (isset($validated['venue_address'])) {
             $validated['address'] = $validated['venue_address'];
             unset($validated['venue_address']);
@@ -254,14 +255,21 @@ class EventController extends Controller
             $validated['archived_at'] = $now;
         }
 
+        // Store coordinates before removing them from validated data
+        $latitude = $validated['latitude'] ?? null;
+        $longitude = $validated['longitude'] ?? null;
+
+        // Remove latitude and longitude from validated data as they're not database columns
+        unset($validated['latitude'], $validated['longitude']);
+
         // Set other defaults
         $validated['view_count'] = $validated['view_count'] ?? 0;
 
         $event = Event::create($validated);
 
         // Set location if coordinates provided
-        if (!empty($validated['latitude']) && !empty($validated['longitude'])) {
-            $event->setLocationFromCoordinates($validated['latitude'], $validated['longitude']);
+        if (!empty($latitude) && !empty($longitude)) {
+            $event->setLocationFromCoordinates($latitude, $longitude);
         }
 
         // Reload with relationships
@@ -298,7 +306,7 @@ class EventController extends Controller
             'min_price' => 'nullable|numeric|min:0',
             'max_price' => 'nullable|numeric|min:0',
             'currency' => 'nullable|string|size:3',
-            'dress_code' => 'nullable|string|max:100',
+            'dresscode' => 'nullable|string|max:100',
             'age_restriction' => 'nullable|string|max:200',
             'min_age' => 'nullable|integer|min:0',
             'max_age' => 'nullable|integer|min:0',
@@ -326,10 +334,15 @@ class EventController extends Controller
             'social_links' => 'nullable|array',
             'highlights' => 'nullable|array',
             'requirements' => 'nullable|array',
-            'additional_info' => 'nullable|array',
+            'additional_info' => 'nullable|string',
             'accessibility_info' => 'nullable|string',
             'is_ticketed' => 'nullable|boolean',
             'is_free' => 'nullable|boolean',
+            'capacity' => 'nullable|integer|min:0',
+            'registration_url' => 'nullable|url|max:500',
+            'registration_deadline' => 'nullable|date',
+            'meta_keywords' => 'nullable|array',
+            'internal_notes' => 'nullable|string',
             'custom_fields' => 'nullable|array',
             'meta_title' => 'nullable|string|max:70',
             'meta_description' => 'nullable|string|max:160',
@@ -341,10 +354,6 @@ class EventController extends Controller
         ]);
 
         // Map field names
-        if (isset($validated['dress_code'])) {
-            $validated['dresscode'] = $validated['dress_code'];
-            unset($validated['dress_code']);
-        }
         if (isset($validated['venue_address'])) {
             $validated['address'] = $validated['venue_address'];
             unset($validated['venue_address']);
@@ -376,11 +385,18 @@ class EventController extends Controller
             }
         }
 
+        // Store coordinates before removing them from validated data
+        $latitude = $validated['latitude'] ?? null;
+        $longitude = $validated['longitude'] ?? null;
+
+        // Remove latitude and longitude from validated data as they're not database columns
+        unset($validated['latitude'], $validated['longitude']);
+
         $event->update($validated);
 
         // Update location if coordinates provided
-        if (!empty($validated['latitude']) && !empty($validated['longitude'])) {
-            $event->setLocationFromCoordinates($validated['latitude'], $validated['longitude']);
+        if (!empty($latitude) && !empty($longitude)) {
+            $event->setLocationFromCoordinates($latitude, $longitude);
         }
 
         // Reload with relationships

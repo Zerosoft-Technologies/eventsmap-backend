@@ -32,6 +32,7 @@ class AdminEventResource extends JsonResource
             'title' => $this->title,
             'slug' => $this->slug,
             'description' => $this->description,
+            'short_description' => $this->short_description,
             'status' => $status,
 
             'category' => $this->whenLoaded('category', function () {
@@ -65,11 +66,14 @@ class AdminEventResource extends JsonResource
             'venue_name' => $this->venue_name,
             'address' => $this->address,
             'city' => $this->city,
+            'state' => $this->state,
+            'postal_code' => $this->postal_code,
             'country' => $this->country,
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
 
             'dresscode' => $this->dresscode,
+            'age_restriction' => $this->age_restriction,
             'min_age' => $this->min_age,
             'max_age' => $this->max_age,
 
@@ -98,11 +102,21 @@ class AdminEventResource extends JsonResource
             'location_details' => $this->location_details,
             'booking' => $this->booking,
             'social_links' => $this->social_links,
+            'highlights' => $this->highlights ?? [],
+            'requirements' => $this->requirements ?? [],
+            'additional_info' => $this->additional_info,
+            'accessibility_info' => $this->accessibility_info,
 
-            'is_published' => $this->is_published,
-            'is_featured' => $this->is_featured,
-            'is_cancelled' => $this->is_cancelled,
-            'is_archived' => $this->is_archived ?? false,
+            'is_ticketed' => $this->is_ticketed,
+            'is_free' => $this->is_free,
+            'capacity' => $this->capacity,
+            'registration_url' => $this->registration_url,
+            'registration_deadline' => $this->registration_deadline?->toIso8601String(),
+            'meta_keywords' => $this->meta_keywords ?? [],
+            'internal_notes' => $this->internal_notes,
+            'custom_fields' => $this->custom_fields,
+
+            'is_published' => $this->is_published ?? false,
             'is_live_now' => $this->is_live_now,
 
             'meta_title' => $this->meta_title,

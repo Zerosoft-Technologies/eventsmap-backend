@@ -47,8 +47,6 @@ class Event extends Model
         'state',
         'postal_code',
         'country',
-        'latitude',
-        'longitude',
         'organizer_name',
         'organizer_id',
         'contact_info',
@@ -65,6 +63,9 @@ class Event extends Model
         'accessibility_info',
         'is_ticketed',
         'is_free',
+        'capacity',
+        'registration_url',
+        'registration_deadline',
         'custom_fields',
         'is_published',
         'is_featured',
@@ -72,6 +73,8 @@ class Event extends Model
         'is_archived',
         'meta_title',
         'meta_description',
+        'meta_keywords',
+        'internal_notes',
         'tags',
         'view_count',
         'morning',
@@ -105,6 +108,7 @@ class Event extends Model
             'booking' => 'array',
             'social_links' => 'array',
             'tags' => 'array',
+            'meta_keywords' => 'array',
             'highlights' => 'array',
             'requirements' => 'array',
             'additional_info' => 'array',
@@ -117,6 +121,8 @@ class Event extends Model
             'is_recurring' => 'boolean',
             'is_ticketed' => 'boolean',
             'is_free' => 'boolean',
+            'capacity' => 'integer',
+            'registration_deadline' => 'datetime',
             'view_count' => 'integer',
             'category_id' => 'integer',
             'subcategory_id' => 'integer',
@@ -475,8 +481,8 @@ class Event extends Model
         } else {
             // SQLite - update latitude and longitude columns
             DB::statement(
-                "UPDATE events SET latitude = ?, longitude = ? WHERE id = ?",
-                [$latitude, $longitude, $this->id]
+                "UPDATE events SET location = ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography WHERE id = ?",
+                [$longitude, $latitude, $this->id]
             );
         }
     }
