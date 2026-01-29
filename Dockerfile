@@ -37,8 +37,9 @@ WORKDIR /var/www
 # Copy app from builder
 COPY --from=composer_builder /app /var/www
 
-# Permissions for Laravel
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+# Create storage link and set permissions
+RUN php artisan storage:link \
+    && chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache /var/www/public/storage
 
 # Remove cached files that reference development dependencies
 RUN rm -f /var/www/bootstrap/cache/services.php \
