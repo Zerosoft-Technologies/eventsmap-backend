@@ -133,5 +133,6 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::post('/upload', [MediaController::class, 'upload']);
         Route::delete('/', [MediaController::class, 'delete']);
         Route::get('/', [MediaController::class, 'list']);
+        Route::put('/{id}', [MediaController::class, 'update']);
     });
 });

@@ -74,6 +74,74 @@ class MediaController extends Controller
     }
     
     /**
+     * Update media metadata
+     *
+     * @param Request $request
+     * @param string $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function update(Request $request, string $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'title' => 'nullable|string|max:255',
+            'alt_text' => 'nullable|string|max:255',
+            'caption' => 'nullable|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            // Find the media file by its ID (UUID)
+            $allFiles = Storage::disk('public')->allFiles();
+            $mediaFile = null;
+            $mediaPath = null;
+
+            foreach ($allFiles as $file) {
+                $filename = pathinfo($file, PATHINFO_FILENAME);
+                if ($filename === $id) {
+                    $mediaFile = $file;
+                    $mediaPath = $file;
+                    break;
+                }
+            }
+
+            if (!$mediaFile) {
+                return response()->json([
+                    'message' => 'Media not found'
+                ], 404);
+            }
+
+            // Update metadata (you might want to store this in a database)
+            // For now, we'll return the updated metadata
+            $metadata = [
+                'id' => $id,
+                'title' => $request->input('title'),
+                'alt_text' => $request->input('alt_text'),
+                'caption' => $request->input('caption'),
+                'path' => $mediaPath,
+                'url' => MediaHelper::url($mediaPath),
+                'updated_at' => now()->toISOString(),
+            ];
+
+            return response()->json([
+                'message' => 'Media metadata updated successfully',
+                'data' => $metadata
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to update media',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
      * Delete a media file
      *
      * @param Request $request
@@ -178,6 +246,7 @@ class MediaController extends Controller
                 $size = Storage::disk('public')->size($file);
                 
                 $fileList[] = [
+                    'id' => $fileInfo['filename'],
                     'filename' => $fileInfo['basename'],
                     'path' => $file,
                     'url' => MediaHelper::url($file),
