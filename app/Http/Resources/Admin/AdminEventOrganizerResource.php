@@ -2,11 +2,10 @@
 
 namespace App\Http\Resources\Admin;
 
-use App\Http\Resources\TalentResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class AdminEventResource extends JsonResource
+class AdminEventOrganizerResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -35,24 +34,7 @@ class AdminEventResource extends JsonResource
             'short_description' => $this->short_description,
             'status' => $status,
 
-            'category' => $this->whenLoaded('category', function () {
-                return [
-                    'id' => $this->category->id,
-                    'name' => $this->category->name,
-                    'slug' => $this->category->slug,
-                ];
-            }),
-            'category_id' => $this->category_id,
-
-            'subcategory' => $this->whenLoaded('subcategory', function () {
-                if (!$this->subcategory) return null;
-                return [
-                    'id' => $this->subcategory->id,
-                    'name' => $this->subcategory->name,
-                    'slug' => $this->subcategory->slug,
-                ];
-            }),
-            'subcategory_id' => $this->subcategory_id,
+            'category' => $this->category, // String field from database
 
             'price' => $this->price,
             'min_price' => $this->min_price,
@@ -66,7 +48,7 @@ class AdminEventResource extends JsonResource
             'venue_name' => $this->venue_name,
             'address' => $this->address,
             'city' => $this->city,
-            'location_name' => $this->location_name,
+            'location_name' => $this->location_name ?: 'Default Location',
             'state' => $this->state,
             'postal_code' => $this->postal_code,
             'country' => $this->country,
@@ -80,11 +62,24 @@ class AdminEventResource extends JsonResource
 
             'organizer_name' => $this->organizer_name,
             'organizer_id' => $this->organizer_id,
+            'contact_email' => $this->contact_email,
+            'contact_phone' => $this->contact_phone,
             'contact_info' => $this->contact_info,
 
             'cover_image' => $this->cover_image,
             'video_url' => $this->video_url,
-            'images' => $this->images,
+            'images' => $this->whenLoaded('eventImages', function () {
+                return $this->eventImages->map(function ($image) {
+                    return [
+                        'id' => $image->id,
+                        'url' => $image->url,
+                        'alt_text' => $image->alt_text,
+                        'caption' => $image->caption,
+                        'is_primary' => $image->is_primary,
+                        'sort_order' => $image->sort_order,
+                    ];
+                });
+            }),
 
             'talents' => $this->whenLoaded('talents', function () {
                 return $this->talents->map(function ($talent) {
@@ -114,10 +109,12 @@ class AdminEventResource extends JsonResource
             'registration_url' => $this->registration_url,
             'registration_deadline' => $this->registration_deadline?->toIso8601String(),
             'meta_keywords' => $this->meta_keywords ?? [],
-            'internal_notes' => $this->internal_notes,
             'custom_fields' => $this->custom_fields,
 
-            'is_published' => $this->is_published ?? false,
+            'is_published' => $this->is_published,
+            'is_featured' => $this->is_featured,
+            'is_cancelled' => $this->is_cancelled,
+            'is_archived' => $this->is_archived ?? false,
             'is_live_now' => $this->is_live_now,
 
             'meta_title' => $this->meta_title,
