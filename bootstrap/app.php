@@ -15,6 +15,14 @@ return Application::configure(basePath: dirname(__DIR__))
             Route::middleware('api')
                 ->prefix('api/admin')
                 ->group(base_path('routes/admin.php'));
+            
+            Route::middleware('api')
+                ->prefix('api/organizer')
+                ->group(base_path('routes/organizer.php'));
+                
+            Route::middleware('api')
+                ->prefix('api')
+                ->group(base_path('routes/test.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -25,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'super_admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
+            'organizer' => \App\Http\Middleware\OrganizerMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

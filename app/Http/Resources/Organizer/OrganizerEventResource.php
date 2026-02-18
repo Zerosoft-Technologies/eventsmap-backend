@@ -1,12 +1,11 @@
 <?php
 
-namespace App\Http\Resources\Admin;
+namespace App\Http\Resources\Organizer;
 
-use App\Http\Resources\TalentResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class AdminEventResource extends JsonResource
+class OrganizerEventResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -66,7 +65,6 @@ class AdminEventResource extends JsonResource
             'venue_name' => $this->venue_name,
             'address' => $this->address,
             'city' => $this->city,
-            'location_name' => $this->location_name,
             'state' => $this->state,
             'postal_code' => $this->postal_code,
             'country' => $this->country,
@@ -80,6 +78,8 @@ class AdminEventResource extends JsonResource
 
             'organizer_name' => $this->organizer_name,
             'organizer_id' => $this->organizer_id,
+            'contact_email' => $this->contact_email,
+            'contact_phone' => $this->contact_phone,
             'contact_info' => $this->contact_info,
 
             'cover_image' => $this->cover_image,
@@ -114,10 +114,12 @@ class AdminEventResource extends JsonResource
             'registration_url' => $this->registration_url,
             'registration_deadline' => $this->registration_deadline?->toIso8601String(),
             'meta_keywords' => $this->meta_keywords ?? [],
-            'internal_notes' => $this->internal_notes,
             'custom_fields' => $this->custom_fields,
 
-            'is_published' => $this->is_published ?? false,
+            'is_published' => $this->is_published,
+            'is_featured' => $this->is_featured,
+            'is_cancelled' => $this->is_cancelled,
+            'is_archived' => $this->is_archived ?? false,
             'is_live_now' => $this->is_live_now,
 
             'meta_title' => $this->meta_title,
