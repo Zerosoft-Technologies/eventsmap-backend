@@ -2,14 +2,14 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasApiTokens, SoftDeletes;
@@ -17,6 +17,18 @@ class User extends Authenticatable
     const ROLE_USER = 'user';
     const ROLE_ADMIN = 'admin';
     const ROLE_SUPER_ADMIN = 'super_admin';
+
+    const PROFILE_EVENT = 'event';
+    const PROFILE_TALENT = 'talent';
+    const PROFILE_ORGANIZER = 'organizer';
+    const PROFILE_VENUE = 'venue';
+
+    const ACCOUNT_FREE = 'free';
+    const ACCOUNT_PREMIUM = 'premium';
+
+    const STATUS_ACTIVE = 'active';
+    const STATUS_PENDING_PAYMENT = 'pending_payment';
+    const STATUS_SUSPENDED = 'suspended';
 
     /**
      * The attributes that are mass assignable.
@@ -29,6 +41,13 @@ class User extends Authenticatable
         'password',
         'role',
         'is_active',
+        'profile_type',
+        'account_type',
+        'status',
+        'billing_type',
+        'country',
+        'vat_number',
+        'stripe_subscription_id',
     ];
 
     /**
@@ -53,6 +72,38 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Check if the user has a free account.
+     */
+    public function isFreeAccount(): bool
+    {
+        return $this->account_type === self::ACCOUNT_FREE;
+    }
+
+    /**
+     * Check if the user has a premium account.
+     */
+    public function isPremiumAccount(): bool
+    {
+        return $this->account_type === self::ACCOUNT_PREMIUM;
+    }
+
+    /**
+     * Check if the user account status is active.
+     */
+    public function isAccountActive(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE;
+    }
+
+    /**
+     * Check if the user's email is verified.
+     */
+    public function isEmailVerified(): bool
+    {
+        return $this->email_verified_at !== null;
     }
 
     /**
@@ -85,5 +136,45 @@ class User extends Authenticatable
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope to filter by profile type.
+     */
+    public function scopeProfileType($query, string $type)
+    {
+        return $query->where('profile_type', $type);
+    }
+
+    /**
+     * Scope to filter by account type.
+     */
+    public function scopeAccountType($query, string $type)
+    {
+        return $query->where('account_type', $type);
+    }
+
+    /**
+     * Scope to filter by status.
+     */
+    public function scopeStatus($query, string $status)
+    {
+        return $query->where('status', $status);
+    }
+
+    /**
+     * Scope to filter by country.
+     */
+    public function scopeCountry($query, string $country)
+    {
+        return $query->where('country', $country);
+    }
+
+    /**
+     * Scope to get only regular (non-admin) users.
+     */
+    public function scopeRegularUsers($query)
+    {
+        return $query->where('role', self::ROLE_USER);
     }
 }

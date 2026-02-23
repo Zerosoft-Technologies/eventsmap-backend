@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Models\EventOrganizer;
+use App\Http\Controllers\Test\MailTestController;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,3 +36,5 @@ Route::get('/test-simple-query', function () {
         'data' => $events,
     ]);
 });
+
+Route::post('/test-email', [MailTestController::class, 'testEmail']);
