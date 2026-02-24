@@ -27,6 +27,10 @@ return Application::configure(basePath: dirname(__DIR__))
             Route::middleware('api')
                 ->prefix('api')
                 ->group(base_path('routes/test.php'));
+
+            Route::middleware('api')
+                ->prefix('api/v2')
+                ->group(base_path('routes/v2.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

@@ -1,0 +1,246 @@
+<?php
+
+namespace App\Http\Controllers\V2;
+
+use App\Http\Controllers\Controller;
+use App\Http\Resources\V2\EventResource;
+use App\Models\EventV2;
+use App\Services\V2\EventService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+/**
+ * PublicEventController - Public event feed for map display.
+ *
+ * Provides optimized, publicly accessible event listings with
+ * geo-filtering support for map-based interfaces.
+ */
+class PublicEventController extends Controller
+{
+    public function __construct(
+        private readonly EventService $eventService
+    ) {}
+
+    /**
+     * GET /api/v2/public/events
+     *
+     * Public event feed optimized for map display.
+     * Only returns approved, non-suspended events that are upcoming or live.
+     *
+     * Supports:
+     * - bbox: Bounding box filter (min_lat,max_lat,min_lng,max_lng)
+     * - radius: Radius filter (lat,lng,radius_km)
+     * - date_from/date_to: Date range
+     * - category_id: Category filter
+     * - entrance_status: Free/paid filter
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $request->validate([
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
+
+            // Bounding box filter
+            'min_lat' => 'nullable|numeric|between:-90,90',
+            'max_lat' => 'nullable|numeric|between:-90,90',
+            'min_lng' => 'nullable|numeric|between:-180,180',
+            'max_lng' => 'nullable|numeric|between:-180,180',
+
+            // Radius filter
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
+            'radius_km' => 'nullable|numeric|min:0.1|max:500',
+
+            // Other filters
+            'category_id' => 'nullable|integer|exists:categories,id',
+            'entrance_status' => 'nullable|string|in:free,paid',
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date',
+
+            // Sorting
+            'sort' => 'nullable|string|in:event_date,distance',
+            'order' => 'nullable|string|in:asc,desc',
+        ]);
+
+        // Build optimized query for public events
+        $query = EventV2::query()
+            ->select('events_v2.*')
+            ->publicVisible()
+            ->whereIn('status', [EventV2::STATUS_UPCOMING, EventV2::STATUS_LIVE])
+            ->with(['category:id,name,slug', 'venue:id,name,slug,address']);
+
+        // Bounding box filter (for map viewport)
+        if ($request->filled(['min_lat', 'max_lat', 'min_lng', 'max_lng'])) {
+            $query->withinBbox(
+                $request->input('min_lat'),
+                $request->input('max_lat'),
+                $request->input('min_lng'),
+                $request->input('max_lng')
+            );
+        }
+
+        // Radius filter (for "events near me")
+        if ($request->filled(['lat', 'lng', 'radius_km'])) {
+            $lat = $request->input('lat');
+            $lng = $request->input('lng');
+            $radius = $request->input('radius_km');
+
+            $query->withinRadius($lat, $lng, $radius)
+                ->withDistance($lat, $lng);
+        }
+
+        // Category filter
+        $query->when($request->filled('category_id'), function ($q) use ($request) {
+            $q->where('category_id', $request->input('category_id'));
+        });
+
+        // Entrance status filter
+        $query->when($request->filled('entrance_status'), function ($q) use ($request) {
+            $q->where('entrance_status', $request->input('entrance_status'));
+        });
+
+        // Date range filter
+        $query->dateRange($request->input('date_from'), $request->input('date_to'));
+
+        // Sorting
+        $sort = $request->input('sort', 'event_date');
+        $order = $request->input('order', 'asc');
+
+        if ($sort === 'distance' && $request->filled(['lat', 'lng'])) {
+            $query->orderBy('distance_km', $order);
+        } else {
+            $query->orderBy($sort, $order);
+        }
+
+        // Pagination
+        $perPage = $request->input('per_page', 20);
+        $events = $query->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Events fetched successfully',
+            'data' => [
+                'events' => EventResource::collection($events->items()),
+                'pagination' => [
+                    'current_page' => $events->currentPage(),
+                    'last_page' => $events->lastPage(),
+                    'per_page' => $events->perPage(),
+                    'total' => $events->total(),
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/v2/public/events/{id}
+     *
+     * Get a single public event by ID (records view).
+     */
+    public function show(Request $request, int $id): JsonResponse
+    {
+        $event = EventV2::publicVisible()
+            ->with(['category', 'subcategories', 'venue', 'organisers', 'talents'])
+            ->findOrFail($id);
+
+        // Record view
+        $this->eventService->recordView(
+            $event,
+            $request->user(),
+            $request->ip(),
+            $request->userAgent(),
+            $request->header('referer')
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Event fetched successfully',
+            'data' => new EventResource($event),
+        ]);
+    }
+
+    /**
+     * GET /api/v2/public/events/{slug}
+     *
+     * Get a single public event by slug (records view).
+     */
+    public function showBySlug(Request $request, string $slug): JsonResponse
+    {
+        $event = EventV2::publicVisible()
+            ->where('slug', $slug)
+            ->with(['category', 'subcategories', 'venue', 'organisers', 'talents'])
+            ->firstOrFail();
+
+        // Record view
+        $this->eventService->recordView(
+            $event,
+            $request->user(),
+            $request->ip(),
+            $request->userAgent(),
+            $request->header('referer')
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Event fetched successfully',
+            'data' => new EventResource($event),
+        ]);
+    }
+
+    /**
+     * GET /api/v2/public/events/map
+     *
+     * Get events optimized for map markers (minimal data).
+     */
+    public function map(Request $request): JsonResponse
+    {
+        $request->validate([
+            'min_lat' => 'required|numeric|between:-90,90',
+            'max_lat' => 'required|numeric|between:-90,90',
+            'min_lng' => 'required|numeric|between:-180,180',
+            'max_lng' => 'required|numeric|between:-180,180',
+            'category_id' => 'nullable|integer|exists:categories,id',
+            'limit' => 'nullable|integer|min:1|max:500',
+        ]);
+
+        $limit = $request->input('limit', 100);
+
+        $events = EventV2::query()
+            ->select(['id', 'title', 'slug', 'latitude', 'longitude', 'event_date', 'start_time', 'category_id', 'entrance_status'])
+            ->publicVisible()
+            ->whereIn('status', [EventV2::STATUS_UPCOMING, EventV2::STATUS_LIVE])
+            ->withinBbox(
+                $request->input('min_lat'),
+                $request->input('max_lat'),
+                $request->input('min_lng'),
+                $request->input('max_lng')
+            )
+            ->when($request->filled('category_id'), function ($q) use ($request) {
+                $q->where('category_id', $request->input('category_id'));
+            })
+            ->orderBy('event_date', 'asc')
+            ->limit($limit)
+            ->get();
+
+        // Return minimal marker data
+        $markers = $events->map(fn ($e) => [
+            'id' => $e->id,
+            'title' => $e->title,
+            'slug' => $e->slug,
+            'lat' => (float) $e->latitude,
+            'lng' => (float) $e->longitude,
+            'event_date' => $e->event_date->format('Y-m-d'),
+            'start_time' => $e->start_time,
+            'category_id' => $e->category_id,
+            'entrance_status' => $e->entrance_status,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Map markers fetched successfully',
+            'data' => [
+                'markers' => $markers,
+                'count' => $markers->count(),
+            ],
+        ]);
+    }
+}
