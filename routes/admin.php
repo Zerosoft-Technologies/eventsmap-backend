@@ -3,12 +3,15 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\EventController;
+use App\Http\Controllers\Admin\OrganizerEventController;
 use App\Http\Controllers\Admin\TalentController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\BulkOperationsController;
 use App\Http\Controllers\Admin\MediaController;
+use App\Http\Controllers\Admin\AdminEventV2Controller;
 
 /*
 |--------------------------------------------------------------------------
@@ -76,6 +79,22 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::post('/bulk/unfeature', [BulkOperationsController::class, 'unfeatureEvents']);
     });
 
+    // Organizer Events CRUD
+    Route::prefix('organizer')->group(function () {
+        Route::get('/', [OrganizerEventController::class, 'index']);
+        Route::post('/', [OrganizerEventController::class, 'store']);
+        Route::get('/{id}', [OrganizerEventController::class, 'show']);
+        Route::put('/{id}', [OrganizerEventController::class, 'update']);
+        Route::delete('/{id}', [OrganizerEventController::class, 'destroy']);
+        
+        // Fixed endpoint
+        Route::get('/fixed', [OrganizerEventFixedController::class, 'index']);
+        
+        // Debug endpoints
+        Route::get('/debug', [OrganizerEventDebugController::class, 'debug']);
+        Route::get('/debug-with-relations', [OrganizerEventDebugController::class, 'debugWithRelations']);
+    });
+
     // Talents CRUD
     Route::prefix('talents')->group(function () {
         Route::get('/', [TalentController::class, 'index']);
@@ -109,16 +128,25 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::delete('/{id}', [CategoryController::class, 'destroySubcategory']);
     });
 
-    // Admin Users (Super Admin only)
-    Route::middleware('super_admin')->prefix('users')->group(function () {
-        Route::get('/', [UserController::class, 'index']);
-        Route::post('/', [UserController::class, 'store']);
-        Route::get('/{id}', [UserController::class, 'show']);
-        Route::put('/{id}', [UserController::class, 'update']);
-        Route::delete('/{id}', [UserController::class, 'destroy']);
-        Route::post('/{id}/activate', [UserController::class, 'activate']);
-        Route::post('/{id}/deactivate', [UserController::class, 'deactivate']);
-        Route::post('/{id}/reset-password', [UserController::class, 'resetPassword']);
+    // Admin Users Management
+    Route::prefix('users')->group(function () {
+        // Stats and listing (admin access)
+        Route::get('/stats', [AdminUserController::class, 'stats']);
+        Route::get('/', [AdminUserController::class, 'index']);
+
+        // Status update (Super Admin only)
+        Route::middleware('super_admin')->patch('/{id}/status', [AdminUserController::class, 'updateStatus']);
+
+        // CRUD operations (Super Admin only)
+        Route::middleware('super_admin')->group(function () {
+            Route::post('/', [UserController::class, 'store']);
+            Route::get('/{id}', [UserController::class, 'show']);
+            Route::put('/{id}', [UserController::class, 'update']);
+            Route::delete('/{id}', [UserController::class, 'destroy']);
+            Route::post('/{id}/activate', [UserController::class, 'activate']);
+            Route::post('/{id}/deactivate', [UserController::class, 'deactivate']);
+            Route::post('/{id}/reset-password', [UserController::class, 'resetPassword']);
+        });
     });
 
     // Analytics
@@ -135,4 +163,23 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::get('/', [MediaController::class, 'list']);
         Route::put('/{id}', [MediaController::class, 'update']);
     });
+
+    // ──────────────────────────────────────
+    // V2 Events Admin Management
+    // ──────────────────────────────────────
+    Route::prefix('events-v2')->group(function () {
+        // Event listing and stats
+        Route::get('/', [AdminEventV2Controller::class, 'index']);
+        Route::get('/stats', [AdminEventV2Controller::class, 'stats']);
+        Route::get('/pending', [AdminEventV2Controller::class, 'pending']);
+        Route::get('/trashed', [AdminEventV2Controller::class, 'trashed']);
+
+        // Event moderation actions
+        Route::patch('/{id}/status', [AdminEventV2Controller::class, 'updateStatus']);
+        Route::patch('/{id}/restore', [AdminEventV2Controller::class, 'restore']);
+        Route::delete('/{id}/force', [AdminEventV2Controller::class, 'forceDelete']);
+    });
+
+    // Organizer API routes
+    require __DIR__.'/organizer.php';
 });

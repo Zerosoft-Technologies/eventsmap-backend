@@ -66,6 +66,7 @@ class AdminEventResource extends JsonResource
             'venue_name' => $this->venue_name,
             'address' => $this->address,
             'city' => $this->city,
+            'location_name' => $this->location_name,
             'state' => $this->state,
             'postal_code' => $this->postal_code,
             'country' => $this->country,

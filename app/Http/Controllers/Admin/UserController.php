@@ -24,12 +24,16 @@ class UserController extends Controller
             'per_page' => 'nullable|integer|min:1|max:100',
             'sort' => 'nullable|string',
             'search' => 'nullable|string|max:255',
-            'role' => 'nullable|string|in:admin,super_admin',
+            'role' => 'nullable|string|in:user,admin,super_admin',
             'is_active' => 'nullable|boolean',
             'trashed' => 'nullable|boolean',
+            'account_type' => 'nullable|string|in:free,premium',
+            'status' => 'nullable|string|in:active,pending_payment,suspended',
+            'profile_type' => 'nullable|string|in:event,talent,organizer,venue',
+            'country' => 'nullable|string|max:255',
         ]);
 
-        $query = User::admins();
+        $query = User::query();
 
         // Include trashed if requested
         if ($request->boolean('trashed')) {
@@ -55,6 +59,26 @@ class UserController extends Controller
             $query->where('is_active', $request->boolean('is_active'));
         }
 
+        // Account type filter
+        if ($request->filled('account_type')) {
+            $query->accountType($request->input('account_type'));
+        }
+
+        // Status filter
+        if ($request->filled('status')) {
+            $query->status($request->input('status'));
+        }
+
+        // Profile type filter
+        if ($request->filled('profile_type')) {
+            $query->profileType($request->input('profile_type'));
+        }
+
+        // Country filter
+        if ($request->filled('country')) {
+            $query->country($request->input('country'));
+        }
+
         // Sorting
         $sortField = 'created_at';
         $sortDirection = 'desc';
@@ -68,7 +92,7 @@ class UserController extends Controller
                 $sortField = $sort;
             }
         }
-        $allowedSorts = ['name', 'email', 'created_at', 'role'];
+        $allowedSorts = ['name', 'email', 'created_at', 'role', 'account_type', 'status', 'profile_type', 'country'];
         if (in_array($sortField, $allowedSorts)) {
             $query->orderBy($sortField, $sortDirection);
         }
@@ -85,7 +109,13 @@ class UserController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->role,
+                    'profile_type' => $user->profile_type,
+                    'account_type' => $user->account_type,
+                    'status' => $user->status,
+                    'country' => $user->country,
                     'is_active' => $user->is_active,
+                    'email_verified' => $user->hasVerifiedEmail(),
+                    'registration_date' => $user->created_at?->toIso8601String(),
                     'created_at' => $user->created_at?->toIso8601String(),
                     'updated_at' => $user->updated_at?->toIso8601String(),
                     'deleted_at' => $user->deleted_at?->toIso8601String(),
@@ -108,7 +138,7 @@ class UserController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $user = User::admins()->withTrashed()->findOrFail($id);
+        $user = User::withTrashed()->findOrFail($id);
 
         return response()->json([
             'success' => true,
@@ -117,8 +147,16 @@ class UserController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
+                'profile_type' => $user->profile_type,
+                'account_type' => $user->account_type,
+                'status' => $user->status,
+                'billing_type' => $user->billing_type,
+                'country' => $user->country,
+                'vat_number' => $user->vat_number,
                 'is_active' => $user->is_active,
+                'email_verified' => $user->hasVerifiedEmail(),
                 'email_verified_at' => $user->email_verified_at?->toIso8601String(),
+                'registration_date' => $user->created_at?->toIso8601String(),
                 'created_at' => $user->created_at?->toIso8601String(),
                 'updated_at' => $user->updated_at?->toIso8601String(),
                 'deleted_at' => $user->deleted_at?->toIso8601String(),

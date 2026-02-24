@@ -44,6 +44,7 @@ class Event extends Model
         'venue_name',
         'address',
         'city',
+        'location_name',
         'state',
         'postal_code',
         'country',

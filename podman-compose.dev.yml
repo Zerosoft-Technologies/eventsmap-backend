@@ -18,6 +18,14 @@ services:
       DB_DATABASE: eventsmap
       DB_USERNAME: eventsmap
       DB_PASSWORD: secret
+      MAIL_MAILER: smtp
+      MAIL_HOST: smtp.gmail.com
+      MAIL_PORT: 587
+      MAIL_USERNAME: arunkamaraj.zerosoft@gmail.com
+      MAIL_PASSWORD: mbhtbxsmujibopyr
+      MAIL_ENCRYPTION: tls
+      MAIL_FROM_ADDRESS: arunkamaraj.zerosoft@gmail.com
+      MAIL_FROM_NAME: "Events Map"
     volumes:
       - ./:/var/www
     depends_on:
