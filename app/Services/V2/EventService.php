@@ -92,6 +92,19 @@ class EventService
     }
 
     /**
+     * Get events created by a specific user (for sidebar).
+     *
+     * @param User $user The authenticated user
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getUserEvents(User $user)
+    {
+        return EventV2::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+    }
+
+    /**
      * Update an existing event.
      *
      * @param EventV2 $event The event to update

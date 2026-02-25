@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordNotification;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -176,5 +177,15 @@ class User extends Authenticatable implements MustVerifyEmail
     public function scopeRegularUsers($query)
     {
         return $query->where('role', self::ROLE_USER);
+    }
+
+    /**
+     * Send the password reset notification.
+     *
+     * Override to use custom notification for API/SPA applications.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 }

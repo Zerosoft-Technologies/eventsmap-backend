@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V2\EventController;
 use App\Http\Controllers\V2\PublicEventController;
+use App\Http\Controllers\V2\WishlistController;
 
 /*
 |--------------------------------------------------------------------------
@@ -31,11 +32,20 @@ Route::prefix('public')->group(function () {
 
 Route::middleware(['auth:sanctum'])->group(function () {
 
+    // My Events (sidebar)
+    Route::get('/my-events', [EventController::class, 'myEvents']);
+
+    // My Wishlist
+    Route::get('/my-wishlist', [WishlistController::class, 'index']);
+
     // Events CRUD (owner's events)
     Route::get('/events', [EventController::class, 'index']);
     Route::post('/events', [EventController::class, 'store']);
     Route::get('/events/{id}', [EventController::class, 'show']);
     Route::put('/events/{id}', [EventController::class, 'update']);
     Route::delete('/events/{id}', [EventController::class, 'destroy']);
+
+    // Wishlist toggle
+    Route::post('/events/{id}/wishlist', [WishlistController::class, 'toggle']);
 
 });

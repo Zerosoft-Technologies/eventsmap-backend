@@ -276,6 +276,14 @@ class EventV2 extends Model
     }
 
     /**
+     * Get users who wishlisted this event.
+     */
+    public function wishlistedBy(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'wishlists', 'event_v2_id', 'user_id');
+    }
+
+    /**
      * Get event views.
      */
     public function views(): HasMany

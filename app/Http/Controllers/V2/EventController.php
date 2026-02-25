@@ -6,11 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V2\StoreEventRequest;
 use App\Http\Requests\V2\UpdateEventRequest;
 use App\Http\Resources\V2\EventResource;
+use App\Http\Resources\V2\EventSidebarResource;
 use App\Models\EventV2;
 use App\Services\V2\EventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * EventController - V2 Event CRUD for authenticated users.
+ *
+ * Provides event listing, creation, viewing, updating, and deletion
+ * with proper ownership enforcement.
+ */
 class EventController extends Controller
 {
     public function __construct(
@@ -97,6 +104,23 @@ class EventController extends Controller
     }
 
     /**
+     * GET /api/v2/my-events
+     *
+     * List events created by the authenticated user (sidebar).
+     * Returns minimal fields for efficient sidebar rendering.
+     */
+    public function myEvents(Request $request): JsonResponse
+    {
+        $events = $this->eventService->getUserEvents($request->user());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'My events fetched',
+            'data' => EventSidebarResource::collection($events),
+        ]);
+    }
+
+    /**
      * POST /api/v2/events
      *
      * Create a new event.
@@ -115,12 +139,22 @@ class EventController extends Controller
     /**
      * GET /api/v2/events/{id}
      *
-     * Show a single event.
+     * Show a single event for editing.
+     * Only the event owner or an admin can access.
      */
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
         $event = EventV2::with(['category', 'subcategories', 'venue', 'organisers', 'talents', 'user'])
             ->findOrFail($id);
+
+        // Enforce ownership: only owner or admin can view for editing
+        $user = $request->user();
+        if (!$event->isOwner($user) && !$user->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to view this event.',
+            ], 403);
+        }
 
         return response()->json([
             'success' => true,
@@ -132,7 +166,7 @@ class EventController extends Controller
     /**
      * PUT /api/v2/events/{id}
      *
-     * Update an event.
+     * Update an event. Only owner or admin can update.
      */
     public function update(UpdateEventRequest $request, int $id): JsonResponse
     {
@@ -152,7 +186,7 @@ class EventController extends Controller
     /**
      * DELETE /api/v2/events/{id}
      *
-     * Delete an event (soft delete).
+     * Delete an event (soft delete). Only owner or admin can delete.
      */
     public function destroy(int $id): JsonResponse
     {

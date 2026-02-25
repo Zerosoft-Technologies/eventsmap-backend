@@ -27,7 +27,7 @@ class EventResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'slug' => $this->slug,
-            'image_url' => $this->image_path ? MediaHelper::url($this->image_path) : null,
+            'cover_image' => $this->image_path ? MediaHelper::url($this->image_path) : null,
 
             // Category
             'category' => $this->whenLoaded('category', function () {
@@ -48,9 +48,10 @@ class EventResource extends JsonResource
             }),
 
             // Date & Time
+            'formatted_date' => $this->event_date?->format('Y-m-d'),
             'event_date' => $this->event_date?->format('Y-m-d'),
-            'start_time' => $this->start_time,
-            'end_time' => $this->end_time,
+            'start_datetime' => $this->start_time,
+            'end_datetime' => $this->end_time,
             'is_overnight' => $this->is_overnight,
 
             // Location
@@ -59,7 +60,7 @@ class EventResource extends JsonResource
             'longitude' => (float) $this->longitude,
 
             // Event settings
-            'dress_code' => $this->dress_code,
+            'dresscode' => $this->dress_code,
             'age_limit' => $this->age_limit,
             'entrance_status' => $this->entrance_status,
 
