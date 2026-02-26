@@ -10,6 +10,8 @@ use App\Models\Wishlist;
 use App\Models\SubCategory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -296,8 +298,12 @@ class V2DemoSeeder extends Seeder
     private function createV2Events($users, $categories, $venues)
     {
         $events = collect();
+        $totalEvents = $users->count() * 6;
+        $downloadedCount = 0;
         
-        foreach ($users as $user) {
+        $this->command->info("📸 Downloading {$totalEvents} cover images from picsum.photos...");
+        
+        foreach ($users as $userIndex => $user) {
             // Mix of different event types for each user
             $userEvents = collect();
             
@@ -321,10 +327,17 @@ class V2DemoSeeder extends Seeder
                 EventV2::factory(1)->state(['user_id' => $user->id])->create()
             );
             
-            // Attach random subcategories to events
+            // Download images and attach subcategories for each event
             foreach ($userEvents as $event) {
+                // Download and store cover image
+                $imagePath = $this->downloadDemoImage();
+                if ($imagePath) {
+                    $event->update(['image_path' => $imagePath]);
+                    $downloadedCount++;
+                }
+                
+                // Attach random subcategories
                 $subcategories = SubCategory::where('category_id', $event->category_id)
-                    ->where('slug', 'like', 'v2-%')
                     ->inRandomOrder()
                     ->take(rand(1, 3))
                     ->pluck('id');
@@ -334,8 +347,13 @@ class V2DemoSeeder extends Seeder
                 }
             }
             
+            // Progress indicator
+            $this->command->info("   User " . ($userIndex + 1) . "/{$users->count()} - {$downloadedCount}/{$totalEvents} images downloaded");
+            
             $events = $events->merge($userEvents);
         }
+        
+        $this->command->info("✅ Downloaded {$downloadedCount}/{$totalEvents} cover images successfully");
         
         return $events;
     }
@@ -434,5 +452,40 @@ class V2DemoSeeder extends Seeder
         ];
         
         return $coordinates[$city] ?? ['lat' => 52.0, 'lng' => 5.0];
+    }
+    
+    /**
+     * Download a demo image from picsum.photos and store it locally.
+     * 
+     * @return string|null The relative storage path or null on failure
+     */
+    private function downloadDemoImage(): ?string
+    {
+        try {
+            // Ensure the directory exists
+            $directory = 'events/demo';
+            if (!Storage::disk('public')->exists($directory)) {
+                Storage::disk('public')->makeDirectory($directory);
+            }
+            
+            // Generate unique filename
+            $filename = Str::uuid() . '.jpg';
+            $relativePath = $directory . '/' . $filename;
+            
+            // Download image from picsum.photos (800x600 random image)
+            $response = Http::timeout(10)->get('https://picsum.photos/800/600');
+            
+            if ($response->successful()) {
+                // Store the image
+                Storage::disk('public')->put($relativePath, $response->body());
+                return $relativePath;
+            }
+            
+            return null;
+        } catch (\Exception $e) {
+            // Log the error but don't break seeding
+            $this->command->warn("⚠️  Failed to download image: " . $e->getMessage());
+            return null;
+        }
     }
 }
