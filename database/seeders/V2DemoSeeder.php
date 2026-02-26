@@ -395,8 +395,8 @@ class V2DemoSeeder extends Seeder
             $views = rand(50, 500);
             for ($i = 0; $i < $views; $i++) {
                 $event->views()->create([
-                    'ip_address' => fake()->ipv4(),
-                    'user_agent' => fake()->userAgent(),
+                    'ip_address' => rand(1, 255) . '.' . rand(1, 255) . '.' . rand(1, 255) . '.' . rand(1, 255),
+                    'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                     'viewed_at' => now()->subDays(rand(0, 30)),
                 ]);
             }
