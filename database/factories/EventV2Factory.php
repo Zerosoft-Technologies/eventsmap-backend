@@ -38,22 +38,22 @@ class EventV2Factory extends Factory
             'Haarlem' => ['lat' => 52.3874, 'lng' => 4.6461],
         ];
 
-        $city = fake()->randomElement(array_keys($nlCities));
+        $city = $this->faker->randomElement(array_keys($nlCities));
         $baseLat = $nlCities[$city]['lat'];
         $baseLng = $nlCities[$city]['lng'];
 
         // Add some random variation within the city (±0.05 degrees ≈ ±5km)
-        $latitude = $baseLat + fake()->randomFloat(2, -0.05, 0.05);
-        $longitude = $baseLng + fake()->randomFloat(2, -0.05, 0.05);
+        $latitude = $baseLat + $this->faker->randomFloat(2, -0.05, 0.05);
+        $longitude = $baseLng + $this->faker->randomFloat(2, -0.05, 0.05);
 
         // Event dates - mix of past, present, and future
-        $eventDate = fake()->dateTimeBetween('-3 months', '+6 months');
-        $startTime = fake()->dateTimeBetween('08:00', '23:00');
+        $eventDate = $this->faker->dateTimeBetween('-3 months', '+6 months');
+        $startTime = $this->faker->dateTimeBetween('08:00', '23:00');
         
         // End time can be same day or next day (overnight events)
-        $endTime = fake()->randomElement([
-            fake()->dateTimeBetween($startTime, '23:59'),
-            fake()->dateTimeBetween('00:00', '06:00'),
+        $endTime = $this->faker->randomElement([
+            $this->faker->dateTimeBetween($startTime, '23:59'),
+            $this->faker->dateTimeBetween('00:00', '06:00'),
         ]);
 
         // Determine status based on event date
@@ -74,23 +74,23 @@ class EventV2Factory extends Factory
             'user_id' => User::factory(),
             'category_id' => $category->id,
             'venue_id' => Venue::inRandomOrder()->first()?->id,
-            'title' => fake()->sentence(3, false),
+            'title' => $this->faker->sentence(3, false),
             'slug' => function (array $attributes) {
-                return Str::slug($attributes['title']) . '-' . fake()->unique()->randomNumber(4);
+                return Str::slug($attributes['title']) . '-' . $this->faker->unique()->randomNumber(4);
             },
             'event_date' => $eventDate,
             'start_time' => $startTime,
             'end_time' => $endTime,
-            'address' => fake()->streetAddress(),
+            'address' => $this->faker->streetAddress(),
             'latitude' => $latitude,
             'longitude' => $longitude,
-            'dress_code' => fake()->randomElement(['casual', 'smart casual', 'formal', 'black tie']),
-            'age_limit' => fake()->randomElement(['all_ages', '18+', '21+']),
-            'entrance_status' => fake()->randomElement(['free', 'paid', 'sold_out']),
-            'image_path' => 'events/demo/' . fake()->numberBetween(1, 10) . '.jpg',
+            'dress_code' => $this->faker->randomElement(['casual', 'smart casual', 'formal', 'black tie']),
+            'age_limit' => $this->faker->randomElement(['all_ages', '18+', '21+']),
+            'entrance_status' => $this->faker->randomElement(['free', 'paid', 'sold_out']),
+            'image_path' => 'events/demo/' . $this->faker->numberBetween(1, 10) . '.jpg',
             'status' => $status,
             'is_free_package' => true,
-            'created_at' => fake()->dateTimeBetween('-6 months', 'now'),
+            'created_at' => $this->faker->dateTimeBetween('-6 months', 'now'),
             'updated_at' => now(),
         ];
     }
@@ -101,7 +101,7 @@ class EventV2Factory extends Factory
     public function upcoming(): static
     {
         return $this->state(fn (array $attributes) => [
-            'event_date' => fake()->dateTimeBetween('+1 day', '+6 months'),
+            'event_date' => $this->faker->dateTimeBetween('+1 day', '+6 months'),
             'status' => EventV2::STATUS_UPCOMING,
         ]);
     }
@@ -123,7 +123,7 @@ class EventV2Factory extends Factory
     public function past(): static
     {
         return $this->state(fn (array $attributes) => [
-            'event_date' => fake()->dateTimeBetween('-3 months', '-1 day'),
+            'event_date' => $this->faker->dateTimeBetween('-3 months', '-1 day'),
             'status' => EventV2::STATUS_COMPLETED,
         ]);
     }
@@ -143,11 +143,11 @@ class EventV2Factory extends Factory
      */
     public function overnight(): static
     {
-        $startTime = fake()->dateTimeBetween('20:00', '23:00');
+        $startTime = $this->faker->dateTimeBetween('20:00', '23:00');
         
         return $this->state(fn (array $attributes) => [
             'start_time' => $startTime,
-            'end_time' => fake()->dateTimeBetween('00:00', '04:00'),
+            'end_time' => $this->faker->dateTimeBetween('00:00', '04:00'),
         ]);
     }
 }

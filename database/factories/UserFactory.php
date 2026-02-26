@@ -26,21 +26,21 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
+            'name' => $this->faker->name(),
+            'email' => $this->faker->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
-            'role' => fake()->randomElement([User::ROLE_USER]),
+            'role' => $this->faker->randomElement([User::ROLE_USER]),
             'is_active' => true,
-            'profile_type' => fake()->randomElement([User::PROFILE_EVENT, User::PROFILE_TALENT, User::PROFILE_ORGANIZER, User::PROFILE_VENUE]),
-            'account_type' => fake()->randomElement([User::ACCOUNT_FREE, User::ACCOUNT_PREMIUM]),
+            'profile_type' => $this->faker->randomElement([User::PROFILE_EVENT, User::PROFILE_TALENT, User::PROFILE_ORGANIZER, User::PROFILE_VENUE]),
+            'account_type' => $this->faker->randomElement([User::ACCOUNT_FREE, User::ACCOUNT_PREMIUM]),
             'status' => User::STATUS_ACTIVE,
-            'billing_type' => fake()->randomElement(['private', 'business']),
+            'billing_type' => $this->faker->randomElement(['private', 'business']),
             'country' => 'NL',
-            'vat_number' => fake()->optional(0.3)->numerify('NL#########B##'),
-            'stripe_subscription_id' => fake()->optional(0.2)->uuid(),
-            'created_at' => fake()->dateTimeBetween('-1 year', 'now'),
+            'vat_number' => $this->faker->optional(0.3)->numerify('NL#########B##'),
+            'stripe_subscription_id' => $this->faker->optional(0.2)->uuid(),
+            'created_at' => $this->faker->dateTimeBetween('-1 year', 'now'),
         ];
     }
 
