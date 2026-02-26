@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
@@ -98,9 +99,8 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Revoke existing tokens
+        // Revoke existing tokens and create new one
         $user->tokens()->delete();
-
         $token = $user->createToken('auth-token')->plainTextToken;
 
         return response()->json([
