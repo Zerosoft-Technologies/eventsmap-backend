@@ -92,8 +92,8 @@ class EventV2Factory extends Factory
                 return Str::slug($attributes['title']) . '-' . Str::random(4);
             },
             'event_date' => $eventDate,
-            'start_time' => $startTime,
-            'end_time' => $endTime,
+            'start_time' => $startTime->format('H:i:s'),
+            'end_time' => $endTime->format('H:i:s'),
             'address' => $addresses[($eventIndex - 1) % count($addresses)] . ', ' . $city,
             'latitude' => $latitude,
             'longitude' => $longitude,
@@ -159,8 +159,8 @@ class EventV2Factory extends Factory
         $startTime = now()->setTime(20 + rand(0, 3), rand(0, 59));
         
         return $this->state(fn (array $attributes) => [
-            'start_time' => $startTime,
-            'end_time' => (clone $startTime)->addHours(4 + rand(0, 4)),
+            'start_time' => $startTime->format('H:i:s'),
+            'end_time' => (clone $startTime)->addHours(4 + rand(0, 4))->format('H:i:s'),
         ]);
     }
 }
