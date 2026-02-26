@@ -89,7 +89,7 @@ class EventV2Factory extends Factory
             'venue_id' => Venue::inRandomOrder()->first()?->id,
             'title' => $eventTitles[($eventIndex - 1) % count($eventTitles)],
             'slug' => function (array $attributes) {
-                return Str::slug($attributes['title']) . '-' . $eventIndex;
+                return Str::slug($attributes['title']) . '-' . substr(md5($attributes['title']), 0, 4);
             },
             'event_date' => $eventDate,
             'start_time' => $startTime,
