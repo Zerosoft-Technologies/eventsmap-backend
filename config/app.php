@@ -25,7 +25,7 @@ return [
     |
     */
 
-    'frontend_url' => env('FRONTEND_URL', 'http://185.133.88.194:3001'),
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
 
     /*
     |--------------------------------------------------------------------------

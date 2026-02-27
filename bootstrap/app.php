@@ -34,6 +34,10 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->validateCsrfTokens(except: [
+            'api/webhook/stripe',
+        ]);
+
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
@@ -44,6 +48,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'organizer' => \App\Http\Middleware\OrganizerMiddleware::class,
             'account.active' => \App\Http\Middleware\EnsureAccountIsActive::class,
             'email.verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
+            'premium.active' => \App\Http\Middleware\EnsurePremiumIsActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

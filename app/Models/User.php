@@ -46,9 +46,17 @@ class User extends Authenticatable implements MustVerifyEmail
         'account_type',
         'status',
         'billing_type',
-        'country',
+        'full_name',
+        'company_name',
         'vat_number',
+        'vat_validated',
+        'country',
+        'address',
+        'postal_code',
+        'city',
+        'stripe_customer_id',
         'stripe_subscription_id',
+        'stripe_session_id',
     ];
 
     /**
@@ -72,6 +80,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'vat_validated' => 'boolean',
         ];
     }
 
@@ -177,6 +186,15 @@ class User extends Authenticatable implements MustVerifyEmail
     public function scopeRegularUsers($query)
     {
         return $query->where('role', self::ROLE_USER);
+    }
+
+    /**
+     * Check if premium user requires payment completion.
+     */
+    public function requiresPayment(): bool
+    {
+        return $this->account_type === self::ACCOUNT_PREMIUM
+            && $this->status !== self::STATUS_ACTIVE;
     }
 
     /**
