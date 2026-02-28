@@ -57,6 +57,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'stripe_customer_id',
         'stripe_subscription_id',
         'stripe_session_id',
+        'premium_started_at',
     ];
 
     /**

@@ -2,8 +2,6 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -11,10 +9,11 @@ use Illuminate\Notifications\Notification;
  * Custom ResetPasswordNotification for API/SPA applications.
  *
  * Generates a frontend URL instead of using Laravel's route() helper.
+ * Note: This notification sends immediately (not queued) to ensure
+ * password reset emails are delivered without requiring a queue worker.
  */
-class ResetPasswordNotification extends Notification implements ShouldQueue
+class ResetPasswordNotification extends Notification
 {
-    use Queueable;
 
     /**
      * The password reset token.

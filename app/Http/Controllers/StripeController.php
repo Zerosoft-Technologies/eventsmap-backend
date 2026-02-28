@@ -106,7 +106,7 @@ class StripeController extends Controller
         try {
             $event = Webhook::constructEvent(
                 $payload,
-                $signature,
+                $signature, 
                 config('services.stripe.webhook_secret')
             );
         } catch (SignatureVerificationException $e) {
@@ -128,12 +128,28 @@ class StripeController extends Controller
 
                 if ($user) {
                     $stripeSubscriptionId = $session->subscription ?? $session->payment_intent;
+                    $isUpgrade = isset($session->metadata->type) && $session->metadata->type === 'upgrade';
 
-                    $user->update([
+                    $updateData = [
                         'status' => User::STATUS_ACTIVE,
                         'stripe_subscription_id' => $stripeSubscriptionId,
                         'email_verified_at' => $user->email_verified_at ?? now(),
-                    ]);
+                    ];
+
+                    // Handle upgrade from free to premium
+                    if ($isUpgrade || $user->account_type === User::ACCOUNT_FREE) {
+                        $updateData['account_type'] = User::ACCOUNT_PREMIUM;
+                        $updateData['premium_started_at'] = now();
+                    }
+
+                    // For new premium registrations, also set premium_started_at
+                    if ($user->account_type === User::ACCOUNT_PREMIUM && !$user->premium_started_at) {
+                        $updateData['premium_started_at'] = now();
+                    }
+
+                    $user->update($updateData);
+
+                    Log::info('Stripe checkout completed for user ' . $user->id . ($isUpgrade ? ' (upgrade)' : ''));
                 }
                 break;
 

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\StripeController;
+use App\Http\Controllers\UpgradePlanController;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,9 +36,13 @@ Route::post('/payment/verify', [StripeController::class, 'verifySession']);
 // Stripe webhook (no auth, no CSRF)
 Route::post('/webhook/stripe', [StripeController::class, 'webhook']);
 
-// Retry payment (auth required, for pending_payment users)
+// Authenticated user routes
 Route::middleware(['auth:sanctum'])->group(function () {
+    // Payment retry (for pending_payment users)
     Route::post('/payment/retry', [StripeController::class, 'retryPayment']);
+
+    // Upgrade plan (for free users to upgrade to premium)
+    Route::post('/user/upgrade-plan', [UpgradePlanController::class, 'upgrade']);
 });
 
 // Premium-only routes (requires auth + active premium status)

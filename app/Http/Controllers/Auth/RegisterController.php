@@ -102,6 +102,7 @@ class RegisterController extends Controller
         $userData = [
             'name' => $validated['name'],
             'email' => $validated['email'],
+            'email_verified_at' => now(),
             'password' => $validated['password'],
             'profile_type' => $validated['profile_type'],
             'role' => User::ROLE_USER,
