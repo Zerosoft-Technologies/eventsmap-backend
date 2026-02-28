@@ -30,6 +30,8 @@ Route::prefix('public')->group(function () {
 // Protected Routes (Authentication Required)
 // ──────────────────────────────────────
 
+Route::get('/events', [EventController::class, 'index']);
+
 Route::middleware(['auth:sanctum'])->group(function () {
 
     // My Events (sidebar)
@@ -39,7 +41,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/my-wishlist', [WishlistController::class, 'index']);
 
     // Events CRUD (owner's events)
-    Route::get('/events', [EventController::class, 'index']);
     Route::post('/events', [EventController::class, 'store']);
     Route::get('/events/{id}', [EventController::class, 'show']);
     Route::put('/events/{id}', [EventController::class, 'update']);
