@@ -28,9 +28,11 @@ Route::post('/password/reset', [AuthController::class, 'resetPassword']);
 Route::match(['get', 'post'], '/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
     ->name('verification.verify');
 
+// Email resend (public — works for both authenticated and non-authenticated users)
+Route::post('/email/resend', [AuthController::class, 'resendVerification']);
+
 // Protected routes (authentication required)
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
-    Route::post('/email/resend', [AuthController::class, 'resendVerification']);
 });

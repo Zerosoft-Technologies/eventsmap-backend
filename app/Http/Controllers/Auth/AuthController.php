@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendVerificationEmail;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -43,18 +45,14 @@ class AuthController extends Controller
             'is_active' => true,
         ]);
 
-        // Fire registered event (triggers email verification notification)
-        event(new Registered($user));
-
-        // Create Sanctum token
-        $token = $user->createToken('auth-token')->plainTextToken;
+        // Dispatch email verification job to prevent API timeout
+        SendVerificationEmail::dispatch($user);
 
         return response()->json([
             'success' => true,
-            'message' => 'Registration successful. Please verify your email.',
+            'message' => 'Registration successful. Please check your email to verify your account before logging in.',
             'data' => [
                 'user' => $this->formatUser($user),
-                'token' => $token,
             ],
         ], 201);
     }
@@ -63,6 +61,7 @@ class AuthController extends Controller
      * POST /api/auth/login
      *
      * Authenticate user and return token.
+     * Requires email verification for successful login.
      */
     public function login(Request $request): JsonResponse
     {
@@ -77,6 +76,17 @@ class AuthController extends Controller
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
+        }
+
+        // Check email verification BEFORE any other checks
+        if (!$user->hasVerifiedEmail()) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'EMAIL_NOT_VERIFIED',
+                    'message' => 'Your email is not verified. Please check your registered email and verify your account.',
+                ],
+            ], 403);
         }
 
         if ($user->status === User::STATUS_SUSPENDED) {
@@ -143,61 +153,81 @@ class AuthController extends Controller
     }
 
     /**
-     * POST /api/auth/email/verify/{id}/{hash}
+     * GET/POST /api/auth/email/verify/{id}/{hash}
      *
-     * Verify user email address.
+     * Verify user email address and redirect to frontend.
      */
-    public function verifyEmail(Request $request, int $id, string $hash): JsonResponse
+    public function verifyEmail(Request $request, int $id, string $hash): RedirectResponse
     {
         $user = User::findOrFail($id);
 
         if (!hash_equals(sha1($user->getEmailForVerification()), $hash)) {
-            return response()->json([
-                'success' => false,
-                'error' => [
-                    'code' => 'INVALID_HASH',
-                    'message' => 'Invalid verification link.',
-                ],
-            ], 403);
+            // Redirect to frontend with error
+            $frontendUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:5173'));
+            return redirect($frontendUrl . '/auth/verification-failed?reason=invalid_link');
         }
 
         if ($user->hasVerifiedEmail()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Email already verified.',
-            ]);
+            // Redirect to frontend with already verified status
+            $frontendUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:5173'));
+            return redirect($frontendUrl . '/auth/already-verified');
         }
 
         $user->markEmailAsVerified();
         event(new Verified($user));
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Email verified successfully.',
-        ]);
+        // Redirect to frontend with success
+        $frontendUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:5173'));
+        return redirect($frontendUrl . '/auth/email-verified?email=' . urlencode($user->email));
     }
 
     /**
      * POST /api/auth/email/resend
      *
      * Resend email verification notification.
+     * Works for both authenticated and non-authenticated users.
      */
     public function resendVerification(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $request->validate([
+            'email' => 'required|string|email',
+        ]);
+
+        // If user is authenticated, use their email
+        if ($request->user()) {
+            $user = $request->user();
+            $email = $user->email;
+        } else {
+            // For non-authenticated users, find by email
+            $email = $request->email;
+            $user = User::where('email', $email)->first();
+        }
+
+        // Always return success to prevent email enumeration
+        $successMessage = 'If an account with this email exists, a verification link has been sent.';
+
+        if (!$user) {
+            return response()->json([
+                'success' => true,
+                'message' => $successMessage,
+            ]);
+        }
 
         if ($user->hasVerifiedEmail()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Email already verified.',
+                'message' => 'This email is already verified. You can log in.',
             ]);
         }
+
+        // Dispatch email verification job to prevent timeout
+        // SendVerificationEmail::dispatch($user);
 
         $user->sendEmailVerificationNotification();
 
         return response()->json([
             'success' => true,
-            'message' => 'Verification email resent.',
+            'message' => $successMessage,
         ]);
     }
 
