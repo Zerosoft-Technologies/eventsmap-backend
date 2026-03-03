@@ -5,6 +5,7 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\UpgradePlanController;
+use App\Http\Controllers\UserProfileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -43,6 +44,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Upgrade plan (for free users to upgrade to premium)
     Route::post('/user/upgrade-plan', [UpgradePlanController::class, 'upgrade']);
+
+    // User profile management
+    Route::get('/user/profile', [UserProfileController::class, 'show']);
+    Route::put('/user/profile', [UserProfileController::class, 'update']);
 });
 
 // Premium-only routes (requires auth + active premium status)
