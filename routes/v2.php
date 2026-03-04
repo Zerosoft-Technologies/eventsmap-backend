@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V2\EventController;
 use App\Http\Controllers\V2\PublicEventController;
+use App\Http\Controllers\V2\UserController;
 use App\Http\Controllers\V2\WishlistController;
 
 /*
@@ -17,6 +18,8 @@ use App\Http\Controllers\V2\WishlistController;
 // ──────────────────────────────────────
 // Public Routes (No Authentication)
 // ──────────────────────────────────────
+
+Route::get('/users', [UserController::class, 'index']);
 
 Route::prefix('public')->group(function () {
     // Public event feed (map-ready, approved events only)
