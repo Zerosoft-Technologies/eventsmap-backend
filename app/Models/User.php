@@ -207,4 +207,61 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $this->notify(new ResetPasswordNotification($token));
     }
+
+    /**
+     * Get invitations received by this user.
+     */
+    public function receivedInvitations()
+    {
+        return $this->hasMany(EventInvitation::class, 'receiver_id');
+    }
+
+    /**
+     * Get invitations sent by this user.
+     */
+    public function sentInvitations()
+    {
+        return $this->hasMany(EventInvitation::class, 'sender_id');
+    }
+
+    /**
+     * Get accepted invitations for this user.
+     */
+    public function acceptedInvitations()
+    {
+        return $this->hasMany(EventInvitation::class, 'receiver_id')
+            ->where('status', EventInvitation::STATUS_ACCEPTED);
+    }
+
+    /**
+     * Get chat bans for this user.
+     */
+    public function chatBans()
+    {
+        return $this->hasMany(ChatBan::class, 'user_id');
+    }
+
+    /**
+     * Check if user is banned from a specific event chat.
+     */
+    public function isBannedFromEventChat(int $eventId): bool
+    {
+        return $this->chatBans()
+            ->forEvent($eventId)
+            ->bans()
+            ->active()
+            ->exists();
+    }
+
+    /**
+     * Check if user is muted in a specific event chat.
+     */
+    public function isMutedInEventChat(int $eventId): bool
+    {
+        return $this->chatBans()
+            ->forEvent($eventId)
+            ->mutes()
+            ->active()
+            ->exists();
+    }
 }

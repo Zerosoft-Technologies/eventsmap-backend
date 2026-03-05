@@ -348,6 +348,47 @@ class EventV2 extends Model
         return $this->hasMany(EventV2Like::class, 'event_v2_id');
     }
 
+    /**
+     * Get event invitations.
+     */
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(EventInvitation::class, 'event_id');
+    }
+
+    /**
+     * Get accepted invitations.
+     */
+    public function acceptedInvitations(): HasMany
+    {
+        return $this->hasMany(EventInvitation::class, 'event_id')
+            ->where('status', EventInvitation::STATUS_ACCEPTED);
+    }
+
+    /**
+     * Get chat bans for this event.
+     */
+    public function chatBans(): HasMany
+    {
+        return $this->hasMany(ChatBan::class, 'event_id');
+    }
+
+    /**
+     * Get chat reports for this event.
+     */
+    public function chatReports(): HasMany
+    {
+        return $this->hasMany(ChatReport::class, 'event_id');
+    }
+
+    /**
+     * Get chat moderation logs for this event.
+     */
+    public function chatModerationLogs(): HasMany
+    {
+        return $this->hasMany(ChatModerationLog::class, 'event_id');
+    }
+
     // ──────────────────────────────────────
     // Accessors
     // ──────────────────────────────────────

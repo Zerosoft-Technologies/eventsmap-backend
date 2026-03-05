@@ -58,7 +58,7 @@ class ResetPasswordNotification extends Notification
      */
     protected function resetUrl(object $notifiable): string
     {
-        $frontendUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000'));
+        $frontendUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:5173'));
 
         return $frontendUrl . '/auth/reset-password?' . http_build_query([
             'token' => $this->token,

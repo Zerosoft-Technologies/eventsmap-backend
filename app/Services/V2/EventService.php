@@ -7,6 +7,7 @@ use App\Models\EventV2View;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -117,6 +118,10 @@ class EventService
             }
 
             Log::info('Event created', ['event_id' => $event->id, 'user_id' => $user->id]);
+
+            if (!$isFreePackage) {
+                $this->createInvitationsForEvent($event, $user);
+            }
 
             return $event->load([
                 'category', 'subcategories', 'venue', 'organisers', 'talents', 'user',
@@ -229,6 +234,15 @@ class EventService
             if ($talentIds !== null) {
                 $event->talents()->sync($this->formatTalentSync($talentIds));
             }
+
+            $isFreePackage = array_key_exists('event_type', $data)
+                ? $data['event_type'] === 'free'
+                : $event->is_free_package;
+            if (!$isFreePackage && ($invitedTalentIds !== null || $invitedOrganiserIds !== null || $invitedVenueIds !== null)) {
+                $event = $event->fresh();
+                $this->createInvitationsForEvent($event, $event->user);
+            }
+
             Log::info('Event updated', ['event_id' => $event->id]);
 
             return $event->load([
@@ -540,5 +554,21 @@ class EventService
             $sync[$talentId] = ['sort_order' => $index];
         }
         return $sync;
+    }
+
+    /**
+     * Create invitations for invited users.
+     */
+    private function createInvitationsForEvent(EventV2 $event, User $user): void
+    {
+        try {
+            $invitationService = App::make(EventInvitationService::class);
+            $invitationService->createInvitationsForEvent($event, $user);
+        } catch (\Exception $e) {
+            Log::error('Failed to create invitations for event', [
+                'event_id' => $event->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
