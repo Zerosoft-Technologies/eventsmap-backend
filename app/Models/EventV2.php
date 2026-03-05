@@ -134,15 +134,21 @@ class EventV2 extends Model
     ];
 
     // Free package limits
-    const FREE_MAX_SUBCATEGORIES = 5;
+    const FREE_MAX_SUBCATEGORIES = 1;
     const FREE_MAX_IMAGES = 1;
     const FREE_MAX_ADVANCE_DAYS = 365;
+
+    // Premium package limits
+    const PREMIUM_MIN_SUBCATEGORIES = 1;
+    const PREMIUM_MAX_SUBCATEGORIES = 5;
 
     protected $fillable = [
         'user_id',
         'title',
         'slug',
+        'event_type',
         'category_id',
+        'subcategory_ids',
         'event_date',
         'start_time',
         'end_time',
@@ -152,13 +158,32 @@ class EventV2 extends Model
         'dress_code',
         'age_limit',
         'entrance_status',
+        'entrance_fee',
+        'contact_phone',
+        'contact_email',
+        'contact_website',
+        'description',
+        'contact_box_message',
+        'venue_details',
         'image_path',
+        'additional_images',
+        'invited_talents',
+        'invited_organisers',
+        'invited_venues',
         'venue_id',
         'status',
         'is_free_package',
         'view_count',
         'like_count',
-        // Admin moderation fields (only if columns exist)
+        'facebook_url',
+        'instagram_url',
+        'tiktok_url',
+        'ticket_url',
+        'booking_instructions',
+        'event_option',
+        'condition_entrance_fee',
+        'condition_dress_code',
+        'condition_age_limit',
         'is_approved',
         'approved_at',
         'approved_by',
@@ -171,8 +196,14 @@ class EventV2 extends Model
     {
         return [
             'event_date' => 'date',
-            'latitude' => 'decimal:7',
-            'longitude' => 'decimal:7',
+            'latitude' => 'decimal:8',
+            'longitude' => 'decimal:8',
+            'entrance_fee' => 'decimal:2',
+            'additional_images' => 'array',
+            'subcategory_ids' => 'array',
+            'invited_talents' => 'array',
+            'invited_organisers' => 'array',
+            'invited_venues' => 'array',
             'is_free_package' => 'boolean',
             'is_approved' => 'boolean',
             'approved_at' => 'datetime',
@@ -224,6 +255,24 @@ class EventV2 extends Model
             ->withPivot(['role', 'sort_order'])
             ->withTimestamps()
             ->orderByPivot('sort_order');
+    }
+
+    public function invitedTalents(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'event_invited_talents', 'event_id', 'user_id')
+            ->withTimestamps();
+    }
+
+    public function invitedOrganisers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'event_invited_organisers', 'event_id', 'user_id')
+            ->withTimestamps();
+    }
+
+    public function invitedVenues(): BelongsToMany
+    {
+        return $this->belongsToMany(Venue::class, 'event_invited_venues', 'event_id', 'venue_id')
+            ->withTimestamps();
     }
 
     // ──────────────────────────────────────

@@ -9,32 +9,23 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 
-/**
- * UpdateEventRequest - Validation for updating V2 events.
- *
- * Similar to StoreEventRequest but with 'sometimes' rules
- * to allow partial updates.
- */
 class UpdateEventRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     */
     public function rules(): array
     {
-        return [
+        $event = EventV2::find($this->route('id'));
+        $eventType = $this->input('event_type', $event?->event_type ?? 'free');
+        $isPremium = $eventType === 'premium';
+
+        $rules = [
             'title' => 'sometimes|required|string|min:3|max:255',
+            'event_type' => ['sometimes', 'required', 'string', Rule::in(['free', 'premium'])],
             'category_id' => 'sometimes|required|integer|exists:categories,id',
-            'subcategory_ids' => 'sometimes|nullable|array|max:' . EventV2::FREE_MAX_SUBCATEGORIES,
-            'subcategory_ids.*' => 'integer|exists:subcategories,id',
             'event_date' => 'sometimes|required|date|after:today|before_or_equal:' . now()->addDays(EventV2::FREE_MAX_ADVANCE_DAYS)->format('Y-m-d'),
             'start_time' => 'sometimes|required|date_format:H:i',
             'end_time' => 'sometimes|required|date_format:H:i',
@@ -46,23 +37,56 @@ class UpdateEventRequest extends FormRequest
             'entrance_status' => ['sometimes', 'required', 'string', Rule::in(EventV2::ENTRANCE_STATUSES)],
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'venue_id' => 'nullable|integer|exists:venues,id',
-            'organiser_ids' => 'sometimes|nullable|array',
-            'organiser_ids.*' => 'integer|exists:users,id',
-            'talent_ids' => 'sometimes|nullable|array',
-            'talent_ids.*' => 'integer|exists:talents,id',
         ];
+
+        if ($isPremium) {
+            $rules['subcategory_ids'] = ['sometimes', 'required', 'array', 'min:' . EventV2::PREMIUM_MIN_SUBCATEGORIES];
+            $rules['subcategory_ids.*'] = 'integer|exists:subcategories,id';
+
+            $rules['entrance_fee'] = 'sometimes|nullable|numeric|min:0';
+            $rules['contact_phone'] = 'sometimes|nullable|string|max:50';
+            $rules['contact_email'] = 'sometimes|nullable|email';
+            $rules['contact_website'] = 'sometimes|nullable|url|max:500';
+            $rules['description'] = 'sometimes|nullable|string|max:10000';
+            $rules['contact_box_message'] = 'sometimes|nullable|string|max:1000';
+            $rules['venue_details'] = 'sometimes|nullable|string|max:2000';
+            $rules['facebook_url'] = 'sometimes|nullable|url|max:500';
+            $rules['instagram_url'] = 'sometimes|nullable|url|max:500';
+            $rules['tiktok_url'] = 'sometimes|nullable|url|max:500';
+            $rules['ticket_url'] = 'sometimes|nullable|url|max:500';
+            $rules['booking_instructions'] = 'sometimes|nullable|string|max:2000';
+            $rules['event_option'] = 'sometimes|nullable|string|max:255';
+            $rules['condition_entrance_fee'] = 'sometimes|nullable';
+            $rules['condition_dress_code'] = 'sometimes|nullable|string|max:255';
+            $rules['condition_age_limit'] = 'sometimes|nullable|string|max:100';
+            $rules['additional_images'] = 'sometimes|nullable|array|max:10';
+            $rules['additional_images.*'] = 'image|mimes:jpg,jpeg,png,webp|max:2048';
+            $rules['invited_talents'] = 'sometimes|nullable|array|max:20';
+            $rules['invited_talents.*'] = 'integer';
+            $rules['invited_organisers'] = 'sometimes|nullable|array|max:20';
+            $rules['invited_organisers.*'] = 'integer';
+            $rules['invited_venues'] = 'sometimes|nullable|array|max:20';
+            $rules['invited_venues.*'] = 'integer';
+
+            $rules['organiser_ids'] = 'sometimes|nullable|array';
+            $rules['organiser_ids.*'] = 'integer|exists:users,id';
+            $rules['talent_ids'] = 'sometimes|nullable|array';
+            $rules['talent_ids.*'] = 'integer|exists:talents,id';
+        } else {
+            $rules['subcategory_ids'] = ['sometimes', 'nullable', 'array', 'max:' . EventV2::FREE_MAX_SUBCATEGORIES];
+            $rules['subcategory_ids.*'] = 'integer|exists:subcategories,id';
+
+            $rules['organiser_ids'] = 'sometimes|nullable|array|max:0';
+            $rules['talent_ids'] = 'sometimes|nullable|array|max:0';
+        }
+
+        return $rules;
     }
 
-    /**
-     * Configure the validator instance.
-     */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            // Get event from route for fallback values
             $event = EventV2::find($this->route('id'));
-
-            // Validate subcategories belong to the selected category
             $categoryId = $this->input('category_id', $event?->category_id);
 
             if ($this->filled('subcategory_ids') && $categoryId) {
@@ -75,7 +99,6 @@ class UpdateEventRequest extends FormRequest
                 }
             }
 
-            // Validate event duration (max 24h, supports overnight events)
             $eventDate = $this->input('event_date') ?? $event?->event_date?->format('Y-m-d');
             $startTime = $this->input('start_time') ?? $event?->start_time;
             $endTime = $this->input('end_time') ?? $event?->end_time;
@@ -84,7 +107,6 @@ class UpdateEventRequest extends FormRequest
                 $start = \Carbon\Carbon::parse("{$eventDate} {$startTime}");
                 $end = \Carbon\Carbon::parse("{$eventDate} {$endTime}");
 
-                // If end is before or equal to start, it's an overnight event
                 if ($end->lte($start)) {
                     $end->addDay();
                 }
@@ -97,22 +119,21 @@ class UpdateEventRequest extends FormRequest
         });
     }
 
-    /**
-     * Get custom messages for validator errors.
-     */
     public function messages(): array
     {
-        return [
+        $eventType = $this->input('event_type', 'premium');
+        $isPremium = $eventType === 'premium';
+
+        $messages = [
             'title.min' => 'Event title must be at least 3 characters',
             'title.max' => 'Event title cannot exceed 255 characters',
             'category_id.exists' => 'Selected category does not exist',
             'event_date.after' => 'Event date must be in the future',
-            'event_date.before_or_equal' => 'Free package events can be scheduled up to 1 year in advance',
+            'event_date.before_or_equal' => 'Events can be scheduled up to 1 year in advance',
             'start_time.date_format' => 'Start time must be in HH:MM format',
             'end_time.date_format' => 'End time must be in HH:MM format',
             'latitude.between' => 'Latitude must be between -90 and 90',
             'longitude.between' => 'Longitude must be between -180 and 180',
-            'subcategory_ids.max' => 'Free package allows a maximum of ' . EventV2::FREE_MAX_SUBCATEGORIES . ' subcategories',
             'image.image' => 'File must be an image',
             'image.max' => 'Image must not exceed 2MB',
             'image.mimes' => 'Image must be jpg, jpeg, png, or webp format',
@@ -120,14 +141,16 @@ class UpdateEventRequest extends FormRequest
             'age_limit.in' => 'Invalid age limit. Valid options: ' . implode(', ', EventV2::AGE_LIMITS),
             'entrance_status.in' => 'Invalid entrance status. Valid options: ' . implode(', ', EventV2::ENTRANCE_STATUSES),
         ];
+
+        if ($isPremium) {
+            $messages['subcategory_ids.min'] = 'Premium events require at least 1 subcategory';
+        } else {
+            $messages['subcategory_ids.max'] = 'Free events allow a maximum of ' . EventV2::FREE_MAX_SUBCATEGORIES . ' subcategor' . (EventV2::FREE_MAX_SUBCATEGORIES === 1 ? 'y' : 'ies');
+        }
+
+        return $messages;
     }
 
-    /**
-     * Handle a failed validation attempt.
-     * Returns standardized JSON error response.
-     *
-     * @throws HttpResponseException
-     */
     protected function failedValidation(Validator $validator): void
     {
         throw new HttpResponseException(response()->json([

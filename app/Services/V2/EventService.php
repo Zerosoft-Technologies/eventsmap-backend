@@ -33,10 +33,13 @@ class EventService
     public function create(array $data, User $user): EventV2
     {
         return DB::transaction(function () use ($data, $user) {
-            // Prepare base event data with only fillable fields
+            $eventType = $data['event_type'] ?? 'free';
+            $isFreePackage = $eventType === 'free';
+
             $eventData = [
                 'user_id' => $user->id,
                 'title' => $data['title'],
+                'event_type' => $eventType,
                 'category_id' => $data['category_id'],
                 'event_date' => $data['event_date'],
                 'start_time' => $data['start_time'],
@@ -49,45 +52,75 @@ class EventService
                 'entrance_status' => $data['entrance_status'],
                 'slug' => $this->generateUniqueSlug($data['title']),
                 'status' => $this->resolveStatus($data['event_date'], $data['start_time'], $data['end_time']),
-                'is_free_package' => true,
+                'is_free_package' => $isFreePackage,
             ];
 
-            // Add optional fields only if they exist in the database
-            if (isset($data['venue_id'])) {
-                $eventData['venue_id'] = $data['venue_id'];
+            $optionalFields = [
+                'venue_id', 'entrance_fee', 'contact_phone', 'contact_email', 'contact_website',
+                'description', 'contact_box_message', 'venue_details', 'facebook_url', 'instagram_url',
+                'tiktok_url', 'ticket_url', 'booking_instructions', 'event_option',
+                'condition_entrance_fee', 'condition_dress_code', 'condition_age_limit',
+            ];
+
+            foreach ($optionalFields as $field) {
+                if (array_key_exists($field, $data)) {
+                    $eventData[$field] = $data[$field];
+                }
             }
 
-            // Add admin moderation fields only if columns exist
-            if (\Schema::hasColumn('events_v2', 'is_approved')) {
+            if (Schema::hasColumn('events_v2', 'is_approved')) {
                 $eventData['is_approved'] = false;
             }
 
-            // Handle image upload with secure hashed filename
             if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
                 $eventData['image_path'] = $this->storeImage($data['image']);
             }
 
-            // Extract pivot data before creating
-            $subcategoryIds = $data['subcategory_ids'] ?? [];
-            $organiserIds = $data['organiser_ids'] ?? [];
-            $talentIds = $data['talent_ids'] ?? [];
+            if (!empty($data['additional_images']) && is_array($data['additional_images'])) {
+                $paths = [];
+                foreach ($data['additional_images'] as $file) {
+                    if ($file instanceof UploadedFile) {
+                        $paths[] = $this->storeImage($file);
+                    }
+                }
+                $eventData['additional_images'] = $paths;
+            }
+
+            $subcategoryIds = $data['subcategory_ids'] ?? null;
+            $invitedTalentIds = $data['invited_talents'] ?? null;
+            $invitedOrganiserIds = $data['invited_organisers'] ?? null;
+            $invitedVenueIds = $data['invited_venues'] ?? null;
+
+            if ($subcategoryIds !== null) {
+                $eventData['subcategory_ids'] = $subcategoryIds;
+            }
+            if ($invitedTalentIds !== null && !$isFreePackage) {
+                $eventData['invited_talents'] = $invitedTalentIds;
+            }
+            if ($invitedOrganiserIds !== null && !$isFreePackage) {
+                $eventData['invited_organisers'] = $invitedOrganiserIds;
+            }
+            if ($invitedVenueIds !== null && !$isFreePackage) {
+                $eventData['invited_venues'] = $invitedVenueIds;
+            }
 
             $event = EventV2::create($eventData);
 
-            // Sync pivot relationships
             if (!empty($subcategoryIds)) {
                 $event->subcategories()->sync($subcategoryIds);
             }
-            if (!empty($organiserIds)) {
-                $event->organisers()->sync($organiserIds);
+            if (!$isFreePackage && !empty($data['organiser_ids'] ?? [])) {
+                $event->organisers()->sync($data['organiser_ids']);
             }
-            if (!empty($talentIds)) {
-                $event->talents()->sync($this->formatTalentSync($talentIds));
+            if (!$isFreePackage && !empty($data['talent_ids'] ?? [])) {
+                $event->talents()->sync($this->formatTalentSync($data['talent_ids']));
             }
 
             Log::info('Event created', ['event_id' => $event->id, 'user_id' => $user->id]);
 
-            return $event->load(['category', 'subcategories', 'venue', 'organisers', 'talents', 'user']);
+            return $event->load([
+                'category', 'subcategories', 'venue', 'organisers', 'talents', 'user',
+            ]);
         });
     }
 
@@ -116,23 +149,28 @@ class EventService
     public function update(EventV2 $event, array $data): EventV2
     {
         return DB::transaction(function () use ($event, $data) {
-            // Prepare update data with only valid fields
-            $updateData = [];
-
-            // Update basic fields only if provided
             $allowedFields = [
-                'title', 'category_id', 'event_date', 'start_time', 'end_time',
+                'title', 'event_type', 'category_id', 'subcategory_ids', 'event_date', 'start_time', 'end_time',
                 'address', 'latitude', 'longitude', 'dress_code', 'age_limit',
-                'entrance_status', 'venue_id', 'image_path'
+                'entrance_status', 'entrance_fee', 'venue_id', 'image_path',
+                'contact_phone', 'contact_email', 'contact_website', 'description',
+                'contact_box_message', 'venue_details', 'facebook_url', 'instagram_url',
+                'tiktok_url', 'ticket_url', 'booking_instructions', 'event_option',
+                'condition_entrance_fee', 'condition_dress_code', 'condition_age_limit',
+                'invited_talents', 'invited_organisers', 'invited_venues',
             ];
 
+            $updateData = [];
             foreach ($allowedFields as $field) {
-                if (isset($data[$field])) {
+                if (array_key_exists($field, $data)) {
                     $updateData[$field] = $data[$field];
                 }
             }
 
-            // Recalculate status if date/time changed (only if not admin-controlled)
+            if (array_key_exists('event_type', $data)) {
+                $updateData['is_free_package'] = $data['event_type'] === 'free';
+            }
+
             if (!in_array($event->status, [EventV2::STATUS_SUSPENDED, EventV2::STATUS_CANCELLED])) {
                 $eventDate = $data['event_date'] ?? $event->event_date->format('Y-m-d');
                 $startTime = $data['start_time'] ?? $event->start_time;
@@ -140,22 +178,48 @@ class EventService
                 $updateData['status'] = $this->resolveStatus($eventDate, $startTime, $endTime);
             }
 
-            // Handle image upload with secure hashed filename
             if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
-                // Delete old image
                 $this->deleteImage($event->image_path);
                 $updateData['image_path'] = $this->storeImage($data['image']);
             }
 
-            // Extract pivot data
+            if (array_key_exists('additional_images', $data)) {
+                if (is_array($data['additional_images']) && !empty($data['additional_images'])) {
+                    $paths = [];
+                    foreach ($data['additional_images'] as $file) {
+                        if ($file instanceof UploadedFile) {
+                            $paths[] = $this->storeImage($file);
+                        }
+                    }
+                    $existing = is_array($event->additional_images) ? $event->additional_images : [];
+                    $updateData['additional_images'] = array_merge($existing, $paths);
+                } else {
+                    $updateData['additional_images'] = [];
+                }
+            }
+
+            if (array_key_exists('subcategory_ids', $data)) {
+                $updateData['subcategory_ids'] = $data['subcategory_ids'];
+            }
+            if (array_key_exists('invited_talents', $data)) {
+                $updateData['invited_talents'] = $data['invited_talents'];
+            }
+            if (array_key_exists('invited_organisers', $data)) {
+                $updateData['invited_organisers'] = $data['invited_organisers'];
+            }
+            if (array_key_exists('invited_venues', $data)) {
+                $updateData['invited_venues'] = $data['invited_venues'];
+            }
+
+            $event->update($updateData);
+
             $subcategoryIds = $data['subcategory_ids'] ?? null;
             $organiserIds = $data['organiser_ids'] ?? null;
             $talentIds = $data['talent_ids'] ?? null;
+            $invitedTalentIds = $data['invited_talents'] ?? null;
+            $invitedOrganiserIds = $data['invited_organisers'] ?? null;
+            $invitedVenueIds = $data['invited_venues'] ?? null;
 
-            // Update the event with safe data
-            $event->update($updateData);
-
-            // Sync pivot relationships only if provided
             if ($subcategoryIds !== null) {
                 $event->subcategories()->sync($subcategoryIds);
             }
@@ -165,10 +229,11 @@ class EventService
             if ($talentIds !== null) {
                 $event->talents()->sync($this->formatTalentSync($talentIds));
             }
-
             Log::info('Event updated', ['event_id' => $event->id]);
 
-            return $event->load(['category', 'subcategories', 'venue', 'organisers', 'talents', 'user']);
+            return $event->load([
+                'category', 'subcategories', 'venue', 'organisers', 'talents', 'user',
+            ]);
         });
     }
 
@@ -197,10 +262,12 @@ class EventService
             // Delete image from storage
             $this->deleteImage($event->image_path);
 
-            // Detach all relationships
             $event->subcategories()->detach();
             $event->organisers()->detach();
             $event->talents()->detach();
+            $event->invitedTalents()->detach();
+            $event->invitedOrganisers()->detach();
+            $event->invitedVenues()->detach();
 
             $event->forceDelete();
             Log::info('Event permanently deleted', ['event_id' => $event->id]);

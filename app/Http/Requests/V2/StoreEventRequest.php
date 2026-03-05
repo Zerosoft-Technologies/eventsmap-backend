@@ -9,36 +9,21 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 
-/**
- * StoreEventRequest - Validation for creating V2 events.
- *
- * Validates all required fields for event creation including:
- * - Basic event info (title, category, dates)
- * - Location data (address, coordinates)
- * - Event settings (dress code, age limit, entrance status)
- * - Relationships (subcategories, organisers, talents)
- * - Image upload with security validation
- */
 class StoreEventRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     */
     public function rules(): array
     {
-        return [
+        $isPremium = $this->input('event_type') === 'premium';
+
+        $rules = [
             'title' => 'required|string|min:3|max:255',
+            'event_type' => ['required', 'string', Rule::in(['free', 'premium'])],
             'category_id' => 'required|integer|exists:categories,id',
-            'subcategory_ids' => 'nullable|array|max:' . EventV2::FREE_MAX_SUBCATEGORIES,
-            'subcategory_ids.*' => 'integer|exists:subcategories,id',
             'event_date' => 'required|date|after:today|before_or_equal:' . now()->addDays(EventV2::FREE_MAX_ADVANCE_DAYS)->format('Y-m-d'),
             'start_time' => 'required|date_format:H:i',
             'end_time' => 'required|date_format:H:i',
@@ -50,20 +35,55 @@ class StoreEventRequest extends FormRequest
             'entrance_status' => ['required', 'string', Rule::in(EventV2::ENTRANCE_STATUSES)],
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'venue_id' => 'nullable|integer|exists:venues,id',
-            'organiser_ids' => 'nullable|array',
-            'organiser_ids.*' => 'integer|exists:users,id',
-            'talent_ids' => 'nullable|array',
-            'talent_ids.*' => 'integer|exists:talents,id',
         ];
+
+        if ($isPremium) {
+            $rules['subcategory_ids'] = ['required', 'array', 'min:' . EventV2::PREMIUM_MIN_SUBCATEGORIES];
+            $rules['subcategory_ids.*'] = 'integer|exists:subcategories,id';
+
+            $rules['entrance_fee'] = 'nullable|numeric|min:0';
+            $rules['contact_phone'] = 'nullable|string|max:50';
+            $rules['contact_email'] = 'nullable|email';
+            $rules['contact_website'] = 'nullable|url|max:500';
+            $rules['description'] = 'nullable|string|max:10000';
+            $rules['contact_box_message'] = 'nullable|string|max:1000';
+            $rules['venue_details'] = 'nullable|string|max:2000';
+            $rules['facebook_url'] = 'nullable|url|max:500';
+            $rules['instagram_url'] = 'nullable|url|max:500';
+            $rules['tiktok_url'] = 'nullable|url|max:500';
+            $rules['ticket_url'] = 'nullable|url|max:500';
+            $rules['booking_instructions'] = 'nullable|string|max:2000';
+            $rules['event_option'] = 'nullable|string|max:255';
+            $rules['condition_entrance_fee'] = 'nullable';
+            $rules['condition_dress_code'] = 'nullable|string|max:255';
+            $rules['condition_age_limit'] = 'nullable|string|max:100';
+            $rules['additional_images'] = 'nullable|array|max:10';
+            $rules['additional_images.*'] = 'image|mimes:jpg,jpeg,png,webp|max:2048';
+            $rules['invited_talents'] = 'nullable|array|max:20';
+            $rules['invited_talents.*'] = 'integer';
+            $rules['invited_organisers'] = 'nullable|array|max:20';
+            $rules['invited_organisers.*'] = 'integer';
+            $rules['invited_venues'] = 'nullable|array|max:20';
+            $rules['invited_venues.*'] = 'integer';
+
+            $rules['organiser_ids'] = 'nullable|array';
+            $rules['organiser_ids.*'] = 'integer|exists:users,id';
+            $rules['talent_ids'] = 'nullable|array';
+            $rules['talent_ids.*'] = 'integer|exists:talents,id';
+        } else {
+            $rules['subcategory_ids'] = ['nullable', 'array', 'max:' . EventV2::FREE_MAX_SUBCATEGORIES];
+            $rules['subcategory_ids.*'] = 'integer|exists:subcategories,id';
+
+            $rules['organiser_ids'] = 'nullable|array|max:0';
+            $rules['talent_ids'] = 'nullable|array|max:0';
+        }
+
+        return $rules;
     }
 
-    /**
-     * Configure the validator instance.
-     */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            // Validate subcategories belong to the selected category
             if ($this->filled('subcategory_ids') && $this->filled('category_id')) {
                 $validCount = SubCategory::where('category_id', $this->input('category_id'))
                     ->whereIn('id', $this->input('subcategory_ids'))
@@ -74,12 +94,10 @@ class StoreEventRequest extends FormRequest
                 }
             }
 
-            // Validate event duration (max 24h, supports overnight events)
             if ($this->filled('start_time') && $this->filled('end_time') && $this->filled('event_date')) {
                 $start = \Carbon\Carbon::parse($this->input('event_date') . ' ' . $this->input('start_time'));
                 $end = \Carbon\Carbon::parse($this->input('event_date') . ' ' . $this->input('end_time'));
 
-                // If end is before or equal to start, it's an overnight event (spans to next day)
                 if ($end->lte($start)) {
                     $end->addDay();
                 }
@@ -90,27 +108,27 @@ class StoreEventRequest extends FormRequest
                 }
             }
 
-            // Validate latitude and longitude are provided together
             if ($this->filled('latitude') xor $this->filled('longitude')) {
                 $validator->errors()->add('latitude', 'Latitude and longitude must be provided together');
             }
         });
     }
 
-    /**
-     * Get custom messages for validator errors.
-     */
     public function messages(): array
     {
-        return [
+        $isPremium = $this->input('event_type') === 'premium';
+
+        $messages = [
             'title.required' => 'Event title is required',
             'title.min' => 'Event title must be at least 3 characters',
             'title.max' => 'Event title cannot exceed 255 characters',
+            'event_type.required' => 'Event type is required',
+            'event_type.in' => 'Event type must be free or premium',
             'category_id.required' => 'Category is required',
             'category_id.exists' => 'Selected category does not exist',
             'event_date.required' => 'Event date is required',
             'event_date.after' => 'Event date must be in the future',
-            'event_date.before_or_equal' => 'Free package events can be scheduled up to 1 year in advance',
+            'event_date.before_or_equal' => 'Events can be scheduled up to 1 year in advance',
             'start_time.required' => 'Start time is required',
             'start_time.date_format' => 'Start time must be in HH:MM format',
             'end_time.required' => 'End time is required',
@@ -120,7 +138,6 @@ class StoreEventRequest extends FormRequest
             'latitude.between' => 'Latitude must be between -90 and 90',
             'longitude.required' => 'Longitude is required',
             'longitude.between' => 'Longitude must be between -180 and 180',
-            'subcategory_ids.max' => 'Free package allows a maximum of ' . EventV2::FREE_MAX_SUBCATEGORIES . ' subcategories',
             'image.image' => 'File must be an image',
             'image.max' => 'Image must not exceed 2MB',
             'image.mimes' => 'Image must be jpg, jpeg, png, or webp format',
@@ -128,14 +145,17 @@ class StoreEventRequest extends FormRequest
             'age_limit.in' => 'Invalid age limit. Valid options: ' . implode(', ', EventV2::AGE_LIMITS),
             'entrance_status.in' => 'Invalid entrance status. Valid options: ' . implode(', ', EventV2::ENTRANCE_STATUSES),
         ];
+
+        if ($isPremium) {
+            $messages['subcategory_ids.required'] = 'Premium events require at least 1 subcategory';
+            $messages['subcategory_ids.min'] = 'Premium events require at least 1 subcategory';
+        } else {
+            $messages['subcategory_ids.max'] = 'Free events allow a maximum of ' . EventV2::FREE_MAX_SUBCATEGORIES . ' subcategor' . (EventV2::FREE_MAX_SUBCATEGORIES === 1 ? 'y' : 'ies');
+        }
+
+        return $messages;
     }
 
-    /**
-     * Handle a failed validation attempt.
-     * Returns standardized JSON error response.
-     *
-     * @throws HttpResponseException
-     */
     protected function failedValidation(Validator $validator): void
     {
         throw new HttpResponseException(response()->json([

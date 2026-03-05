@@ -38,7 +38,11 @@ class EventResource extends JsonResource
                 ];
             }),
 
-            // Subcategories
+            'subcategory_ids' => $this->subcategory_ids ?? [],
+            'invited_talents' => $this->invited_talents ?? [],
+            'invited_organisers' => $this->invited_organisers ?? [],
+            'invited_venues' => $this->invited_venues ?? [],
+
             'subcategories' => $this->whenLoaded('subcategories', function () {
                 return $this->subcategories->map(fn ($sc) => [
                     'id' => $sc->id,
