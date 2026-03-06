@@ -13,11 +13,40 @@ class FirebaseService
 
     public function __construct()
     {
-        $this->serviceAccountPath = config('services.firebase.credentials');
+        $credentialsPath = config('services.firebase.credentials');
+
+        $this->serviceAccountPath = $this->resolveCredentialsPath($credentialsPath);
 
         if ($this->serviceAccountPath && file_exists($this->serviceAccountPath)) {
             $this->serviceAccount = json_decode(file_get_contents($this->serviceAccountPath), true);
         }
+    }
+
+    /**
+     * Resolve credentials path: support absolute paths or paths relative to project root.
+     */
+    private function resolveCredentialsPath(?string $path): ?string
+    {
+        if (empty($path)) {
+            return null;
+        }
+
+        $path = trim($path);
+
+        if (empty($path)) {
+            return null;
+        }
+
+        if (file_exists($path)) {
+            return realpath($path);
+        }
+
+        $absoluteFromBase = base_path($path);
+        if (file_exists($absoluteFromBase)) {
+            return realpath($absoluteFromBase);
+        }
+
+        return $path;
     }
 
     /**
