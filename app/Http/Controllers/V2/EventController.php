@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\V2;
 
+use App\Helpers\MediaHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V2\StoreEventRequest;
 use App\Http\Requests\V2\UpdateEventRequest;
@@ -139,15 +140,12 @@ class EventController extends Controller
     /**
      * GET /api/v2/events/{id}
      *
-     * Show a single event for editing.
-     * Only the event owner or an admin can access.
+     * Full event details for edit form. Owner or admin only.
      */
     public function show(Request $request, int $id): JsonResponse
     {
-        $event = EventV2::with(['category', 'subcategories', 'venue', 'organisers', 'talents', 'user'])
-            ->findOrFail($id);
+        $event = EventV2::with('subcategories')->findOrFail($id);
 
-        // Enforce ownership: only owner or admin can view for editing
         $user = $request->user();
         if (!$event->isOwner($user) && !$user->isAdmin()) {
             return response()->json([
@@ -156,10 +154,26 @@ class EventController extends Controller
             ], 403);
         }
 
+        $subcategoryIds = $event->subcategory_ids ?? $event->subcategories->pluck('id')->all();
+
+        $data = [
+            'id' => $event->id,
+            'title' => $event->title,
+            'event_type' => $event->event_type ?? 'free',
+            'category_id' => $event->category_id,
+            'subcategory_ids' => $subcategoryIds,
+            'event_date' => $event->event_date?->format('Y-m-d'),
+            'start_time' => $event->start_time,
+            'end_time' => $event->end_time,
+            'address' => $event->address,
+            'description' => $event->description ?? null,
+            'image_url' => $event->image_path ? MediaHelper::url($event->image_path) : null,
+        ];
+
         return response()->json([
             'success' => true,
             'message' => 'Event fetched successfully',
-            'data' => new EventResource($event),
+            'data' => $data,
         ]);
     }
 
@@ -172,14 +186,37 @@ class EventController extends Controller
     {
         $event = EventV2::findOrFail($id);
 
-        $this->authorize('update', $event);
+        $user = $request->user();
+        if (!$user || $event->user_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
 
         $event = $this->eventService->update($event, $request->validated());
+
+        $event->refresh();
+        $subcategoryIds = is_array($event->subcategory_ids) ? $event->subcategory_ids : $event->subcategories()->pluck('id')->toArray();
+
+        $data = [
+            'id' => $event->id,
+            'title' => $event->title,
+            'event_type' => $event->event_type ?? 'free',
+            'category_id' => $event->category_id,
+            'subcategory_ids' => $subcategoryIds,
+            'event_date' => $event->event_date?->format('Y-m-d'),
+            'start_time' => $event->start_time,
+            'end_time' => $event->end_time,
+            'address' => $event->address,
+            'description' => $event->description ?? null,
+            'image_url' => $event->image_path ? MediaHelper::url($event->image_path) : null,
+        ];
 
         return response()->json([
             'success' => true,
             'message' => 'Event updated successfully',
-            'data' => new EventResource($event),
+            'data' => $data,
         ]);
     }
 

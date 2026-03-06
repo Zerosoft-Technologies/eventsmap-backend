@@ -23,13 +23,13 @@ class UpdateEventRequest extends FormRequest
         $isPremium = $eventType === 'premium';
 
         $rules = [
-            'title' => 'sometimes|required|string|min:3|max:255',
-            'event_type' => ['sometimes', 'required', 'string', Rule::in(['free', 'premium'])],
-            'category_id' => 'sometimes|required|integer|exists:categories,id',
-            'event_date' => 'sometimes|required|date|after:today|before_or_equal:' . now()->addDays(EventV2::FREE_MAX_ADVANCE_DAYS)->format('Y-m-d'),
-            'start_time' => 'sometimes|required|date_format:H:i',
-            'end_time' => 'sometimes|required|date_format:H:i',
-            'address' => 'sometimes|required|string|max:500',
+            'title' => 'required|string|min:3|max:255',
+            'event_type' => ['required', 'string', Rule::in(['free', 'premium'])],
+            'category_id' => 'required|integer|exists:categories,id',
+            'event_date' => 'required|date|after:today|before_or_equal:' . now()->addDays(EventV2::FREE_MAX_ADVANCE_DAYS)->format('Y-m-d'),
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i',
+            'address' => 'required|string|max:500',
             'latitude' => 'sometimes|required|numeric|between:-90,90',
             'longitude' => 'sometimes|required|numeric|between:-180,180',
             'dress_code' => ['sometimes', 'required', 'string', Rule::in(EventV2::DRESS_CODES)],
@@ -40,7 +40,7 @@ class UpdateEventRequest extends FormRequest
         ];
 
         if ($isPremium) {
-            $rules['subcategory_ids'] = ['sometimes', 'required', 'array', 'min:' . EventV2::PREMIUM_MIN_SUBCATEGORIES];
+            $rules['subcategory_ids'] = ['required', 'array', 'min:' . EventV2::PREMIUM_MIN_SUBCATEGORIES];
             $rules['subcategory_ids.*'] = 'integer|exists:subcategories,id';
 
             $rules['entrance_fee'] = 'sometimes|nullable|numeric|min:0';
@@ -73,7 +73,7 @@ class UpdateEventRequest extends FormRequest
             $rules['talent_ids'] = 'sometimes|nullable|array';
             $rules['talent_ids.*'] = 'integer|exists:talents,id';
         } else {
-            $rules['subcategory_ids'] = ['sometimes', 'nullable', 'array', 'max:' . EventV2::FREE_MAX_SUBCATEGORIES];
+            $rules['subcategory_ids'] = ['required', 'array', 'max:' . EventV2::FREE_MAX_SUBCATEGORIES];
             $rules['subcategory_ids.*'] = 'integer|exists:subcategories,id';
 
             $rules['organiser_ids'] = 'sometimes|nullable|array|max:0';
