@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\StripeClient;
@@ -50,7 +51,33 @@ class StripeController extends Controller
                 ], 404);
             }
 
+            $stripeSubscriptionId = null;
+            if ($session->subscription) {
+                $stripeSubscriptionId = is_string($session->subscription) ? $session->subscription : $session->subscription->id;
+            } elseif ($session->payment_intent) {
+                $stripeSubscriptionId = is_string($session->payment_intent) ? $session->payment_intent : $session->payment_intent->id;
+            }
+
             if ($user->status === User::STATUS_ACTIVE) {
+                // Already verified: still sync stripe_subscription_id / stripe_session_id / account_type if missing (backfill)
+                $updateData = [];
+                if (empty($user->stripe_subscription_id) && $stripeSubscriptionId) {
+                    $updateData['stripe_subscription_id'] = $stripeSubscriptionId;
+                }
+                if (empty($user->stripe_session_id) && $session->id) {
+                    $updateData['stripe_session_id'] = $session->id;
+                }
+                if ($user->account_type === User::ACCOUNT_FREE) {
+                    $updateData['account_type'] = User::ACCOUNT_PREMIUM;
+                    $updateData['premium_started_at'] = $user->premium_started_at ?? now();
+                } elseif ($user->account_type === User::ACCOUNT_PREMIUM && !$user->premium_started_at) {
+                    $updateData['premium_started_at'] = now();
+                }
+                if (!empty($updateData)) {
+                    $user->update($updateData);
+                    $user->refresh();
+                }
+
                 $token = $user->createToken('auth_token')->plainTextToken;
 
                 return response()->json([
@@ -63,17 +90,22 @@ class StripeController extends Controller
                 ]);
             }
 
-            $stripeSubscriptionId = $session->subscription
-                ? (is_string($session->subscription) ? $session->subscription : $session->subscription->id)
-                : (is_string($session->payment_intent) ? $session->payment_intent : $session->payment_intent->id);
-
-            $user->update([
+            $updateData = [
                 'status' => User::STATUS_ACTIVE,
                 'stripe_customer_id' => $session->customer,
                 'stripe_subscription_id' => $stripeSubscriptionId,
+                'stripe_session_id' => $session->id,
                 'email_verified_at' => $user->email_verified_at ?? now(),
-            ]);
+            ];
+            if ($user->account_type === User::ACCOUNT_FREE) {
+                $updateData['account_type'] = User::ACCOUNT_PREMIUM;
+                $updateData['premium_started_at'] = now();
+            } elseif ($user->account_type === User::ACCOUNT_PREMIUM && !$user->premium_started_at) {
+                $updateData['premium_started_at'] = now();
+            }
+            $user->update($updateData);
 
+            $user->refresh();
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([
