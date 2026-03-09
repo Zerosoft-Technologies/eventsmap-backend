@@ -10,119 +10,123 @@ use App\Models\Venue;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use function fake;
 
 class EventV2Seeder extends Seeder
 {
     public function run(): void
     {
         DB::transaction(function () {
-            $categories = Category::pluck('id')->toArray();
-            if (empty($categories)) {
-                $cat = Category::firstOrCreate(['slug' => 'music'], ['name' => 'Music']);
-                $categories = [$cat->id];
-            }
 
+            $categories = Category::pluck('id')->toArray();
             $users = User::pluck('id')->toArray();
-            if (empty($users)) {
+            $venues = Venue::pluck('id')->toArray();
+
+            if (empty($categories) || empty($users)) {
                 return;
             }
 
-            $venues = Venue::pluck('id')->toArray();
             $talentUsers = User::where('profile_type', 'talent')->pluck('id')->toArray();
             $organiserUsers = User::whereIn('profile_type', ['organiser', 'organizer'])->pluck('id')->toArray();
 
             for ($i = 1; $i <= 5; $i++) {
-                $this->createPremiumEvent($users, $categories, $venues, $talentUsers, $organiserUsers);
+                $this->createPremiumEvent($users, $categories, $venues, $talentUsers, $organiserUsers, $i);
             }
 
             for ($i = 1; $i <= 3; $i++) {
-                $this->createFreeEvent($users, $categories);
+                $this->createFreeEvent($users, $categories, $i);
             }
         });
     }
 
-    private function createPremiumEvent(array $users, array $categories, array $venues, array $talentUsers, array $organiserUsers): void
+    private function createPremiumEvent($users, $categories, $venues, $talentUsers, $organiserUsers, $index)
     {
         $userId = $users[array_rand($users)];
         $categoryId = $categories[array_rand($categories)];
-        $slug = Str::slug(fake()->sentence(3)) . '-' . Str::random(8);
 
         $event = EventV2::create([
             'user_id' => $userId,
-            'title' => fake()->sentence(4),
-            'slug' => $slug,
+            'title' => "Premium Event $index",
+            'slug' => Str::slug("Premium Event $index") . '-' . Str::random(6),
             'event_type' => 'premium',
             'category_id' => $categoryId,
-            'event_date' => fake()->dateTimeBetween('+1 week', '+6 months'),
-            'start_time' => fake()->time('H:i:s'),
-            'end_time' => fake()->time('H:i:s'),
-            'address' => fake()->streetAddress() . ', ' . fake()->city(),
-            'latitude' => fake()->latitude(),
-            'longitude' => fake()->longitude(),
-            'dress_code' => fake()->randomElement(['casual', 'smart_casual', 'formal']),
-            'age_limit' => fake()->randomElement(['all_ages', '18+', '21+']),
+            'event_date' => now()->addDays(rand(5, 120)),
+            'start_time' => '18:00:00',
+            'end_time' => '22:00:00',
+            'address' => "Demo Street $index, City",
+            'latitude' => '9.9252',
+            'longitude' => '78.1198',
+            'dress_code' => 'casual',
+            'age_limit' => '18+',
             'entrance_status' => 'paid',
-            'entrance_fee' => fake()->randomFloat(2, 10, 150),
-            'contact_phone' => fake()->phoneNumber(),
-            'contact_email' => fake()->safeEmail(),
-            'contact_website' => fake()->url(),
-            'description' => fake()->paragraphs(3, true),
-            'venue_details' => fake()->paragraph(),
-            'facebook_url' => 'https://facebook.com/' . Str::random(10),
-            'instagram_url' => 'https://instagram.com/' . Str::random(10),
-            'ticket_url' => fake()->url(),
+            'entrance_fee' => rand(20, 150),
+            'contact_phone' => '9999999999',
+            'contact_email' => "event$index@test.com",
+            'contact_website' => 'https://example.com',
+            'description' => 'This is a sample premium event description.',
+            'venue_details' => 'Main hall with parking.',
+            'facebook_url' => 'https://facebook.com/demo',
+            'instagram_url' => 'https://instagram.com/demo',
+            'ticket_url' => 'https://tickets.example.com',
             'additional_images' => [
-                'events/demo/' . fake()->uuid() . '.jpg',
-                'events/demo/' . fake()->uuid() . '.jpg',
+                'events/demo/sample1.jpg',
+                'events/demo/sample2.jpg'
             ],
             'venue_id' => !empty($venues) ? $venues[array_rand($venues)] : null,
             'status' => EventV2::STATUS_UPCOMING,
             'is_free_package' => false,
-            'image_path' => 'events/demo/' . fake()->uuid() . '.jpg',
+            'image_path' => 'events/demo/main.jpg',
         ]);
 
-        $subcategories = SubCategory::where('category_id', $categoryId)->inRandomOrder()->take(3)->pluck('id');
+        $subcategories = SubCategory::where('category_id', $categoryId)
+            ->inRandomOrder()
+            ->take(3)
+            ->pluck('id');
+
         $event->subcategories()->attach($subcategories);
 
         if (!empty($talentUsers)) {
-            $event->invitedTalents()->attach(array_slice($talentUsers, 0, min(2, count($talentUsers))));
+            $event->invitedTalents()->attach(array_slice($talentUsers, 0, 2));
         }
+
         if (!empty($organiserUsers)) {
-            $event->invitedOrganisers()->attach(array_slice($organiserUsers, 0, min(2, count($organiserUsers))));
+            $event->invitedOrganisers()->attach(array_slice($organiserUsers, 0, 2));
         }
+
         if (!empty($venues)) {
-            $event->invitedVenues()->attach(array_slice($venues, 0, min(2, count($venues))));
+            $event->invitedVenues()->attach(array_slice($venues, 0, 2));
         }
     }
 
-    private function createFreeEvent(array $users, array $categories): void
+    private function createFreeEvent($users, $categories, $index)
     {
         $userId = $users[array_rand($users)];
         $categoryId = $categories[array_rand($categories)];
-        $slug = Str::slug(fake()->sentence(3)) . '-' . Str::random(8);
 
         $event = EventV2::create([
             'user_id' => $userId,
-            'title' => fake()->sentence(4),
-            'slug' => $slug,
+            'title' => "Free Event $index",
+            'slug' => Str::slug("Free Event $index") . '-' . Str::random(6),
             'event_type' => 'free',
             'category_id' => $categoryId,
-            'event_date' => fake()->dateTimeBetween('+1 week', '+3 months'),
-            'start_time' => fake()->time('H:i:s'),
-            'end_time' => fake()->time('H:i:s'),
-            'address' => fake()->streetAddress() . ', ' . fake()->city(),
-            'latitude' => fake()->latitude(),
-            'longitude' => fake()->longitude(),
+            'event_date' => now()->addDays(rand(3, 60)),
+            'start_time' => '10:00:00',
+            'end_time' => '14:00:00',
+            'address' => "Community Hall $index",
+            'latitude' => '9.9252',
+            'longitude' => '78.1198',
             'dress_code' => 'casual',
             'age_limit' => 'all_ages',
             'entrance_status' => 'free',
             'status' => EventV2::STATUS_UPCOMING,
             'is_free_package' => true,
-            'image_path' => 'events/demo/' . fake()->uuid() . '.jpg',
+            'image_path' => 'events/demo/free.jpg',
         ]);
 
-        $subcategories = SubCategory::where('category_id', $categoryId)->inRandomOrder()->take(2)->pluck('id');
+        $subcategories = SubCategory::where('category_id', $categoryId)
+            ->inRandomOrder()
+            ->take(2)
+            ->pluck('id');
+
         $event->subcategories()->attach($subcategories);
     }
 }
