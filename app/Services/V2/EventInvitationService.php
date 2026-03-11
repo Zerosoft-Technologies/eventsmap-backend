@@ -22,10 +22,18 @@ class EventInvitationService
         $created = [];
         $skipped = [];
 
-        DB::transaction(function () use ($event, $sender, &$created, &$skipped) {
-            $invitedTalents = $event->invited_talents ?? [];
-            $invitedOrganisers = $event->invited_organisers ?? [];
-            $invitedVenues = $event->invited_venues ?? [];
+        $invitedTalents = $event->invited_talents ?? [];
+        $invitedOrganisers = $event->invited_organisers ?? [];
+        $invitedVenues = $event->invited_venues ?? [];
+
+        Log::info('Creating invitations for event', [
+            'event_id' => $event->id,
+            'invited_talents' => $invitedTalents,
+            'invited_organisers' => $invitedOrganisers,
+            'invited_venues' => $invitedVenues,
+        ]);
+
+        DB::transaction(function () use ($event, $sender, &$created, &$skipped, $invitedTalents, $invitedOrganisers, $invitedVenues) {
 
             foreach ($invitedTalents as $userId) {
                 $result = $this->createInvitation($event, $sender, (int) $userId, EventInvitation::TYPE_TALENT);
@@ -92,6 +100,7 @@ class EventInvitationService
         }
 
         if ($receiver->id === $sender->id) {
+            Log::info('Invitation skipped: cannot invite yourself', ['receiver_id' => $receiverId]);
             return null;
         }
 
@@ -100,6 +109,11 @@ class EventInvitationService
             ->first();
 
         if ($existing) {
+            Log::info('Invitation skipped: already exists', [
+                'event_id' => $event->id,
+                'receiver_id' => $receiverId,
+                'existing_invitation_id' => $existing->id,
+            ]);
             return null;
         }
 
@@ -130,7 +144,8 @@ class EventInvitationService
     }
 
     /**
-     * Send invitation email (queued to 'emails' queue).
+     * Send invitation email.
+     * Uses send() (not queue) so emails are delivered immediately without requiring a queue worker.
      */
     public function sendInvitationEmail(EventInvitation $invitation): void
     {
@@ -145,18 +160,20 @@ class EventInvitationService
         }
 
         try {
-            Mail::to($receiver->email)->queue(new EventInvitationMail($invitation));
+            Mail::to($receiver->email)->send(new EventInvitationMail($invitation));
 
             EventInvitationLog::log($invitation, EventInvitationLog::ACTION_EMAIL_SENT, $invitation->sender_id);
 
-            Log::info('Invitation email queued', [
+            Log::info('Invitation email sent', [
                 'invitation_id' => $invitation->id,
                 'receiver_email' => $receiver->email,
             ]);
         } catch (\Throwable $e) {
-            Log::error('Failed to queue invitation email', [
+            Log::error('Failed to send invitation email', [
                 'invitation_id' => $invitation->id,
+                'receiver_email' => $receiver->email,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
         }

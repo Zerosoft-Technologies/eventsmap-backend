@@ -79,7 +79,9 @@ class AuthController extends Controller
         }
 
         // Check email verification BEFORE any other checks
-        if (!$user->hasVerifiedEmail()) {
+        // - Free users: must have verified email
+        // - Premium users: allowed even if email is not verified
+        if ($user->isFreeAccount() && !$user->hasVerifiedEmail()) {
             return response()->json([
                 'success' => false,
                 'error' => [

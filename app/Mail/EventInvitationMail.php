@@ -10,9 +10,9 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class EventInvitationMail extends Mailable implements ShouldQueue
+class EventInvitationMail extends Mailable
 {
-    use Queueable, SerializesModels;
+    use SerializesModels;
 
     public int $tries = 3;
 
@@ -25,7 +25,7 @@ class EventInvitationMail extends Mailable implements ShouldQueue
     public function __construct(
         public EventInvitation $invitation
     ) {
-        $this->onQueue('emails');
+        // $this->onQueue('emails');
 
         $frontendUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:5173'));
         $token = $invitation->invitation_token;
