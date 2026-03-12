@@ -83,8 +83,6 @@ class ChatPermissionController extends Controller
             ], 403);
         }
 
-        $this->chatService->incrementRateLimit($request->user(), $event);
-
         return response()->json([
             'success' => true,
             'can_send' => true,

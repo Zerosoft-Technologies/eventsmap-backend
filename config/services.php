@@ -43,7 +43,7 @@ return [
     ],
 
     'firebase' => [
-        'credentials' => env('FIREBASE_CREDENTIALS') ?: base_path('F:/Maharaja/Tasks/Event Map/eventsmap-backend/storage/app/eventsmap-d4fe8-firebase-adminsdk-fbsvc-aa723928e8.json'),
+        'credentials' => env('FIREBASE_CREDENTIALS'),
         'project_id' => env('FIREBASE_PROJECT_ID'),
     ],
 

@@ -16,10 +16,6 @@ use Illuminate\Support\Facades\Log;
 
 class ChatPermissionService
 {
-    private const RATE_LIMIT_KEY_PREFIX = 'chat_rate_limit:';
-    private const RATE_LIMIT_MESSAGES = 20;
-    private const RATE_LIMIT_MINUTES = 1;
-
     /**
      * Check if a user can access the chat for an event.
      */
@@ -153,46 +149,11 @@ class ChatPermissionService
             ];
         }
 
-        if (!$this->checkRateLimit($user, $event)) {
-            return [
-                'can_chat' => false,
-                'message' => 'Rate limit exceeded. Please wait before sending more messages.',
-                'reason' => 'rate_limited',
-            ];
-        }
-
         return [
             'can_chat' => true,
             'message' => null,
             'reason' => 'allowed',
         ];
-    }
-
-    /**
-     * Check rate limit for a user in an event chat.
-     */
-    public function checkRateLimit(User $user, EventV2 $event): bool
-    {
-        $key = self::RATE_LIMIT_KEY_PREFIX . $user->id . ':' . $event->id;
-
-        $count = Cache::get($key, 0);
-
-        if ($count >= self::RATE_LIMIT_MESSAGES) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Increment the rate limit counter for a user.
-     */
-    public function incrementRateLimit(User $user, EventV2 $event): void
-    {
-        $key = self::RATE_LIMIT_KEY_PREFIX . $user->id . ':' . $event->id;
-
-        $count = Cache::get($key, 0);
-        Cache::put($key, $count + 1, now()->addMinutes(self::RATE_LIMIT_MINUTES));
     }
 
     /**

@@ -10,8 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
 class ChatRateLimitMiddleware
 {
     private const RATE_LIMIT_KEY_PREFIX = 'chat_rate_limit:';
-    private const MAX_MESSAGES_PER_MINUTE = 20;
-    private const WINDOW_SECONDS = 60;
+    private const MAX_MESSAGES_PER_WINDOW = 5;
+    private const WINDOW_SECONDS = 10;
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -37,13 +37,15 @@ class ChatRateLimitMiddleware
 
         $timestamps = array_filter($timestamps, fn($ts) => $ts > $windowStart);
 
-        if (count($timestamps) >= self::MAX_MESSAGES_PER_MINUTE) {
+        if (count($timestamps) >= self::MAX_MESSAGES_PER_WINDOW) {
             $oldestTimestamp = min($timestamps);
             $retryAfter = $oldestTimestamp + self::WINDOW_SECONDS - $now;
 
             return response()->json([
                 'success' => false,
+                'can_send' => false,
                 'message' => 'Rate limit exceeded. Please wait before sending more messages.',
+                'reason' => 'rate_limited',
                 'retry_after' => max(1, $retryAfter),
             ], 429)->header('Retry-After', max(1, $retryAfter));
         }
