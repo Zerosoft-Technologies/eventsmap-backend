@@ -30,7 +30,14 @@ class FirebaseTokenController extends Controller
             ], 503);
         }
 
-        $token = $this->firebaseService->generateCustomToken($request->user());
+        $user = $request->user();
+        $claims = [
+            'chat_permissions' => [
+                'can_chat' => $user->isPremiumAccount(),
+            ],
+        ];
+
+        $token = $this->firebaseService->generateCustomToken($user, $claims);
 
         if (!$token) {
             return response()->json([

@@ -26,7 +26,8 @@ class UserController extends Controller
             ]);
 
             $query = User::query()
-                ->select(['id', 'name', 'profile_type', 'account_type', 'country']);
+                ->select(['id', 'name', 'profile_type', 'account_type', 'country'])
+                ->where('account_type', 'premium');
 
             if ($request->filled('profile_type')) {
                 $query->where('profile_type', $request->input('profile_type'));

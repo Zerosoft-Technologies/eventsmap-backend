@@ -6,6 +6,7 @@ use App\Http\Controllers\V2\PublicEventController;
 use App\Http\Controllers\V2\UserController;
 use App\Http\Controllers\V2\WishlistController;
 use App\Http\Controllers\V2\EventInvitationController;
+use App\Http\Controllers\V2\ChatController;
 use App\Http\Controllers\V2\ChatPermissionController;
 use App\Http\Controllers\V2\FirebaseTokenController;
 
@@ -78,7 +79,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/events/{event_id}/invitations/send', [EventInvitationController::class, 'sendInvitations']);
 
     // ──────────────────────────────────────
-    // Chat Permissions
+    // Global Chat (Premium Users)
+    // ──────────────────────────────────────
+
+    Route::get('/chat/users', [ChatController::class, 'getChatUsers']);
+    Route::post('/chat/validate-message', [ChatController::class, 'validateMessage'])
+        ->middleware('global.chat.ratelimit');
+
+    // ──────────────────────────────────────
+    // Chat Permissions (Event-based)
     // ──────────────────────────────────────
 
     // Get users who can participate in event chat

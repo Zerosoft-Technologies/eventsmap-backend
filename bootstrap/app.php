@@ -50,6 +50,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'email.verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
             'premium.active' => \App\Http\Middleware\EnsurePremiumIsActive::class,
             'chat.ratelimit' => \App\Http\Middleware\ChatRateLimitMiddleware::class,
+            'global.chat.ratelimit' => \App\Http\Middleware\GlobalChatRateLimitMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
