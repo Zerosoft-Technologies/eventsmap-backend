@@ -22,6 +22,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Fix git safe.directory (CI)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Set environment name
         id: envname
         run: |
@@ -42,7 +45,7 @@ jobs:
       - name: Install PHP deps (composer)
         uses: php-actions/composer@v6
         with:
-          php_version: "8.2"
+          php_version: "8.4"
           command: install --no-dev --optimize-autoloader
           progress: yes
           php_extensions: mbstring pdo pdo_mysql

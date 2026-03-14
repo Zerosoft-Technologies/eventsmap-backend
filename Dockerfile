@@ -1,6 +1,12 @@
-# PHP Composer Builder
-FROM composer:2 AS composer_builder
+# PHP Composer Builder (PHP 8.4 to match composer.lock / Symfony 8)
+FROM php:8.4-cli AS composer_builder
+RUN apt-get update && apt-get install -y git unzip \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
 WORKDIR /app
+
+# Avoid "dubious ownership" when repo is copied into container (e.g. GitHub Actions)
+RUN git config --global --add safe.directory /app
 
 # Copy composer files
 COPY composer.json composer.lock ./
