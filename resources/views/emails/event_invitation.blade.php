@@ -122,7 +122,7 @@
 
         <div class="buttons">
             <a href="{{ $acceptUrl }}" class="btn btn-accept">Accept Invitation</a>
-            <a href="{{ $rejectUrl }}" class="btn btn-reject">Decline Invitation</a>
+            <!-- <a href="{{ $rejectUrl }}" class="btn btn-reject">Decline Invitation</a> -->
         </div>
 
         <p class="expiry-note">This invitation link expires in 48 hours.</p>

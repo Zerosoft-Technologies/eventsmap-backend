@@ -14,6 +14,10 @@ use Illuminate\Support\Str;
 
 class EventInvitationService
 {
+    public function __construct(
+        private readonly FirebaseNotificationService $firebaseNotificationService
+    ) {}
+
     /**
      * Create invitations for all invited users when an event is created/updated.
      */
@@ -65,6 +69,7 @@ class EventInvitationService
 
         foreach ($created as $invitation) {
             $this->sendInvitationEmail($invitation);
+            $this->pushInvitationNotification($invitation);
         }
 
         return [
@@ -217,6 +222,7 @@ class EventInvitationService
         ]);
 
         $receiver = $invitation->receiver;
+        $this->markInvitationNotificationCompleted($invitation->id, (string) $receiver->id);
         $action = $status === EventInvitation::STATUS_ACCEPTED
             ? EventInvitationLog::ACTION_ACCEPTED
             : EventInvitationLog::ACTION_REJECTED;
@@ -304,5 +310,35 @@ class EventInvitationService
         ]);
 
         return $invitation->fresh();
+    }
+
+    /**
+     * Push a real-time Firestore notification to the invited user.
+     */
+    private function pushInvitationNotification(EventInvitation $invitation): void
+    {
+        try {
+            $this->firebaseNotificationService->createInvitationNotification($invitation);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to push invitation notification to Firestore', [
+                'invitation_id' => $invitation->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Mark the Firestore invitation notification as completed for the receiver.
+     */
+    private function markInvitationNotificationCompleted(int $invitationId, string $receiverId): void
+    {
+        try {
+            $this->firebaseNotificationService->markInvitationNotificationCompleted($invitationId, $receiverId);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to mark invitation notification completed', [
+                'invitation_id' => $invitationId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
