@@ -55,8 +55,8 @@ RUN rm -f /var/www/bootstrap/cache/services.php \
 # Clear Laravel caches (without database connection)
 RUN php artisan config:clear && php artisan clear-compiled
 
-# Install Sanctum (automatically installed via composer, just ensure it's published)
-RUN php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider" --force || true
+# Do not publish Sanctum (we already have personal_access_tokens in 2025_01_12_000005).
+# Publishing would add a duplicate migration (e.g. 2026_03_14_*) and break migrate on deploy.
 
 EXPOSE 8000
 
