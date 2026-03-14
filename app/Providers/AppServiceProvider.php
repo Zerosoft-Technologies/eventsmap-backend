@@ -6,7 +6,6 @@ use App\Models\EventV2;
 use App\Policies\EventV2Policy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
-use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -15,8 +14,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // We use our own migration (2025_01_12_000005). Ignore Sanctum's so no duplicate table.
-        Sanctum::ignoreMigrations();
+        //
     }
 
     /**
