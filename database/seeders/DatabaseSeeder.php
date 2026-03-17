@@ -24,14 +24,13 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             AdminUserSeeder::class,
-            CategorySeeder::class,
-            SubCategorySeeder::class,
+            CategoriesSeeder::class,
+            SubcategoriesSeeder::class,
             EventsSeeder::class,
             TalentSeeder::class,
             EventDetailsSeeder::class,
             V2DemoSeeder::class,
             EventV2Seeder::class,
-            OrganiserCategorySeeder::class,
         ]);
     }
 }

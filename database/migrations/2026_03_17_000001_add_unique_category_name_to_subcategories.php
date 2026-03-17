@@ -10,14 +10,20 @@ return new class extends Migration
     public function up(): void
     {
         // If duplicates already exist (e.g. from previous seeding), remove them before adding the constraint.
-        // Keep the lowest id for each (category_id, name) group.
-        DB::statement(<<<'SQL'
-            DELETE FROM subcategories s
-            USING subcategories d
-            WHERE s.category_id = d.category_id
-              AND s.name = d.name
-              AND s.id > d.id
-        SQL);
+        // Cross-DB cleanup (MySQL + PostgreSQL): keep the lowest id per (category_id, name).
+        $duplicates = DB::table('subcategories')
+            ->select('category_id', 'name', DB::raw('MIN(id) as keep_id'), DB::raw('COUNT(*) as dup_count'))
+            ->groupBy('category_id', 'name')
+            ->havingRaw('COUNT(*) > 1')
+            ->get();
+
+        foreach ($duplicates as $dup) {
+            DB::table('subcategories')
+                ->where('category_id', $dup->category_id)
+                ->where('name', $dup->name)
+                ->where('id', '!=', $dup->keep_id)
+                ->delete();
+        }
 
         Schema::table('subcategories', function (Blueprint $table) {
             $table->unique(['category_id', 'name'], 'subcategories_category_id_name_unique');
