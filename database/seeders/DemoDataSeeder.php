@@ -136,13 +136,13 @@ class DemoDataSeeder extends Seeder
         foreach ($categories as $category) {
             if (isset($subcategoryMap[$category->name])) {
                 foreach ($subcategoryMap[$category->name] as $subName) {
-                    $subcategory = SubCategory::firstOrCreate(
+                    $subcategory = SubCategory::updateOrCreate(
                         [
                             'category_id' => $category->id,
-                            'slug' => Str::slug($subName),
+                            'name' => $subName,
                         ],
                         [
-                            'name' => $subName,
+                            'slug' => Str::slug($subName),
                         ]
                     );
                     $subcategories->push($subcategory);

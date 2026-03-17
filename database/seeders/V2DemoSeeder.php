@@ -73,10 +73,10 @@ class V2DemoSeeder extends Seeder
     {
         // Same categories as CategorySeeder
         $categoriesData = [
-            "talent" => "Talent & Performers",
-            "venue" => "Venues",
+            "talent" => "Talent",
+            "venue" => "Venue",
             "nightlife" => "Nightlife",
-            "film" => "Film & Cinema",
+            "film" => "Film",
             "theatre" => "Theatre",
             "dance" => "Dance",
             "community" => "Community",
@@ -167,13 +167,13 @@ class V2DemoSeeder extends Seeder
         foreach ($categories as $category) {
             if (isset($categoriesData[$category->slug])) {
                 foreach ($categoriesData[$category->slug] as $subName) {
-                    $subcategory = SubCategory::firstOrCreate(
+                    $subcategory = SubCategory::updateOrCreate(
                         [
                             'category_id' => $category->id,
-                            'slug' => Str::slug($subName),
+                            'name' => $subName,
                         ],
                         [
-                            'name' => $subName,
+                            'slug' => Str::slug($subName),
                         ]
                     );
                     $subcategories->push($subcategory);

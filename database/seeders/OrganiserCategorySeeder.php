@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\Category;
+use App\Models\SubCategory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,25 +18,20 @@ class OrganiserCategorySeeder extends Seeder
     {
         $now = Carbon::now();
 
-        // Insert or fetch the "Organiser" category
-        $category = DB::table('categories')->where('slug', 'organiser')->first();
-
-        if (!$category) {
-            $categoryId = DB::table('categories')->insertGetId([
-                'name'          => 'Organiser',
-                'slug'          => 'organiser',
-                'description'   => null,
-                'icon'          => null,
-                'color'         => null,
+        $category = Category::updateOrCreate(
+            ['slug' => 'organiser'],
+            [
+                'name' => 'Organiser',
+                'description' => null,
+                'icon' => null,
+                'color' => null,
                 'display_order' => 0,
-                'is_active'     => true,
-                'is_featured'   => false,
-                'created_at'    => $now,
-                'updated_at'    => $now,
-            ]);
-        } else {
-            $categoryId = $category->id;
-        }
+                'is_active' => true,
+                'is_featured' => false,
+                'updated_at' => $now,
+                'created_at' => $now,
+            ]
+        );
 
         // Define organiser subcategories
         $names = [
@@ -52,27 +49,20 @@ class OrganiserCategorySeeder extends Seeder
 
         foreach ($names as $name) {
             $slug = Str::slug($name);
-
-            // Prevent duplicates: check by category_id + slug
-            $exists = DB::table('subcategories')
-                ->where('category_id', $categoryId)
-                ->where('slug', $slug)
-                ->exists();
-
-            if ($exists) {
-                continue;
-            }
-
-            DB::table('subcategories')->insert([
-                'category_id'   => $categoryId,
-                'name'          => $name,
-                'slug'          => $slug,
-                'description'   => null,
-                'display_order' => 0,
-                'is_active'     => true,
-                'created_at'    => $now,
-                'updated_at'    => $now,
-            ]);
+            SubCategory::updateOrCreate(
+                [
+                    'category_id' => $category->id,
+                    'name' => $name,
+                ],
+                [
+                    'slug' => $slug,
+                    'description' => null,
+                    'display_order' => 0,
+                    'is_active' => true,
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]
+            );
         }
     }
 }
