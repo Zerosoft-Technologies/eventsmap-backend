@@ -39,8 +39,17 @@ class EventController extends Controller
             'category_id' => 'nullable|integer|exists:categories,id',
             'status' => 'nullable|string|in:draft,upcoming,live,completed,cancelled',
             'entrance_status' => 'nullable|string|in:free,paid,sold_out,cancelled',
+            // Date range (support frontend param names)
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date',
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+
+            // Geo filtering (optional)
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
+            'radius' => 'nullable|numeric|min:0.1|max:500', // km
+            'radius_km' => 'nullable|numeric|min:0.1|max:500', // km
             'sort' => 'nullable|string|in:event_date,created_at,title',
             'order' => 'nullable|string|in:asc,desc',
         ]);
@@ -73,17 +82,33 @@ class EventController extends Controller
         });
 
         // Date range filter
-        $query->when($request->filled('date_from'), function ($q) use ($request) {
-            $q->where('event_date', '>=', $request->input('date_from'));
-        });
-        $query->when($request->filled('date_to'), function ($q) use ($request) {
-            $q->where('event_date', '<=', $request->input('date_to'));
-        });
+        $dateFrom = $request->input('date_from') ?? $request->input('from_date');
+        $dateTo = $request->input('date_to') ?? $request->input('to_date');
+        if ($dateFrom) {
+            $query->where('event_date', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->where('event_date', '<=', $dateTo);
+        }
+
+        // Geo radius filter (if provided)
+        if ($request->filled(['lat', 'lng']) && ($request->filled('radius') || $request->filled('radius_km'))) {
+            $lat = (float) $request->input('lat');
+            $lng = (float) $request->input('lng');
+            $radiusKm = (float) ($request->input('radius_km') ?? $request->input('radius'));
+
+            $query->withinRadius($lat, $lng, $radiusKm)->withDistance($lat, $lng);
+        }
 
         // Sorting
         $sort = $request->input('sort', 'event_date');
         $order = $request->input('order', 'asc');
-        $query->orderBy($sort, $order);
+        // If geo filter was applied, default to distance sort unless explicitly sorting by other field
+        if ($request->filled(['lat', 'lng']) && ($request->filled('radius') || $request->filled('radius_km')) && !$request->filled('sort')) {
+            $query->orderBy('distance_km', 'asc');
+        } else {
+            $query->orderBy($sort, $order);
+        }
 
         // Pagination
         $perPage = $request->input('per_page', 20);

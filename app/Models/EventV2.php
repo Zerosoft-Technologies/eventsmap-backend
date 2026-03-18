@@ -538,6 +538,27 @@ class EventV2 extends Model
         return $query;
     }
 
+    /**
+     * Scope for date overlap filtering.
+     *
+     * For single-day events in `events_v2`, this is equivalent to:
+     *   event_date between [from, to]
+     *
+     * We keep the overlap semantics to match the frontend's "range includes
+     * any event that intersects the filter window".
+     */
+    public function scopeDateOverlap(Builder $query, ?string $from = null, ?string $to = null): Builder
+    {
+        if ($from) {
+            $query->where('event_date', '>=', $from);
+        }
+        if ($to) {
+            $query->where('event_date', '<=', $to);
+        }
+
+        return $query;
+    }
+
     // ──────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────

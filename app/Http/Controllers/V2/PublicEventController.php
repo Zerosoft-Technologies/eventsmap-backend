@@ -8,6 +8,7 @@ use App\Models\EventV2;
 use App\Services\V2\EventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * PublicEventController - Public event feed for map display.
@@ -54,8 +55,13 @@ class PublicEventController extends Controller
             // Other filters
             'category_id' => 'nullable|integer|exists:categories,id',
             'entrance_status' => 'nullable|string|in:free,paid',
+            // Date range (support multiple param names used by frontend)
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date',
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
 
             // Sorting
             'sort' => 'nullable|string|in:event_date,distance',
@@ -100,7 +106,14 @@ class PublicEventController extends Controller
         });
 
         // Date range filter
-        $query->dateRange($request->input('date_from'), $request->input('date_to'));
+        $dateFrom = $request->input('date_from')
+            ?? $request->input('from_date')
+            ?? $request->input('start_date');
+        $dateTo = $request->input('date_to')
+            ?? $request->input('to_date')
+            ?? $request->input('end_date');
+
+        $query->dateOverlap($dateFrom, $dateTo);
 
         // Sorting
         $sort = $request->input('sort', 'event_date');
@@ -200,26 +213,57 @@ class PublicEventController extends Controller
             'max_lng' => 'required|numeric|between:-180,180',
             'category_id' => 'nullable|integer|exists:categories,id',
             'limit' => 'nullable|integer|min:1|max:500',
+            'zoom' => 'nullable|numeric|min:0|max:24',
+            // Date range (support multiple param names used by frontend)
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date',
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
         ]);
 
         $limit = $request->input('limit', 100);
+        $dateFrom = $request->input('date_from')
+            ?? $request->input('from_date')
+            ?? $request->input('start_date');
+        $dateTo = $request->input('date_to')
+            ?? $request->input('to_date')
+            ?? $request->input('end_date');
+        $zoom = $request->input('zoom');
 
-        $events = EventV2::query()
-            ->select(['id', 'title', 'slug', 'latitude', 'longitude', 'event_date', 'start_time', 'category_id', 'entrance_status'])
-            ->publicVisible()
-            ->whereIn('status', [EventV2::STATUS_UPCOMING, EventV2::STATUS_LIVE])
-            ->withinBbox(
-                $request->input('min_lat'),
-                $request->input('max_lat'),
-                $request->input('min_lng'),
-                $request->input('max_lng')
-            )
-            ->when($request->filled('category_id'), function ($q) use ($request) {
-                $q->where('category_id', $request->input('category_id'));
-            })
-            ->orderBy('event_date', 'asc')
-            ->limit($limit)
-            ->get();
+        $cacheKey = implode(':', array_filter([
+            'publicEventsMap',
+            $request->input('min_lat'),
+            $request->input('max_lat'),
+            $request->input('min_lng'),
+            $request->input('max_lng'),
+            $dateFrom ?? '',
+            $dateTo ?? '',
+            $request->input('category_id') ?? '',
+            $zoom !== null ? (string) round((float) $zoom) : '',
+            (string) $limit,
+        ], fn ($v) => $v !== null));
+
+        $events = Cache::remember($cacheKey, now()->addMinutes(2), function () use ($request, $dateFrom, $dateTo, $limit) {
+            return EventV2::query()
+                ->select(['id', 'title', 'slug', 'latitude', 'longitude', 'event_date', 'start_time', 'category_id', 'entrance_status'])
+                ->publicVisible()
+                ->whereIn('status', [EventV2::STATUS_UPCOMING, EventV2::STATUS_LIVE])
+                ->withinBbox(
+                    $request->input('min_lat'),
+                    $request->input('max_lat'),
+                    $request->input('min_lng'),
+                    $request->input('max_lng')
+                )
+                ->dateOverlap($dateFrom, $dateTo)
+                ->when($request->filled('category_id'), function ($q) use ($request) {
+                    $q->where('category_id', $request->input('category_id'));
+                })
+                ->orderBy('event_date', 'asc')
+                ->limit($limit)
+                ->get();
+        });
 
         // Return minimal marker data
         $markers = $events->map(fn ($e) => [
