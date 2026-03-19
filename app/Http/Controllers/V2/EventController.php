@@ -169,7 +169,7 @@ class EventController extends Controller
      */
     public function show(Request $request, int $id): JsonResponse
     {
-        $event = EventV2::with('subcategories')->findOrFail($id);
+        $event = EventV2::with(['subcategories', 'organisers', 'talents'])->findOrFail($id);
 
         $user = $request->user();
         if (!$event->isOwner($user) && !$user->isAdmin()) {
@@ -187,12 +187,40 @@ class EventController extends Controller
             'event_type' => $event->event_type ?? 'free',
             'category_id' => $event->category_id,
             'subcategory_ids' => $subcategoryIds,
+            'start_date' => $event->start_date?->format('Y-m-d'),
+            'end_date' => $event->end_date?->format('Y-m-d'),
             'event_date' => $event->event_date?->format('Y-m-d'),
             'start_time' => $event->start_time,
             'end_time' => $event->end_time,
+            'start_datetime' => $event->start_datetime?->toIso8601String(),
+            'end_datetime' => $event->end_datetime?->toIso8601String(),
             'address' => $event->address,
+            'latitude' => $event->latitude !== null ? (float) $event->latitude : null,
+            'longitude' => $event->longitude !== null ? (float) $event->longitude : null,
+            'dress_code' => $event->dress_code,
+            'age_limit' => $event->age_limit,
+            'entrance_status' => $event->entrance_status,
+            'contact_phone' => $event->contact_phone,
+            'contact_email' => $event->contact_email,
             'description' => $event->description ?? null,
+            'contact_website' => $event->contact_website,
+            'contact_box_message' => $event->contact_box_message,
+            'facebook_url' => $event->facebook_url,
+            'instagram_url' => $event->instagram_url,
+            'tiktok_url' => $event->tiktok_url,
+            'ticket_url' => $event->ticket_url,
+            'booking_instructions' => $event->booking_instructions,
+            'is_recurring' => (bool) ($event->is_recurring ?? false),
+            'is_copy_event' => (bool) ($event->is_copy_event ?? false),
+            'show_upcoming_events' => (bool) ($event->show_upcoming_events ?? false),
+            'show_past_events' => (bool) ($event->show_past_events ?? false),
+            'invited_talents' => is_array($event->invited_talents) ? $event->invited_talents : [],
+            'invited_organisers' => is_array($event->invited_organisers) ? $event->invited_organisers : [],
+            'invited_venues' => is_array($event->invited_venues) ? $event->invited_venues : [],
+            'organiser_ids' => $event->organisers->pluck('id')->values()->all(),
+            'talent_ids' => $event->talents->pluck('id')->values()->all(),
             'image_url' => $event->image_path ? MediaHelper::url($event->image_path) : null,
+            'image_path' => $event->image_path,
         ];
 
         return response()->json([
