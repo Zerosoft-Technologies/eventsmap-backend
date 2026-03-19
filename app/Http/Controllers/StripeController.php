@@ -26,7 +26,20 @@ class StripeController extends Controller
         ]);
 
         try {
-            $stripe = new StripeClient(config('services.stripe.secret'));
+            $stripeSecret = config('services.stripe.secret');
+            // Fallback in case config cache is stale.
+            if (!is_string($stripeSecret) || $stripeSecret === '') {
+                $stripeSecret = env('STRIPE_SECRET');
+            }
+
+            if (!is_string($stripeSecret) || $stripeSecret === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Stripe is not configured on the server.',
+                ], 500);
+            }
+
+            $stripe = new StripeClient($stripeSecret);
 
             $session = $stripe->checkout->sessions->retrieve(
                 $request->input('session_id'),
@@ -243,7 +256,20 @@ class StripeController extends Controller
         }
 
         try {
-            $stripe = new StripeClient(config('services.stripe.secret'));
+            $stripeSecret = config('services.stripe.secret');
+            // Fallback in case config cache is stale.
+            if (!is_string($stripeSecret) || $stripeSecret === '') {
+                $stripeSecret = env('STRIPE_SECRET');
+            }
+
+            if (!is_string($stripeSecret) || $stripeSecret === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Stripe is not configured on the server.',
+                ], 500);
+            }
+
+            $stripe = new StripeClient($stripeSecret);
 
             $checkoutSession = $stripe->checkout->sessions->create([
                 'customer' => $user->stripe_customer_id,
