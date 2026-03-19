@@ -52,10 +52,14 @@ class EventResource extends JsonResource
             }),
 
             // Date & Time
-            'formatted_date' => $this->event_date?->format('Y-m-d'),
+            'formatted_date' => $this->start_date?->format('Y-m-d') ?? $this->event_date?->format('Y-m-d'),
             'event_date' => $this->event_date?->format('Y-m-d'),
-            'start_datetime' => $this->start_time,
-            'end_datetime' => $this->end_time,
+            'start_date' => $this->start_date?->format('Y-m-d'),
+            'end_date' => $this->end_date?->format('Y-m-d'),
+            'start_time' => $this->start_time,
+            'end_time' => $this->end_time,
+            'start_datetime' => $this->start_datetime?->toIso8601String(),
+            'end_datetime' => $this->end_datetime?->toIso8601String(),
             'is_overnight' => $this->is_overnight,
 
             // Location

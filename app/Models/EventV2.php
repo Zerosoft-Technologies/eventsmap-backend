@@ -150,6 +150,10 @@ class EventV2 extends Model
         'category_id',
         'subcategory_ids',
         'event_date',
+        'start_date',
+        'end_date',
+        'start_datetime',
+        'end_datetime',
         'start_time',
         'end_time',
         'address',
@@ -184,6 +188,10 @@ class EventV2 extends Model
         'condition_entrance_fee',
         'condition_dress_code',
         'condition_age_limit',
+        'is_recurring',
+        'is_copy_event',
+        'show_upcoming_events',
+        'show_past_events',
         'is_approved',
         'approved_at',
         'approved_by',
@@ -196,6 +204,10 @@ class EventV2 extends Model
     {
         return [
             'event_date' => 'date',
+            'start_date' => 'date',
+            'end_date' => 'date',
+            'start_datetime' => 'datetime',
+            'end_datetime' => 'datetime',
             'latitude' => 'decimal:8',
             'longitude' => 'decimal:8',
             'entrance_fee' => 'decimal:2',
@@ -205,6 +217,10 @@ class EventV2 extends Model
             'invited_organisers' => 'array',
             'invited_venues' => 'array',
             'is_free_package' => 'boolean',
+            'is_recurring' => 'boolean',
+            'is_copy_event' => 'boolean',
+            'show_upcoming_events' => 'boolean',
+            'show_past_events' => 'boolean',
             'is_approved' => 'boolean',
             'approved_at' => 'datetime',
             'suspended_at' => 'datetime',
@@ -398,7 +414,12 @@ class EventV2 extends Model
      */
     public function getEventStartDatetimeAttribute(): Carbon
     {
-        return Carbon::parse($this->event_date->format('Y-m-d') . ' ' . $this->start_time);
+        if (!empty($this->attributes['start_datetime'])) {
+            return Carbon::parse($this->attributes['start_datetime']);
+        }
+
+        $baseDate = $this->start_date?->format('Y-m-d') ?? $this->event_date?->format('Y-m-d');
+        return Carbon::parse($baseDate . ' ' . $this->start_time);
     }
 
     /**
@@ -406,10 +427,16 @@ class EventV2 extends Model
      */
     public function getEventEndDatetimeAttribute(): Carbon
     {
-        $start = $this->event_start_datetime;
-        $end = Carbon::parse($this->event_date->format('Y-m-d') . ' ' . $this->end_time);
+        if (!empty($this->attributes['end_datetime'])) {
+            return Carbon::parse($this->attributes['end_datetime']);
+        }
 
-        // If end is before or equal to start, it's an overnight event
+        $start = $this->event_start_datetime;
+        $baseDate = $this->end_date?->format('Y-m-d')
+            ?? $this->start_date?->format('Y-m-d')
+            ?? $this->event_date?->format('Y-m-d');
+        $end = Carbon::parse($baseDate . ' ' . $this->end_time);
+
         if ($end->lte($start)) {
             $end->addDay();
         }

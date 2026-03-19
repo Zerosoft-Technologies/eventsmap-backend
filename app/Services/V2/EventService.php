@@ -42,17 +42,21 @@ class EventService
                 'title' => $data['title'],
                 'event_type' => $eventType,
                 'category_id' => $data['category_id'],
-                'event_date' => $data['event_date'],
+                'event_date' => $data['start_date'],
+                'start_date' => $data['start_date'],
+                'end_date' => $data['end_date'] ?? null,
+                'start_datetime' => $data['start_datetime'],
+                'end_datetime' => $data['end_datetime'],
                 'start_time' => $data['start_time'],
                 'end_time' => $data['end_time'],
                 'address' => $data['address'],
                 'latitude' => $data['latitude'],
                 'longitude' => $data['longitude'],
-                'dress_code' => $data['dress_code'],
-                'age_limit' => $data['age_limit'],
-                'entrance_status' => $data['entrance_status'],
+                'dress_code' => $data['dress_code'] ?? null,
+                'age_limit' => $data['age_limit'] ?? null,
+                'entrance_status' => $data['entrance_status'] ?? null,
                 'slug' => $this->generateUniqueSlug($data['title']),
-                'status' => $this->resolveStatus($data['event_date'], $data['start_time'], $data['end_time']),
+                'status' => $this->resolveStatus($data['start_datetime'], $data['end_datetime']),
                 'is_free_package' => $isFreePackage,
             ];
 
@@ -61,6 +65,7 @@ class EventService
                 'description', 'contact_box_message', 'venue_details', 'facebook_url', 'instagram_url',
                 'tiktok_url', 'ticket_url', 'booking_instructions', 'event_option',
                 'condition_entrance_fee', 'condition_dress_code', 'condition_age_limit',
+                'is_recurring', 'is_copy_event', 'show_upcoming_events', 'show_past_events',
             ];
 
             foreach ($optionalFields as $field) {
@@ -107,7 +112,7 @@ class EventService
 
             $event = EventV2::create($eventData);
 
-            if (!empty($subcategoryIds)) {
+            if ($subcategoryIds !== null) {
                 $event->subcategories()->sync($subcategoryIds);
             }
             if (!$isFreePackage && !empty($data['organiser_ids'] ?? [])) {
@@ -156,6 +161,7 @@ class EventService
         return DB::transaction(function () use ($event, $data) {
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids', 'event_date', 'start_time', 'end_time',
+                'start_date', 'end_date', 'start_datetime', 'end_datetime',
                 'address', 'latitude', 'longitude', 'dress_code', 'age_limit',
                 'entrance_status', 'entrance_fee', 'venue_id', 'image_path',
                 'contact_phone', 'contact_email', 'contact_website', 'description',
@@ -163,6 +169,7 @@ class EventService
                 'tiktok_url', 'ticket_url', 'booking_instructions', 'event_option',
                 'condition_entrance_fee', 'condition_dress_code', 'condition_age_limit',
                 'invited_talents', 'invited_organisers', 'invited_venues',
+                'is_recurring', 'is_copy_event', 'show_upcoming_events', 'show_past_events',
             ];
 
             $updateData = [];
@@ -172,15 +179,19 @@ class EventService
                 }
             }
 
+            // Backward compatibility: events_v2.event_date is still NOT NULL in DB.
+            if (array_key_exists('start_date', $data) && !array_key_exists('event_date', $data)) {
+                $updateData['event_date'] = $data['start_date'];
+            }
+
             if (array_key_exists('event_type', $data)) {
                 $updateData['is_free_package'] = $data['event_type'] === 'free';
             }
 
             if (!in_array($event->status, [EventV2::STATUS_SUSPENDED, EventV2::STATUS_CANCELLED])) {
-                $eventDate = $data['event_date'] ?? $event->event_date->format('Y-m-d');
-                $startTime = $data['start_time'] ?? $event->start_time;
-                $endTime = $data['end_time'] ?? $event->end_time;
-                $updateData['status'] = $this->resolveStatus($eventDate, $startTime, $endTime);
+                $startDateTime = $data['start_datetime'] ?? (string) $event->event_start_datetime;
+                $endDateTime = $data['end_datetime'] ?? (string) $event->event_end_datetime;
+                $updateData['status'] = $this->resolveStatus((string) $startDateTime, (string) $endDateTime);
             }
 
             if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
@@ -319,9 +330,8 @@ class EventService
             'approved_at' => now(),
             'approved_by' => $admin->id,
             'status' => $this->resolveStatus(
-                $event->event_date->format('Y-m-d'),
-                $event->start_time,
-                $event->end_time
+                (string) $event->event_start_datetime,
+                (string) $event->event_end_datetime
             ),
         ]);
 
@@ -399,9 +409,8 @@ class EventService
     public function unsuspend(EventV2 $event, User $admin): EventV2
     {
         $newStatus = $this->resolveStatus(
-            $event->event_date->format('Y-m-d'),
-            $event->start_time,
-            $event->end_time
+            (string) $event->event_start_datetime,
+            (string) $event->event_end_datetime
         );
 
         $event->update([
@@ -455,21 +464,15 @@ class EventService
      * Auto-resolve event status based on date/time.
      * Handles overnight events (end_time < start_time).
      *
-     * @param string $eventDate The event date (Y-m-d format)
-     * @param string $startTime The start time (H:i format)
-     * @param string $endTime The end time (H:i format)
+     * @param string $startDateTime Start datetime
+     * @param string $endDateTime End datetime
      * @return string The resolved status constant
      */
-    public function resolveStatus(string $eventDate, string $startTime, string $endTime): string
+    public function resolveStatus(string $startDateTime, string $endDateTime): string
     {
         $now = Carbon::now();
-        $start = Carbon::parse("{$eventDate} {$startTime}");
-        $end = Carbon::parse("{$eventDate} {$endTime}");
-
-        // If end_time is before or equal to start_time, event spans to next day (overnight)
-        if ($end->lte($start)) {
-            $end->addDay();
-        }
+        $start = Carbon::parse($startDateTime);
+        $end = Carbon::parse($endDateTime);
 
         if ($now->gt($end)) {
             return EventV2::STATUS_COMPLETED;

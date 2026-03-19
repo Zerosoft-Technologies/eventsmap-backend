@@ -26,22 +26,33 @@ class UpdateEventRequest extends FormRequest
             'title' => 'required|string|min:3|max:255',
             'event_type' => ['required', 'string', Rule::in(['free', 'premium'])],
             'category_id' => 'required|integer|exists:categories,id',
-            'event_date' => 'required|date|after:today|before_or_equal:' . now()->addDays(EventV2::FREE_MAX_ADVANCE_DAYS)->format('Y-m-d'),
-            'start_time' => 'required|date_format:H:i',
-            'end_time' => 'required|date_format:H:i',
+            'start_date' => 'required|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'start_time' => 'required',
+            'end_time' => 'required',
+            'start_datetime' => 'required|date',
+            'end_datetime' => 'required|date|after:start_datetime',
             'address' => 'required|string|max:500',
             'latitude' => 'sometimes|required|numeric|between:-90,90',
             'longitude' => 'sometimes|required|numeric|between:-180,180',
-            'dress_code' => ['sometimes', 'required', 'string', Rule::in(EventV2::DRESS_CODES)],
-            'age_limit' => ['sometimes', 'required', 'string', Rule::in(EventV2::AGE_LIMITS)],
-            'entrance_status' => ['sometimes', 'required', 'string', Rule::in(EventV2::ENTRANCE_STATUSES)],
+            'dress_code' => 'sometimes|nullable|string',
+            'age_limit' => 'nullable',
+            'entrance_status' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'venue_id' => 'nullable|integer|exists:venues,id',
+            'subcategory_ids' => 'nullable|array',
+            'subcategory_ids.*' => 'exists:subcategories,id',
+            'invited_talents' => 'nullable|array',
+            'invited_talents.*' => 'integer',
+            'is_recurring' => 'nullable|boolean',
+            'is_copy_event' => 'nullable|boolean',
+            'show_upcoming_events' => 'nullable|boolean',
+            'show_past_events' => 'nullable|boolean',
         ];
 
         if ($isPremium) {
-            $rules['subcategory_ids'] = ['required', 'array', 'min:' . EventV2::PREMIUM_MIN_SUBCATEGORIES];
-            $rules['subcategory_ids.*'] = 'integer|exists:subcategories,id';
+            $rules['subcategory_ids'] = ['nullable', 'array'];
+            $rules['subcategory_ids.*'] = 'exists:subcategories,id';
 
             $rules['entrance_fee'] = 'sometimes|nullable|numeric|min:0';
             $rules['contact_phone'] = 'sometimes|nullable|string|max:50';
@@ -73,8 +84,8 @@ class UpdateEventRequest extends FormRequest
             $rules['talent_ids'] = 'sometimes|nullable|array';
             $rules['talent_ids.*'] = 'integer|exists:talents,id';
         } else {
-            $rules['subcategory_ids'] = ['required', 'array', 'max:' . EventV2::FREE_MAX_SUBCATEGORIES];
-            $rules['subcategory_ids.*'] = 'integer|exists:subcategories,id';
+            $rules['subcategory_ids'] = ['nullable', 'array'];
+            $rules['subcategory_ids.*'] = 'exists:subcategories,id';
 
             $rules['organiser_ids'] = 'sometimes|nullable|array|max:0';
             $rules['talent_ids'] = 'sometimes|nullable|array|max:0';
@@ -99,7 +110,7 @@ class UpdateEventRequest extends FormRequest
                 }
             }
 
-            $eventDate = $this->input('event_date') ?? $event?->event_date?->format('Y-m-d');
+            $eventDate = $this->input('start_date') ?? $event?->start_date?->format('Y-m-d');
             $startTime = $this->input('start_time') ?? $event?->start_time;
             $endTime = $this->input('end_time') ?? $event?->end_time;
 
@@ -128,18 +139,13 @@ class UpdateEventRequest extends FormRequest
             'title.min' => 'Event title must be at least 3 characters',
             'title.max' => 'Event title cannot exceed 255 characters',
             'category_id.exists' => 'Selected category does not exist',
-            'event_date.after' => 'Event date must be in the future',
-            'event_date.before_or_equal' => 'Events can be scheduled up to 1 year in advance',
-            'start_time.date_format' => 'Start time must be in HH:MM format',
-            'end_time.date_format' => 'End time must be in HH:MM format',
+            'end_date.after_or_equal' => 'End date must be after or equal to start date',
+            'end_datetime.after' => 'End datetime must be after start datetime',
             'latitude.between' => 'Latitude must be between -90 and 90',
             'longitude.between' => 'Longitude must be between -180 and 180',
             'image.image' => 'File must be an image',
             'image.max' => 'Image must not exceed 2MB',
             'image.mimes' => 'Image must be jpg, jpeg, png, or webp format',
-            'dress_code.in' => 'Invalid dress code. Valid options: ' . implode(', ', EventV2::DRESS_CODES),
-            'age_limit.in' => 'Invalid age limit. Valid options: ' . implode(', ', EventV2::AGE_LIMITS),
-            'entrance_status.in' => 'Invalid entrance status. Valid options: ' . implode(', ', EventV2::ENTRANCE_STATUSES),
         ];
 
         if ($isPremium) {

@@ -24,22 +24,33 @@ class StoreEventRequest extends FormRequest
             'title' => 'required|string|min:3|max:255',
             'event_type' => ['required', 'string', Rule::in(['free', 'premium'])],
             'category_id' => 'required|integer|exists:categories,id',
-            'event_date' => 'required|date|after:today|before_or_equal:' . now()->addDays(EventV2::FREE_MAX_ADVANCE_DAYS)->format('Y-m-d'),
-            'start_time' => 'required|date_format:H:i',
-            'end_time' => 'required|date_format:H:i',
+            'start_date' => 'required|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'start_time' => 'required',
+            'end_time' => 'required',
+            'start_datetime' => 'required|date',
+            'end_datetime' => 'required|date|after:start_datetime',
             'address' => 'required|string|max:500',
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
-            'dress_code' => ['required', 'string', Rule::in(EventV2::DRESS_CODES)],
-            'age_limit' => ['required', 'string', Rule::in(EventV2::AGE_LIMITS)],
-            'entrance_status' => ['required', 'string', Rule::in(EventV2::ENTRANCE_STATUSES)],
+            'dress_code' => 'nullable|string',
+            'age_limit' => 'nullable',
+            'entrance_status' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'venue_id' => 'nullable|integer|exists:venues,id',
+            'subcategory_ids' => 'nullable|array',
+            'subcategory_ids.*' => 'exists:subcategories,id',
+            'invited_talents' => 'nullable|array',
+            'invited_talents.*' => 'integer',
+            'is_recurring' => 'nullable|boolean',
+            'is_copy_event' => 'nullable|boolean',
+            'show_upcoming_events' => 'nullable|boolean',
+            'show_past_events' => 'nullable|boolean',
         ];
 
         if ($isPremium) {
-            $rules['subcategory_ids'] = ['required', 'array', 'min:' . EventV2::PREMIUM_MIN_SUBCATEGORIES];
-            $rules['subcategory_ids.*'] = 'integer|exists:subcategories,id';
+            $rules['subcategory_ids'] = ['nullable', 'array'];
+            $rules['subcategory_ids.*'] = 'exists:subcategories,id';
 
             $rules['entrance_fee'] = 'nullable|numeric|min:0';
             $rules['contact_phone'] = 'nullable|string|max:50';
@@ -71,8 +82,8 @@ class StoreEventRequest extends FormRequest
             $rules['talent_ids'] = 'nullable|array';
             $rules['talent_ids.*'] = 'integer|exists:talents,id';
         } else {
-            $rules['subcategory_ids'] = ['nullable', 'array', 'max:' . EventV2::FREE_MAX_SUBCATEGORIES];
-            $rules['subcategory_ids.*'] = 'integer|exists:subcategories,id';
+            $rules['subcategory_ids'] = ['nullable', 'array'];
+            $rules['subcategory_ids.*'] = 'exists:subcategories,id';
 
             $rules['organiser_ids'] = 'nullable|array|max:0';
             $rules['talent_ids'] = 'nullable|array|max:0';
@@ -94,9 +105,9 @@ class StoreEventRequest extends FormRequest
                 }
             }
 
-            if ($this->filled('start_time') && $this->filled('end_time') && $this->filled('event_date')) {
-                $start = \Carbon\Carbon::parse($this->input('event_date') . ' ' . $this->input('start_time'));
-                $end = \Carbon\Carbon::parse($this->input('event_date') . ' ' . $this->input('end_time'));
+            if ($this->filled('start_time') && $this->filled('end_time') && $this->filled('start_date')) {
+                $start = \Carbon\Carbon::parse($this->input('start_date') . ' ' . $this->input('start_time'));
+                $end = \Carbon\Carbon::parse(($this->input('end_date') ?? $this->input('start_date')) . ' ' . $this->input('end_time'));
 
                 if ($end->lte($start)) {
                     $end->addDay();
@@ -126,9 +137,11 @@ class StoreEventRequest extends FormRequest
             'event_type.in' => 'Event type must be free or premium',
             'category_id.required' => 'Category is required',
             'category_id.exists' => 'Selected category does not exist',
-            'event_date.required' => 'Event date is required',
-            'event_date.after' => 'Event date must be in the future',
-            'event_date.before_or_equal' => 'Events can be scheduled up to 1 year in advance',
+            'start_date.required' => 'Start date is required',
+            'end_date.after_or_equal' => 'End date must be after or equal to start date',
+            'start_datetime.required' => 'Start datetime is required',
+            'end_datetime.required' => 'End datetime is required',
+            'end_datetime.after' => 'End datetime must be after start datetime',
             'start_time.required' => 'Start time is required',
             'start_time.date_format' => 'Start time must be in HH:MM format',
             'end_time.required' => 'End time is required',
@@ -141,9 +154,6 @@ class StoreEventRequest extends FormRequest
             'image.image' => 'File must be an image',
             'image.max' => 'Image must not exceed 2MB',
             'image.mimes' => 'Image must be jpg, jpeg, png, or webp format',
-            'dress_code.in' => 'Invalid dress code. Valid options: ' . implode(', ', EventV2::DRESS_CODES),
-            'age_limit.in' => 'Invalid age limit. Valid options: ' . implode(', ', EventV2::AGE_LIMITS),
-            'entrance_status.in' => 'Invalid entrance status. Valid options: ' . implode(', ', EventV2::ENTRANCE_STATUSES),
         ];
 
         if ($isPremium) {
