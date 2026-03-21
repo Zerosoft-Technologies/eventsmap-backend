@@ -20,8 +20,13 @@ class CategoryController extends Controller
     public function index(): JsonResponse
     {
         $categories = Category::query()
-            ->with('subcategories:id,category_id,name,slug')
-            ->orderBy('name')
+            ->with([
+                'subcategories' => function ($q) {
+                    $q->select('id', 'category_id', 'name', 'slug')
+                        ->orderBy('id');
+                },
+            ])
+            ->orderBy('id')
             ->get(['id', 'name', 'slug']);
 
         return response()->json([

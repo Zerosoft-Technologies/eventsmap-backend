@@ -10,8 +10,8 @@ class CategoriesSeeder extends Seeder
 {
     /**
      * STRICT category order & IDs (stable across runs):
-     * 1 Music, 2 Dance, 3 Theatre, 4 Community, 5 Nightlife,
-     * 6 Film, 7 Talent, 8 Venue, 9 Organiser
+     * 1 Music, 2 Dance, 3 Theatre, 4 Community, 5 Film,
+     * 6 Nightlife, 7 Talent, 8 Venue, 9 Organiser
      *
      * Notes:
      * - Uses explicit IDs to guarantee order everywhere (DB/API/UI).
@@ -26,8 +26,8 @@ class CategoriesSeeder extends Seeder
             ['id' => 2, 'name' => 'Dance', 'slug' => 'dance', 'display_order' => 2],
             ['id' => 3, 'name' => 'Theatre', 'slug' => 'theatre', 'display_order' => 3],
             ['id' => 4, 'name' => 'Community', 'slug' => 'community', 'display_order' => 4],
-            ['id' => 5, 'name' => 'Nightlife', 'slug' => 'nightlife', 'display_order' => 5],
-            ['id' => 6, 'name' => 'Film', 'slug' => 'film', 'display_order' => 6],
+            ['id' => 5, 'name' => 'Film', 'slug' => 'film', 'display_order' => 5],
+            ['id' => 6, 'name' => 'Nightlife', 'slug' => 'nightlife', 'display_order' => 6],
             ['id' => 7, 'name' => 'Talent', 'slug' => 'talent', 'display_order' => 7],
             ['id' => 8, 'name' => 'Venue', 'slug' => 'venue', 'display_order' => 8],
             ['id' => 9, 'name' => 'Organiser', 'slug' => 'organiser', 'display_order' => 9],
