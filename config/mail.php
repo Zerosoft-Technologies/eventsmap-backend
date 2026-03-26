@@ -116,4 +116,15 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Mail Branding
+    |--------------------------------------------------------------------------
+    |
+    | Use a publicly accessible absolute URL for email logos so email clients
+    | can render images outside your local/private network environment.
+    |
+    */
+    'logo_url' => env('MAIL_LOGO_URL'),
+
 ];

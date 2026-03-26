@@ -6,7 +6,7 @@
     <title>Event Invitation - {{ $invitation->event->title }}</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: Inter, sans-serif;
             line-height: 1.6;
             color: #333;
             max-width: 600px;
