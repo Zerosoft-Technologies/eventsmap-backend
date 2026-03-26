@@ -105,20 +105,6 @@ class StoreEventRequest extends FormRequest
                 }
             }
 
-            if ($this->filled('start_time') && $this->filled('end_time') && $this->filled('start_date')) {
-                $start = \Carbon\Carbon::parse($this->input('start_date') . ' ' . $this->input('start_time'));
-                $end = \Carbon\Carbon::parse(($this->input('end_date') ?? $this->input('start_date')) . ' ' . $this->input('end_time'));
-
-                if ($end->lte($start)) {
-                    $end->addDay();
-                }
-
-                $durationHours = $start->diffInMinutes($end) / 60;
-                if ($durationHours > 24) {
-                    $validator->errors()->add('end_time', 'Event duration cannot exceed 24 hours');
-                }
-            }
-
             if ($this->filled('latitude') xor $this->filled('longitude')) {
                 $validator->errors()->add('latitude', 'Latitude and longitude must be provided together');
             }

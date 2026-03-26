@@ -109,24 +109,6 @@ class UpdateEventRequest extends FormRequest
                     $validator->errors()->add('subcategory_ids', 'All subcategories must belong to the selected category');
                 }
             }
-
-            $eventDate = $this->input('start_date') ?? $event?->start_date?->format('Y-m-d');
-            $startTime = $this->input('start_time') ?? $event?->start_time;
-            $endTime = $this->input('end_time') ?? $event?->end_time;
-
-            if ($startTime && $endTime && $eventDate) {
-                $start = \Carbon\Carbon::parse("{$eventDate} {$startTime}");
-                $end = \Carbon\Carbon::parse("{$eventDate} {$endTime}");
-
-                if ($end->lte($start)) {
-                    $end->addDay();
-                }
-
-                $durationHours = $start->diffInMinutes($end) / 60;
-                if ($durationHours > 24) {
-                    $validator->errors()->add('end_time', 'Event duration cannot exceed 24 hours');
-                }
-            }
         });
     }
 
