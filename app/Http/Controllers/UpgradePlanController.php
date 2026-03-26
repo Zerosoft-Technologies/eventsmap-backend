@@ -97,7 +97,20 @@ class UpgradePlanController extends Controller
         $user->update($billingData);
 
         try {
-            $stripe = new StripeClient(config('services.stripe.secret'));
+            $stripeSecret = config('services.stripe.secret');
+            // Fallback in case config cache is stale.
+            if (!is_string($stripeSecret) || $stripeSecret === '') {
+                $stripeSecret = env('STRIPE_SECRET');
+            }
+
+            if (!is_string($stripeSecret) || $stripeSecret === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Stripe is not configured on the server.',
+                ], 500);
+            }
+
+            $stripe = new StripeClient($stripeSecret);
 
             // Create or retrieve Stripe customer
             if (!$user->stripe_customer_id) {

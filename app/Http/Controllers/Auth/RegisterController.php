@@ -126,7 +126,21 @@ class RegisterController extends Controller
         $user = User::create($userData);
 
         try {
-            $stripe = new StripeClient(config('services.stripe.secret'));
+            $stripeSecret = config('services.stripe.secret');
+            // When config is cached on live and env vars were changed,
+            // `config()` can return null. Fallback to raw env value.
+            if (!is_string($stripeSecret) || $stripeSecret === '') {
+                $stripeSecret = env('STRIPE_SECRET');
+            }
+
+            if (!is_string($stripeSecret) || $stripeSecret === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Stripe is not configured on the server.',
+                ], 500);
+            }
+
+            $stripe = new StripeClient($stripeSecret);
 
             $customer = $stripe->customers->create([
                 'name' => $billingType === 'business'
