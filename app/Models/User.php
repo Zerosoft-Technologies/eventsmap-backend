@@ -264,4 +264,12 @@ class User extends Authenticatable implements MustVerifyEmail
             ->active()
             ->exists();
     }
+
+    /**
+     * Get the gallery images for this user.
+     */
+    public function galleryImages()
+    {
+        return $this->hasMany(GalleryImage::class);
+    }
 }

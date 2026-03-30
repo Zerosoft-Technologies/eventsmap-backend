@@ -57,12 +57,13 @@ class EventController extends Controller
         $query = EventV2::query()
             ->with(['category', 'subcategories', 'venue', 'organisers', 'talents']);
 
-        // Search filter
+        // Search filter (ILIKE is PostgreSQL-only; MySQL uses LIKE + case-insensitive collation)
         $query->when($request->filled('search'), function ($q) use ($request) {
             $search = $request->input('search');
-            $q->where(function ($query) use ($search) {
-                $query->where('title', 'ILIKE', "%{$search}%")
-                    ->orWhere('address', 'ILIKE', "%{$search}%");
+            $op = $q->getConnection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'like';
+            $q->where(function ($sub) use ($search, $op) {
+                $sub->where('title', $op, "%{$search}%")
+                    ->orWhere('address', $op, "%{$search}%");
             });
         });
 

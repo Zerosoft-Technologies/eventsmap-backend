@@ -490,6 +490,16 @@ class Event extends Model
     }
 
     /**
+     * Get the gallery images associated with this event.
+     *
+     * @return HasMany
+     */
+    public function galleryImages(): HasMany
+    {
+        return $this->hasMany(GalleryImage::class);
+    }
+
+    /**
      * Set the location using latitude and longitude.
      * Converts to PostGIS GEOGRAPHY point for PostgreSQL, updates lat/lng columns for SQLite.
      *

@@ -6,6 +6,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\UpgradePlanController;
 use App\Http\Controllers\UserProfileController;
+use App\Http\Controllers\GalleryImageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -48,6 +49,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // User profile management
     Route::get('/user/profile', [UserProfileController::class, 'show']);
     Route::put('/user/profile', [UserProfileController::class, 'update']);
+
+    // Gallery routes (premium users only)
+    Route::get('/gallery-images', [GalleryImageController::class, 'index'])->name('gallery.index');
+    Route::post('/gallery-images/upload', [GalleryImageController::class, 'store'])->name('gallery.store');
+    Route::delete('/gallery-images/{image_id}', [GalleryImageController::class, 'destroy'])->name('gallery.destroy');
 });
 
 // Premium-only routes (requires auth + active premium status)
