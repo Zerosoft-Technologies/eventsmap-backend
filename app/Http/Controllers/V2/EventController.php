@@ -220,9 +220,51 @@ class EventController extends Controller
             'invited_venues' => is_array($event->invited_venues) ? $event->invited_venues : [],
             'organiser_ids' => $event->organisers->pluck('id')->values()->all(),
             'talent_ids' => $event->talents->pluck('id')->values()->all(),
-            'image_url' => $event->image_path ? MediaHelper::url($event->image_path) : null,
             'image_path' => $event->image_path,
         ];
+
+        // Handle main image - check if it's a UUID (from gallery) or a file path
+        if ($event->image_path) {
+            // Check if image_path is a UUID format
+            if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $event->image_path)) {
+                // It's a UUID, fetch from gallery
+                $galleryImage = \App\Models\GalleryImage::where('image_id', $event->image_path)
+                    ->where('user_id', $event->user_id)
+                    ->where('is_deleted', false)
+                    ->first();
+                
+                $data['image_url'] = $galleryImage ? MediaHelper::url($galleryImage->file_path) : null;
+            } else {
+                // It's a regular file path
+                $data['image_url'] = MediaHelper::url($event->image_path);
+            }
+        } else {
+            $data['image_url'] = null;
+        }
+
+        // Handle additional images
+        $additionalImages = $event->additional_images ?? [];
+        $additionalImageUrls = [];
+        
+        if (!empty($additionalImages) && is_array($additionalImages)) {
+            // Fetch gallery images for the additional image IDs
+            $galleryImages = \App\Models\GalleryImage::whereIn('image_id', $additionalImages)
+                ->where('user_id', $event->user_id)
+                ->where('is_deleted', false)
+                ->get()
+                ->keyBy('image_id');
+            
+            // Build URLs maintaining the same order as the additional_images array
+            foreach ($additionalImages as $imageId) {
+                if (isset($galleryImages[$imageId])) {
+                    $galleryImage = $galleryImages[$imageId];
+                    $additionalImageUrls[] = MediaHelper::url($galleryImage->file_path);
+                }
+            }
+        }
+        
+        $data['additional_images'] = $additionalImages;
+        $data['additional_image_urls'] = $additionalImageUrls;
 
         return response()->json([
             'success' => true,

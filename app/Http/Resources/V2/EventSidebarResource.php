@@ -27,7 +27,21 @@ class EventSidebarResource extends JsonResource
             'status' => $this->status,
             'computed_status' => $this->computed_status,
             'is_approved' => $this->is_approved ?? false,
-            'image_url' => $this->image_path ? MediaHelper::url($this->image_path) : null,
+            'image_url' => $this->when($this->image_path, function () {
+                // Check if image_path is a UUID format
+                if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $this->image_path)) {
+                    // It's a UUID, fetch from gallery
+                    $galleryImage = \App\Models\GalleryImage::where('image_id', $this->image_path)
+                        ->where('user_id', $this->user_id)
+                        ->where('is_deleted', false)
+                        ->first();
+                    
+                    return $galleryImage ? MediaHelper::url($galleryImage->file_path) : null;
+                } else {
+                    // It's a regular file path
+                    return MediaHelper::url($this->image_path);
+                }
+            }),
         ];
     }
 }
