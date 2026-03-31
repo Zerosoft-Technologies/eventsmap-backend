@@ -36,7 +36,7 @@ class StoreEventRequest extends FormRequest
             'dress_code' => 'nullable|string',
             'age_limit' => 'nullable',
             'entrance_status' => 'nullable|string',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'image_path' => 'nullable|string',
             'venue_id' => 'nullable|integer|exists:venues,id',
             'subcategory_ids' => 'nullable|array',
             'subcategory_ids.*' => 'exists:subcategories,id',
@@ -69,7 +69,7 @@ class StoreEventRequest extends FormRequest
             $rules['condition_dress_code'] = 'nullable|string|max:255';
             $rules['condition_age_limit'] = 'nullable|string|max:100';
             $rules['additional_images'] = 'nullable|array|max:10';
-            $rules['additional_images.*'] = 'image|mimes:jpg,jpeg,png,webp|max:2048';
+            $rules['additional_images.*'] = 'nullable|string';
             $rules['invited_talents'] = 'nullable|array|max:20';
             $rules['invited_talents.*'] = 'integer';
             $rules['invited_organisers'] = 'nullable|array|max:20';
@@ -107,6 +107,51 @@ class StoreEventRequest extends FormRequest
 
             if ($this->filled('latitude') xor $this->filled('longitude')) {
                 $validator->errors()->add('latitude', 'Latitude and longitude must be provided together');
+            }
+
+            // Validate main image UUID
+            if ($this->filled('image_path')) {
+                $user = $this->user();
+                $imageId = $this->input('image_path');
+                
+                // Check if it's a UUID format
+                if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $imageId)) {
+                    $validator->errors()->add('image_path', 'Invalid image ID format');
+                } else {
+                    // Check if gallery image exists and belongs to user
+                    $galleryImage = \App\Models\GalleryImage::where('image_id', $imageId)
+                        ->where('user_id', $user->id)
+                        ->where('is_deleted', false)
+                        ->first();
+
+                    if (!$galleryImage) {
+                        $validator->errors()->add('image_path', 'Image not found or does not belong to you');
+                    }
+                }
+            }
+
+            // Validate additional_images UUIDs
+            if ($this->filled('additional_images') && is_array($this->input('additional_images'))) {
+                $user = $this->user();
+                foreach ($this->input('additional_images') as $index => $imageId) {
+                    if (!empty($imageId)) {
+                        // Check if it's a UUID format
+                        if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $imageId)) {
+                            $validator->errors()->add("additional_images.{$index}", 'Invalid image ID format');
+                            continue;
+                        }
+
+                        // Check if gallery image exists and belongs to user
+                        $galleryImage = \App\Models\GalleryImage::where('image_id', $imageId)
+                            ->where('user_id', $user->id)
+                            ->where('is_deleted', false)
+                            ->first();
+
+                        if (!$galleryImage) {
+                            $validator->errors()->add("additional_images.{$index}", 'Image not found or does not belong to you');
+                        }
+                    }
+                }
             }
         });
     }

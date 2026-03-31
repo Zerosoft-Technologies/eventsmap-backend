@@ -78,15 +78,25 @@ class EventService
                 $eventData['is_approved'] = false;
             }
 
-            if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
-                $eventData['image_path'] = $this->storeImage($data['image']);
+            if (isset($data['image_path'])) {
+                if ($data['image_path'] instanceof UploadedFile) {
+                    // Handle uploaded file
+                    $eventData['image_path'] = $this->storeImage($data['image_path']);
+                } elseif (is_string($data['image_path'])) {
+                    // Handle UUID reference to existing gallery image
+                    $eventData['image_path'] = $data['image_path'];
+                }
             }
 
             if (!empty($data['additional_images']) && is_array($data['additional_images'])) {
                 $paths = [];
-                foreach ($data['additional_images'] as $file) {
-                    if ($file instanceof UploadedFile) {
-                        $paths[] = $this->storeImage($file);
+                foreach ($data['additional_images'] as $imageReference) {
+                    if ($imageReference instanceof UploadedFile) {
+                        // Handle uploaded file
+                        $paths[] = $this->storeImage($imageReference);
+                    } elseif (is_string($imageReference)) {
+                        // Handle UUID reference to existing gallery image
+                        $paths[] = $imageReference;
                     }
                 }
                 $eventData['additional_images'] = $paths;
@@ -194,17 +204,27 @@ class EventService
                 $updateData['status'] = $this->resolveStatus((string) $startDateTime, (string) $endDateTime);
             }
 
-            if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
-                $this->deleteImage($event->image_path);
-                $updateData['image_path'] = $this->storeImage($data['image']);
+            if (isset($data['image_path'])) {
+                if ($data['image_path'] instanceof UploadedFile) {
+                    // Handle uploaded file
+                    $this->deleteImage($event->image_path);
+                    $updateData['image_path'] = $this->storeImage($data['image_path']);
+                } elseif (is_string($data['image_path'])) {
+                    // Handle UUID reference to existing gallery image
+                    $updateData['image_path'] = $data['image_path'];
+                }
             }
 
             if (array_key_exists('additional_images', $data)) {
                 if (is_array($data['additional_images']) && !empty($data['additional_images'])) {
                     $paths = [];
-                    foreach ($data['additional_images'] as $file) {
-                        if ($file instanceof UploadedFile) {
-                            $paths[] = $this->storeImage($file);
+                    foreach ($data['additional_images'] as $imageReference) {
+                        if ($imageReference instanceof UploadedFile) {
+                            // Handle uploaded file
+                            $paths[] = $this->storeImage($imageReference);
+                        } elseif (is_string($imageReference)) {
+                            // Handle UUID reference to existing gallery image
+                            $paths[] = $imageReference;
                         }
                     }
                     $existing = is_array($event->additional_images) ? $event->additional_images : [];
