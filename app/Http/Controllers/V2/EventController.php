@@ -12,7 +12,6 @@ use App\Models\EventV2;
 use App\Services\V2\EventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 /**
  * EventController - V2 Event CRUD for authenticated users.
@@ -99,47 +98,7 @@ class EventController extends Controller
             $lng = (float) $request->input('lng');
             $radiusKm = (float) ($request->input('radius_km') ?? $request->input('radius'));
 
-            // Log the incoming parameters
-            Log::info('Location filter parameters', [
-                'lat_filled' => $request->filled('lat'),
-                'lng_filled' => $request->filled('lng'),
-                'radius_filled' => $request->filled('radius') || $request->filled('radius_km'),
-                'lat_value' => $lat,
-                'lng_value' => $lng,
-                'radius_value' => $radiusKm
-            ]);
-
-            // Validate lat/lng bounds
-            if ($lat >= -90 && $lat <= 90 && $lng >= -180 && $lng <= 180 && $radiusKm > 0) {
-                // Add distance calculation using Haversine formula
-                // Using a more robust formula that handles PostgreSQL floating point precision
-                $haversine = "(6371 * acos(LEAST(1, GREATEST(-1, cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))))";
-                
-                // Apply both the distance filter and select in one go to avoid issues
-                $query->selectRaw("*, $haversine AS distance_km", [$lat, $lng, $lat])
-                      ->whereRaw("$haversine <= ?", [$lat, $lng, $lat, $radiusKm]);
-                
-                // Log the query for debugging (remove in production)
-                Log::info('Location filter applied', [
-                    'lat' => $lat,
-                    'lng' => $lng,
-                    'radius' => $radiusKm,
-                    'sql' => $query->toSql(),
-                    'bindings' => $query->getBindings()
-                ]);
-            } else {
-                Log::warning('Invalid location parameters', [
-                    'lat' => $lat,
-                    'lng' => $lng,
-                    'radius' => $radiusKm
-                ]);
-            }
-        } else {
-            Log::info('Location filter not applied - missing parameters', [
-                'has_lat' => $request->filled('lat'),
-                'has_lng' => $request->filled('lng'),
-                'has_radius' => $request->filled('radius') || $request->filled('radius_km')
-            ]);
+            $query->withinRadius($lat, $lng, $radiusKm)->withDistance($lat, $lng);
         }
 
         // Sorting
