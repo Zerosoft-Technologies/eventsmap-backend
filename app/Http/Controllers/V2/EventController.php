@@ -98,7 +98,15 @@ class EventController extends Controller
             $lng = (float) $request->input('lng');
             $radiusKm = (float) ($request->input('radius_km') ?? $request->input('radius'));
 
-            $query->withinRadius($lat, $lng, $radiusKm)->withDistance($lat, $lng);
+            // Validate lat/lng bounds
+            if ($lat >= -90 && $lat <= 90 && $lng >= -180 && $lng <= 180 && $radiusKm > 0) {
+                // Add distance calculation using Haversine formula
+                $haversine = "(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))";
+                
+                // Use whereRaw instead of having to fix PostgreSQL pagination issue
+                $query->selectRaw("*, $haversine AS distance_km", [$lat, $lng, $lat])
+                      ->whereRaw("$haversine <= ?", [$lat, $lng, $lat, $radiusKm]);
+            }
         }
 
         // Sorting
@@ -325,7 +333,13 @@ class EventController extends Controller
     {
         $event = EventV2::findOrFail($id);
 
-        $this->authorize('delete', $event);
+        $user = request()->user();
+        if (!$user || ($event->user_id !== $user->id && !$user->isAdmin())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
 
         $this->eventService->delete($event);
 
