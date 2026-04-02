@@ -16,6 +16,16 @@ class UpdateEventRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        // Map event_date to start_date for backward compatibility
+        if ($this->has('event_date') && !$this->has('start_date')) {
+            $this->merge([
+                'start_date' => $this->input('event_date')
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         $event = EventV2::find($this->route('id'));
@@ -38,7 +48,6 @@ class UpdateEventRequest extends FormRequest
             'dress_code' => 'sometimes|nullable|string',
             'age_limit' => 'nullable',
             'entrance_status' => 'nullable|string',
-            'image_path' => 'nullable|string',
             'venue_id' => 'nullable|integer|exists:venues,id',
             'subcategory_ids' => 'nullable|array',
             'subcategory_ids.*' => 'exists:subcategories,id',
@@ -49,6 +58,13 @@ class UpdateEventRequest extends FormRequest
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',
         ];
+
+        // Image validation: accept either file upload (for free events) or UUID string (for premium events)
+        if ($this->hasFile('image_path')) {
+            $rules['image_path'] = 'nullable|file|image|mimes:jpeg,jpg,png,webp|max:2048';
+        } else {
+            $rules['image_path'] = 'nullable|string';
+        }
 
         if ($isPremium) {
             $rules['subcategory_ids'] = ['nullable', 'array'];
@@ -110,8 +126,8 @@ class UpdateEventRequest extends FormRequest
                 }
             }
 
-            // Validate main image UUID
-            if ($this->filled('image_path')) {
+            // Validate main image UUID (only for premium events)
+            if ($this->filled('image_path') && !$this->hasFile('image_path')) {
                 $user = $this->user();
                 $imageId = $this->input('image_path');
                 

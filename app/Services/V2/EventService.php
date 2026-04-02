@@ -79,13 +79,34 @@ class EventService
             }
 
             if (isset($data['image_path'])) {
+                Log::info('Image path data found', [
+                    'type' => gettype($data['image_path']),
+                    'is_uploaded_file' => $data['image_path'] instanceof UploadedFile,
+                    'is_string' => is_string($data['image_path']),
+                    'value' => is_string($data['image_path']) ? $data['image_path'] : '[file data]'
+                ]);
+                
                 if ($data['image_path'] instanceof UploadedFile) {
+                    // Check if file upload was successful
+                    if ($data['image_path']->getError() !== UPLOAD_ERR_OK) {
+                        Log::error('File upload error', [
+                            'error_code' => $data['image_path']->getError(),
+                            'error_message' => $data['image_path']->getErrorMessage()
+                        ]);
+                        throw new \Exception('File upload failed: ' . $data['image_path']->getErrorMessage());
+                    }
+                    
                     // Handle uploaded file
+                    Log::info('Processing uploaded file');
                     $eventData['image_path'] = $this->storeImage($data['image_path']);
+                    Log::info('File stored at path: ' . $eventData['image_path']);
                 } elseif (is_string($data['image_path'])) {
                     // Handle UUID reference to existing gallery image
+                    Log::info('Processing UUID string: ' . $data['image_path']);
                     $eventData['image_path'] = $data['image_path'];
                 }
+            } else {
+                Log::info('No image_path data found in request');
             }
 
             if (!empty($data['additional_images']) && is_array($data['additional_images'])) {
@@ -107,9 +128,7 @@ class EventService
             $invitedOrganiserIds = $data['invited_organisers'] ?? null;
             $invitedVenueIds = $data['invited_venues'] ?? null;
 
-            if ($subcategoryIds !== null) {
-                $eventData['subcategory_ids'] = $subcategoryIds;
-            }
+            // Handle invited IDs for premium events only
             if ($invitedTalentIds !== null && !$isFreePackage) {
                 $eventData['invited_talents'] = $invitedTalentIds;
             }
@@ -120,27 +139,41 @@ class EventService
                 $eventData['invited_venues'] = $invitedVenueIds;
             }
 
-            $event = EventV2::create($eventData);
+            try {
+                $event = EventV2::create($eventData);
 
-            if ($subcategoryIds !== null) {
-                $event->subcategories()->sync($subcategoryIds);
-            }
-            if (!$isFreePackage && !empty($data['organiser_ids'] ?? [])) {
-                $event->organisers()->sync($data['organiser_ids']);
-            }
-            if (!$isFreePackage && !empty($data['talent_ids'] ?? [])) {
-                $event->talents()->sync($this->formatTalentSync($data['talent_ids']));
-            }
+                if ($subcategoryIds !== null) {
+                    $event->subcategories()->sync($subcategoryIds);
+                }
+                if (!$isFreePackage && !empty($data['organiser_ids'] ?? [])) {
+                    $event->organisers()->sync($data['organiser_ids']);
+                }
+                if (!$isFreePackage && !empty($data['talent_ids'] ?? [])) {
+                    $event->talents()->sync($this->formatTalentSync($data['talent_ids']));
+                }
 
-            Log::info('Event created', ['event_id' => $event->id, 'user_id' => $user->id]);
+                Log::info('Event created', ['event_id' => $event->id, 'user_id' => $user->id]);
 
-            if (!$isFreePackage) {
-                $this->createInvitationsForEvent($event, $user);
+                if (!$isFreePackage) {
+                    $this->createInvitationsForEvent($event, $user);
+                }
+
+                return $event->load([
+                    'category', 'subcategories', 'venue', 'organisers', 'talents', 'user',
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Error creating event', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                
+                // If an image was uploaded and there was an error, try to delete it
+                if (isset($eventData['image_path']) && Storage::disk('public')->exists($eventData['image_path'])) {
+                    Storage::disk('public')->delete($eventData['image_path']);
+                }
+                
+                throw $e;
             }
-
-            return $event->load([
-                'category', 'subcategories', 'venue', 'organisers', 'talents', 'user',
-            ]);
         });
     }
 
@@ -544,12 +577,32 @@ class EventService
      */
     private function storeImage(UploadedFile $image): string
     {
-        // Generate a secure hashed filename
-        $extension = $image->getClientOriginalExtension();
-        $hash = Str::random(40);
-        $filename = $hash . '.' . strtolower($extension);
+        try {
+            // Generate a secure hashed filename
+            $extension = $image->getClientOriginalExtension();
+            $hash = Str::random(40);
+            $filename = $hash . '.' . strtolower($extension);
 
-        return $image->storeAs('events', $filename, 'public');
+            $path = $image->storeAs('events', $filename, 'public');
+            
+            if (!$path) {
+                throw new \Exception('Failed to store image file');
+            }
+            
+            Log::info('Image successfully stored', [
+                'original_name' => $image->getClientOriginalName(),
+                'stored_path' => $path,
+                'size' => $image->getSize()
+            ]);
+            
+            return $path;
+        } catch (\Exception $e) {
+            Log::error('Error storing image', [
+                'error' => $e->getMessage(),
+                'file' => $image->getClientOriginalName()
+            ]);
+            throw $e;
+        }
     }
 
     /**

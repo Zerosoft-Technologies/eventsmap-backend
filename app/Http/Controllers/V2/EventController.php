@@ -12,6 +12,7 @@ use App\Models\EventV2;
 use App\Services\V2\EventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * EventController - V2 Event CRUD for authenticated users.
@@ -154,7 +155,19 @@ class EventController extends Controller
      */
     public function store(StoreEventRequest $request): JsonResponse
     {
-        $event = $this->eventService->create($request->validated(), $request->user());
+        Log::info('Store event request', [
+            'all_data' => $request->all(),
+            'has_file' => $request->hasFile('image_path'),
+            'files' => $request->allFiles()
+        ]);
+        
+        $validated = $request->validated();
+        Log::info('Validated data', [
+            'validated' => $validated,
+            'image_path_type' => isset($validated['image_path']) ? gettype($validated['image_path']) : 'not_set'
+        ]);
+        
+        $event = $this->eventService->create($validated, $request->user());
 
         return response()->json([
             'success' => true,
