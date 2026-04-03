@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V2\EventController;
 use App\Http\Controllers\V2\PublicEventController;
+use App\Http\Controllers\V2\OrganiserController;
 use App\Http\Controllers\V2\UserController;
 use App\Http\Controllers\V2\WishlistController;
 use App\Http\Controllers\V2\EventInvitationController;
@@ -55,6 +56,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/events/{id}', [EventController::class, 'show']);
     Route::put('/events/{id}', [EventController::class, 'update']);
     Route::delete('/events/{id}', [EventController::class, 'destroy']);
+
+    // Organisers CRUD
+    Route::post('/organisers', [OrganiserController::class, 'store']);
+    Route::get('/organisers/{id}', [OrganiserController::class, 'show']);
+    Route::put('/organisers/{id}', [OrganiserController::class, 'update']);
+    Route::delete('/organisers/{id}', [OrganiserController::class, 'destroy']);
 
     // Wishlist toggle
     Route::post('/events/{id}/wishlist', [WishlistController::class, 'toggle']);
