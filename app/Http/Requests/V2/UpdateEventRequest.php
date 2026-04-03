@@ -161,22 +161,25 @@ class UpdateEventRequest extends FormRequest
             if ($this->filled('additional_images') && is_array($this->input('additional_images')) && !$this->hasFile('additional_images')) {
                 $user = $this->user();
                 foreach ($this->input('additional_images') as $index => $imageId) {
-                    if (!empty($imageId)) {
-                        // Check if it's a UUID format
-                        if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $imageId)) {
-                            $validator->errors()->add("additional_images.{$index}", 'Invalid image ID format');
-                            continue;
-                        }
+                    // Skip null values
+                    if (is_null($imageId) || $imageId === '') {
+                        continue;
+                    }
+                    
+                    // Check if it's a UUID format
+                    if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $imageId)) {
+                        $validator->errors()->add("additional_images.{$index}", 'Invalid image ID format');
+                        continue;
+                    }
 
-                        // Check if gallery image exists and belongs to user
-                        $galleryImage = \App\Models\GalleryImage::where('image_id', $imageId)
-                            ->where('user_id', $user->id)
-                            ->where('is_deleted', false)
-                            ->first();
+                    // Check if gallery image exists and belongs to user
+                    $galleryImage = \App\Models\GalleryImage::where('image_id', $imageId)
+                        ->where('user_id', $user->id)
+                        ->where('is_deleted', false)
+                        ->first();
 
-                        if (!$galleryImage) {
-                            $validator->errors()->add("additional_images.{$index}", 'Image not found or does not belong to you');
-                        }
+                    if (!$galleryImage) {
+                        $validator->errors()->add("additional_images.{$index}", 'Image not found or does not belong to you');
                     }
                 }
             }

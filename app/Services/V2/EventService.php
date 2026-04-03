@@ -284,9 +284,17 @@ class EventService
                 }
                 $updateData['additional_images'] = $newAdditionalImages;
             } elseif (isset($data['additional_images']) && is_array($data['additional_images'])) {
-                // Handle additional images as UUID strings (from gallery)
-                $this->deleteAllAdditionalImages($event);
-                $updateData['additional_images'] = $data['additional_images'];
+                // Filter out null values
+                $filteredImages = array_filter($data['additional_images'], function ($image) {
+                    return !is_null($image) && $image !== '';
+                });
+                
+                // Only update if we have valid images or if explicitly clearing
+                if (!empty($filteredImages)) {
+                    // Handle additional images as UUID strings (from gallery)
+                    $this->deleteAllAdditionalImages($event);
+                    $updateData['additional_images'] = array_values($filteredImages);
+                }
             } elseif (isset($data['remove_additional_images']) && $data['remove_additional_images'] === true) {
                 // Remove all additional images if flag is set
                 $this->deleteAllAdditionalImages($event);
