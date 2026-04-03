@@ -152,8 +152,11 @@ class PublicEventController extends Controller
     public function show(Request $request, int $id): JsonResponse
     {
         $event = EventV2::publicVisible()
-            ->with(['category', 'subcategories', 'venue', 'organisers', 'talents'])
+            ->with(['category', 'venue', 'organisers', 'talents'])
             ->findOrFail($id);
+        
+        // Manually load subcategories from IDs
+        $event->setRelation('subcategories', $event->subcategories_from_ids);
 
         // Record view
         $this->eventService->recordView(
@@ -180,8 +183,11 @@ class PublicEventController extends Controller
     {
         $event = EventV2::publicVisible()
             ->where('slug', $slug)
-            ->with(['category', 'subcategories', 'venue', 'organisers', 'talents'])
+            ->with(['category', 'venue', 'organisers', 'talents'])
             ->firstOrFail();
+        
+        // Manually load subcategories from IDs
+        $event->setRelation('subcategories', $event->subcategories_from_ids);
 
         // Record view
         $this->eventService->recordView(

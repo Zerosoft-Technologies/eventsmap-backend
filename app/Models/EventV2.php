@@ -259,6 +259,19 @@ class EventV2 extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Get subcategories based on the subcategory_ids column
+     * This is used instead of the pivot table relationship
+     */
+    public function getSubcategoriesFromIdsAttribute()
+    {
+        if (empty($this->subcategory_ids)) {
+            return collect([]);
+        }
+        
+        return SubCategory::whereIn('id', $this->subcategory_ids)->get();
+    }
+
     public function organisers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'event_v2_organiser', 'event_v2_id', 'user_id')

@@ -72,12 +72,17 @@ class WishlistController extends Controller
             ->pluck('event_v2_id');
 
         $events = EventV2::whereIn('id', $eventIds)
-            ->with(['category', 'subcategories', 'venue'])
+            ->with(['category', 'venue'])
             ->get()
             ->sortBy(function ($event) use ($eventIds) {
                 return $eventIds->search($event->id);
             })
             ->values();
+        
+        // Manually load subcategories for each event
+        $events->each(function ($event) {
+            $event->setRelation('subcategories', $event->subcategories_from_ids);
+        });
 
         return response()->json([
             'success' => true,

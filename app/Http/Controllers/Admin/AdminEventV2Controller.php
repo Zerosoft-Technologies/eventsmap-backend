@@ -43,7 +43,7 @@ class AdminEventV2Controller extends Controller
         ]);
 
         $query = EventV2::query()
-            ->with(['category', 'subcategories', 'venue', 'user']);
+            ->with(['category', 'venue', 'user']);
 
         // Search filter
         $query->when($request->filled('search'), function ($q) use ($request) {

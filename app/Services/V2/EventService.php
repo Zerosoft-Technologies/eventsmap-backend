@@ -23,6 +23,15 @@ use Illuminate\Support\Str;
 class EventService
 {
     /**
+     * Load an event with subcategories from IDs
+     */
+    private function loadEventWithSubcategories(EventV2 $event): EventV2
+    {
+        return $event->load(['category', 'venue', 'organisers', 'talents', 'user'])
+            ->setAttribute('subcategories', $event->subcategories_from_ids);
+    }
+
+    /**
      * Create a new event.
      *
      * @param array $data Validated event data
@@ -66,6 +75,7 @@ class EventService
                 'tiktok_url', 'ticket_url', 'booking_instructions', 'event_option',
                 'condition_entrance_fee', 'condition_dress_code', 'condition_age_limit',
                 'is_recurring', 'is_copy_event', 'show_upcoming_events', 'show_past_events',
+                'subcategory_ids', 'invited_talents', 'invited_organisers', 'invited_venues',
             ];
 
             foreach ($optionalFields as $field) {
@@ -123,28 +133,13 @@ class EventService
                 $eventData['additional_images'] = $paths;
             }
 
-            $subcategoryIds = $data['subcategory_ids'] ?? null;
-            $invitedTalentIds = $data['invited_talents'] ?? null;
-            $invitedOrganiserIds = $data['invited_organisers'] ?? null;
-            $invitedVenueIds = $data['invited_venues'] ?? null;
-
-            // Handle invited IDs for premium events only
-            if ($invitedTalentIds !== null && !$isFreePackage) {
-                $eventData['invited_talents'] = $invitedTalentIds;
-            }
-            if ($invitedOrganiserIds !== null && !$isFreePackage) {
-                $eventData['invited_organisers'] = $invitedOrganiserIds;
-            }
-            if ($invitedVenueIds !== null && !$isFreePackage) {
-                $eventData['invited_venues'] = $invitedVenueIds;
-            }
+            // Note: subcategory_ids is now stored directly in the column, not using pivot table
+            // The invited IDs are already handled above in optionalFields
 
             try {
                 $event = EventV2::create($eventData);
 
-                if ($subcategoryIds !== null) {
-                    $event->subcategories()->sync($subcategoryIds);
-                }
+                // Note: subcategory_ids is now stored directly in the column, not using pivot table
                 if (!$isFreePackage && !empty($data['organiser_ids'] ?? [])) {
                     $event->organisers()->sync($data['organiser_ids']);
                 }
@@ -158,9 +153,7 @@ class EventService
                     $this->createInvitationsForEvent($event, $user);
                 }
 
-                return $event->load([
-                    'category', 'subcategories', 'venue', 'organisers', 'talents', 'user',
-                ]);
+                return $this->loadEventWithSubcategories($event);
             } catch (\Exception $e) {
                 Log::error('Error creating event', [
                     'error' => $e->getMessage(),
@@ -282,16 +275,9 @@ class EventService
 
             $event->update($updateData);
 
-            $subcategoryIds = $data['subcategory_ids'] ?? null;
+            // Note: subcategory_ids is now stored directly in the column, not using pivot table
             $organiserIds = $data['organiser_ids'] ?? null;
             $talentIds = $data['talent_ids'] ?? null;
-            $invitedTalentIds = $data['invited_talents'] ?? null;
-            $invitedOrganiserIds = $data['invited_organisers'] ?? null;
-            $invitedVenueIds = $data['invited_venues'] ?? null;
-
-            if ($subcategoryIds !== null) {
-                $event->subcategories()->sync($subcategoryIds);
-            }
             if ($organiserIds !== null) {
                 $event->organisers()->sync($organiserIds);
             }
@@ -302,16 +288,22 @@ class EventService
             $isFreePackage = array_key_exists('event_type', $data)
                 ? $data['event_type'] === 'free'
                 : $event->is_free_package;
-            if (!$isFreePackage && ($invitedTalentIds !== null || $invitedOrganiserIds !== null || $invitedVenueIds !== null)) {
+            
+            // Check if any invited IDs are present for premium events
+            $hasInvitedIds = !$isFreePackage && (
+                (!empty($data['invited_talents'] ?? [])) ||
+                (!empty($data['invited_organisers'] ?? [])) ||
+                (!empty($data['invited_venues'] ?? []))
+            );
+            
+            if ($hasInvitedIds) {
                 $event = $event->fresh();
                 $this->createInvitationsForEvent($event, $event->user);
             }
 
             Log::info('Event updated', ['event_id' => $event->id]);
 
-            return $event->load([
-                'category', 'subcategories', 'venue', 'organisers', 'talents', 'user',
-            ]);
+            return $this->loadEventWithSubcategories($event);
         });
     }
 
@@ -362,7 +354,7 @@ class EventService
     {
         $event->restore();
         Log::info('Event restored', ['event_id' => $event->id]);
-        return $event->load(['category', 'subcategories', 'venue', 'organisers', 'talents', 'user']);
+        return $this->loadEventWithSubcategories($event);
     }
 
     // ──────────────────────────────────────

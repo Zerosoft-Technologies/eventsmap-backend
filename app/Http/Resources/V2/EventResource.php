@@ -58,7 +58,16 @@ class EventResource extends JsonResource
             'invited_venues' => $this->invited_venues ?? [],
 
             'subcategories' => $this->whenLoaded('subcategories', function () {
-                return $this->subcategories->map(fn ($sc) => [
+                // If subcategories relation is loaded, use it
+                if ($this->relationLoaded('subcategories') && $this->subcategories !== null) {
+                    return $this->subcategories->map(fn ($sc) => [
+                        'id' => $sc->id,
+                        'name' => $sc->name,
+                        'slug' => $sc->slug,
+                    ]);
+                }
+                // Otherwise, get from IDs
+                return $this->subcategories_from_ids->map(fn ($sc) => [
                     'id' => $sc->id,
                     'name' => $sc->name,
                     'slug' => $sc->slug,

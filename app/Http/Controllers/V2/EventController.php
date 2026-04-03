@@ -56,7 +56,7 @@ class EventController extends Controller
         ]);
 
         $query = EventV2::query()
-            ->with(['category', 'subcategories', 'venue', 'organisers', 'talents']);
+            ->with(['category', 'venue', 'organisers', 'talents']);
 
         // Search filter (ILIKE is PostgreSQL-only; MySQL uses LIKE + case-insensitive collation)
         $query->when($request->filled('search'), function ($q) use ($request) {
@@ -183,7 +183,10 @@ class EventController extends Controller
      */
     public function show(Request $request, int $id): JsonResponse
     {
-        $event = EventV2::with(['subcategories', 'organisers', 'talents'])->findOrFail($id);
+        $event = EventV2::with(['category', 'venue', 'organisers', 'talents', 'user'])->findOrFail($id);
+        
+        // Manually load subcategories from IDs
+        $event->setRelation('subcategories', $event->subcategories_from_ids);
 
         $user = $request->user();
         if (!$event->isOwner($user) && !$user->isAdmin()) {
