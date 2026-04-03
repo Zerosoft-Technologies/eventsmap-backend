@@ -66,14 +66,9 @@ class UpdateEventRequest extends FormRequest
             $rules['image_path'] = 'nullable|string';
         }
         
-        // Additional images validation - accepts both file uploads and UUID strings
-        if ($this->hasFile('additional_images')) {
-            $rules['additional_images'] = 'nullable|array';
-            $rules['additional_images.*'] = 'nullable|file|image|mimes:jpeg,jpg,png,webp|max:2048';
-        } else {
-            $rules['additional_images'] = 'nullable|array';
-            $rules['additional_images.*'] = 'nullable|string';
-        }
+        // Additional images validation
+        $rules['additional_images'] = 'nullable|array';
+        $rules['additional_images.*'] = 'nullable|file|image|mimes:jpeg,jpg,png,webp|max:2048';
         $rules['remove_additional_images'] = 'nullable|boolean';
 
         if ($isPremium) {
@@ -123,9 +118,7 @@ class UpdateEventRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            $event = EventV2::find($this->route('id'));
-            $categoryId = $this->input('category_id', $event?->category_id);
-
+            $categoryId = $this->input('category_id');
             if ($this->filled('subcategory_ids') && $categoryId) {
                 $validCount = SubCategory::where('category_id', $categoryId)
                     ->whereIn('id', $this->input('subcategory_ids'))
@@ -134,6 +127,10 @@ class UpdateEventRequest extends FormRequest
                 if ($validCount !== count($this->input('subcategory_ids'))) {
                     $validator->errors()->add('subcategory_ids', 'All subcategories must belong to the selected category');
                 }
+            }
+
+            if ($this->filled('latitude') xor $this->filled('longitude')) {
+                $validator->errors()->add('latitude', 'Latitude and longitude must be provided together');
             }
 
             // Validate main image UUID (only for premium events)
@@ -157,8 +154,8 @@ class UpdateEventRequest extends FormRequest
                 }
             }
 
-            // Validate additional_images UUIDs (only when not file uploads)
-            if ($this->filled('additional_images') && is_array($this->input('additional_images')) && !$this->hasFile('additional_images')) {
+            // Validate additional_images UUIDs
+            if ($this->filled('additional_images') && is_array($this->input('additional_images'))) {
                 $user = $this->user();
                 foreach ($this->input('additional_images') as $index => $imageId) {
                     if (!empty($imageId)) {
@@ -185,16 +182,29 @@ class UpdateEventRequest extends FormRequest
 
     public function messages(): array
     {
-        $eventType = $this->input('event_type', 'premium');
-        $isPremium = $eventType === 'premium';
+        $isPremium = $this->input('event_type') === 'premium';
 
         $messages = [
+            'title.required' => 'Event title is required',
             'title.min' => 'Event title must be at least 3 characters',
             'title.max' => 'Event title cannot exceed 255 characters',
+            'event_type.required' => 'Event type is required',
+            'event_type.in' => 'Event type must be free or premium',
+            'category_id.required' => 'Category is required',
             'category_id.exists' => 'Selected category does not exist',
+            'start_date.required' => 'Start date is required',
             'end_date.after_or_equal' => 'End date must be after or equal to start date',
+            'start_datetime.required' => 'Start datetime is required',
+            'end_datetime.required' => 'End datetime is required',
             'end_datetime.after' => 'End datetime must be after start datetime',
+            'start_time.required' => 'Start time is required',
+            'start_time.date_format' => 'Start time must be in HH:MM format',
+            'end_time.required' => 'End time is required',
+            'end_time.date_format' => 'End time must be in HH:MM format',
+            'address.required' => 'Address is required',
+            'latitude.required' => 'Latitude is required',
             'latitude.between' => 'Latitude must be between -90 and 90',
+            'longitude.required' => 'Longitude is required',
             'longitude.between' => 'Longitude must be between -180 and 180',
             'image.image' => 'File must be an image',
             'image.max' => 'Image must not exceed 2MB',
@@ -202,6 +212,7 @@ class UpdateEventRequest extends FormRequest
         ];
 
         if ($isPremium) {
+            $messages['subcategory_ids.required'] = 'Premium events require at least 1 subcategory';
             $messages['subcategory_ids.min'] = 'Premium events require at least 1 subcategory';
         } else {
             $messages['subcategory_ids.max'] = 'Free events allow a maximum of ' . EventV2::FREE_MAX_SUBCATEGORIES . ' subcategor' . (EventV2::FREE_MAX_SUBCATEGORIES === 1 ? 'y' : 'ies');

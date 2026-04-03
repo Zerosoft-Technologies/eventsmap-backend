@@ -306,7 +306,7 @@ class EventController extends Controller
             ], 403);
         }
 
-        $event = $this->eventService->update($event, $request->validated());
+        $event = $this->eventService->update($event, $request->validated(), $request);
 
         $event->refresh();
         $subcategoryIds = is_array($event->subcategory_ids) ? $event->subcategory_ids : $event->subcategories()->pluck('id')->toArray();

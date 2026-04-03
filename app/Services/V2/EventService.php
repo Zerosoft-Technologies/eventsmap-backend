@@ -6,6 +6,7 @@ use App\Models\EventV2;
 use App\Models\EventV2View;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,21 @@ use Illuminate\Support\Str;
  */
 class EventService
 {
+    /**
+     * Delete all additional images for an event
+     */
+    private function deleteAllAdditionalImages(EventV2 $event): void
+    {
+        if (!empty($event->additional_images) && is_array($event->additional_images)) {
+            foreach ($event->additional_images as $imagePath) {
+                // Only delete from storage if it's a file path (not UUID)
+                if (is_string($imagePath) && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $imagePath)) {
+                    $this->deleteImage($imagePath);
+                }
+            }
+        }
+    }
+
     /**
      * Load an event with subcategories from IDs
      */
@@ -187,14 +203,15 @@ class EventService
      * Update an existing event.
      *
      * @param EventV2 $event The event to update
-     * @param array $data Validated update data
+     * @param array $data Validated event data
+     * @param ?Request $request The request object
      * @return EventV2 The updated event with relationships loaded
      *
      * @throws \Throwable If database transaction fails
      */
-    public function update(EventV2 $event, array $data): EventV2
+    public function update(EventV2 $event, array $data, ?Request $request = null): EventV2
     {
-        return DB::transaction(function () use ($event, $data) {
+        return DB::transaction(function () use ($event, $data, $request) {
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids', 'event_date', 'start_time', 'end_time',
                 'start_date', 'end_date', 'start_datetime', 'end_datetime',
@@ -230,34 +247,50 @@ class EventService
                 $updateData['status'] = $this->resolveStatus((string) $startDateTime, (string) $endDateTime);
             }
 
-            if (isset($data['image_path'])) {
-                if ($data['image_path'] instanceof UploadedFile) {
-                    // Handle uploaded file
+            // Handle main image
+            if ($request && $request->hasFile('image_path')) {
+                // Delete old main image if exists
+                if (!empty($event->image_path)) {
                     $this->deleteImage($event->image_path);
-                    $updateData['image_path'] = $this->storeImage($data['image_path']);
-                } elseif (is_string($data['image_path'])) {
-                    // Handle UUID reference to existing gallery image
-                    $updateData['image_path'] = $data['image_path'];
                 }
+                
+                // Store new image
+                $file = $request->file('image_path');
+                if ($file->getError() !== UPLOAD_ERR_OK) {
+                    throw new \Exception('File upload failed: ' . $file->getErrorMessage());
+                }
+                $updateData['image_path'] = $this->storeImage($file);
+            } elseif (isset($data['image_path']) && is_string($data['image_path'])) {
+                // Handle UUID reference to existing gallery image
+                $updateData['image_path'] = $data['image_path'];
             }
 
-            if (array_key_exists('additional_images', $data)) {
-                if (is_array($data['additional_images']) && !empty($data['additional_images'])) {
-                    $paths = [];
-                    foreach ($data['additional_images'] as $imageReference) {
-                        if ($imageReference instanceof UploadedFile) {
-                            // Handle uploaded file
-                            $paths[] = $this->storeImage($imageReference);
-                        } elseif (is_string($imageReference)) {
-                            // Handle UUID reference to existing gallery image
-                            $paths[] = $imageReference;
-                        }
+            // Handle additional images
+            if ($request && $request->hasFile('additional_images')) {
+                // Delete all old additional images
+                $this->deleteAllAdditionalImages($event);
+                
+                // Store new additional images (file uploads)
+                $newAdditionalImages = [];
+                foreach ($request->file('additional_images') as $image) {
+                    if ($image->getError() !== UPLOAD_ERR_OK) {
+                        Log::error('Additional image upload error', [
+                            'error_code' => $image->getError(),
+                            'error_message' => $image->getErrorMessage()
+                        ]);
+                        continue;
                     }
-                    $existing = is_array($event->additional_images) ? $event->additional_images : [];
-                    $updateData['additional_images'] = array_merge($existing, $paths);
-                } else {
-                    $updateData['additional_images'] = [];
+                    $newAdditionalImages[] = $this->storeImage($image);
                 }
+                $updateData['additional_images'] = $newAdditionalImages;
+            } elseif (isset($data['additional_images']) && is_array($data['additional_images'])) {
+                // Handle additional images as UUID strings (from gallery)
+                $this->deleteAllAdditionalImages($event);
+                $updateData['additional_images'] = $data['additional_images'];
+            } elseif (isset($data['remove_additional_images']) && $data['remove_additional_images'] === true) {
+                // Remove all additional images if flag is set
+                $this->deleteAllAdditionalImages($event);
+                $updateData['additional_images'] = [];
             }
 
             if (array_key_exists('subcategory_ids', $data)) {

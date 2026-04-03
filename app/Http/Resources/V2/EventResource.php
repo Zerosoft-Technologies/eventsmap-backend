@@ -56,6 +56,38 @@ class EventResource extends JsonResource
             'invited_talents' => $this->invited_talents ?? [],
             'invited_organisers' => $this->invited_organisers ?? [],
             'invited_venues' => $this->invited_venues ?? [],
+            
+            // Additional images
+            'additional_images' => $this->when(isset($this->additional_images), function () {
+                if (empty($this->additional_images)) {
+                    return [];
+                }
+                
+                // Process each additional image
+                return collect($this->additional_images)->map(function ($image) {
+                    // Check if it's a UUID
+                    if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $image)) {
+                        // Fetch from gallery
+                        $galleryImage = \App\Models\GalleryImage::where('image_id', $image)
+                            ->where('user_id', $this->user_id)
+                            ->where('is_deleted', false)
+                            ->first();
+                        
+                        return $galleryImage ? [
+                            'id' => $galleryImage->image_id,
+                            'url' => MediaHelper::url($galleryImage->file_path),
+                            'caption' => $galleryImage->caption
+                        ] : null;
+                    } else {
+                        // Regular file path
+                        return [
+                            'id' => null,
+                            'url' => MediaHelper::url($image),
+                            'caption' => null
+                        ];
+                    }
+                })->filter()->values();
+            }),
 
             'subcategories' => $this->whenLoaded('subcategories', function () {
                 // If subcategories relation is loaded, use it
