@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V2\EventController;
 use App\Http\Controllers\V2\PublicEventController;
 use App\Http\Controllers\V2\OrganiserController;
+use App\Http\Controllers\V2\TalentController;
+use App\Http\Controllers\V2\VenueController;
 use App\Http\Controllers\V2\UserController;
 use App\Http\Controllers\V2\WishlistController;
 use App\Http\Controllers\V2\EventInvitationController;
@@ -48,6 +50,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // My Events (sidebar)
     Route::get('/my-events', [EventController::class, 'myEvents']);
 
+    // My Organisers (sidebar)
+    Route::get('/my-organisers', [OrganiserController::class, 'myOrganisers']);
+
     // My Wishlist
     Route::get('/my-wishlist', [WishlistController::class, 'index']);
 
@@ -62,6 +67,18 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/organisers/{id}', [OrganiserController::class, 'show']);
     Route::put('/organisers/{id}', [OrganiserController::class, 'update']);
     Route::delete('/organisers/{id}', [OrganiserController::class, 'destroy']);
+
+    // Talents CRUD
+    Route::post('/talents', [TalentController::class, 'store']);
+    Route::get('/talents/{id}', [TalentController::class, 'show']);
+    Route::put('/talents/{id}', [TalentController::class, 'update']);
+    Route::delete('/talents/{id}', [TalentController::class, 'destroy']);
+
+    // Venues CRUD
+    Route::post('/venues', [VenueController::class, 'store']);
+    Route::get('/venues/{id}', [VenueController::class, 'show']);
+    Route::put('/venues/{id}', [VenueController::class, 'update']);
+    Route::delete('/venues/{id}', [VenueController::class, 'destroy']);
 
     // Wishlist toggle
     Route::post('/events/{id}/wishlist', [WishlistController::class, 'toggle']);

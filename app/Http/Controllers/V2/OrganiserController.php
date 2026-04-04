@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V2\StoreOrganiserRequest;
 use App\Http\Requests\V2\UpdateOrganiserRequest;
 use App\Http\Resources\V2\OrganiserResource;
+use App\Http\Resources\V2\OrganiserSidebarResource;
 use App\Models\OrganiserV2;
 use App\Services\V2\OrganiserService;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +18,23 @@ class OrganiserController extends Controller
     public function __construct(
         private readonly OrganiserService $organiserService
     ) {}
+
+    /**
+     * GET /api/v2/my-organisers
+     *
+     * Get all organisers for the authenticated user (for sidebar).
+     */
+    public function myOrganisers(Request $request): JsonResponse
+    {
+        $organisers = OrganiserV2::where('user_id', $request->user()->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => OrganiserSidebarResource::collection($organisers),
+        ]);
+    }
 
     /**
      * POST /api/v2/organisers
