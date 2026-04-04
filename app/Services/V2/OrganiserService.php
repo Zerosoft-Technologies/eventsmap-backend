@@ -136,19 +136,30 @@ class OrganiserService
                     $newAdditionalImages[] = $this->storeImage($image);
                 }
                 $updateData['additional_images'] = $newAdditionalImages;
-            } elseif (isset($data['additional_images']) && is_array($data['additional_images'])) {
-                $filteredImages = array_filter($data['additional_images'], function ($image) {
-                    return !is_null($image) && $image !== '';
-                });
+            } elseif (array_key_exists('additional_images', $data)) {
+                if (is_array($data['additional_images']) && !empty($data['additional_images'])) {
+                    $filteredImages = array_filter($data['additional_images'], function ($image) {
+                        return !is_null($image) && $image !== '';
+                    });
 
-                if (!empty($filteredImages)) {
+                    if (!empty($filteredImages)) {
+                        $this->deleteAllAdditionalImages($organiser);
+                        $updateData['additional_images'] = array_values($filteredImages);
+                    } else {
+                        $this->deleteAllAdditionalImages($organiser);
+                        $updateData['additional_images'] = null;
+                    }
+                } else {
+                    // Empty array or null — clear all additional images
                     $this->deleteAllAdditionalImages($organiser);
-                    $updateData['additional_images'] = array_values($filteredImages);
+                    $updateData['additional_images'] = null;
                 }
             } elseif (isset($data['remove_additional_images']) && $data['remove_additional_images'] === true) {
                 $this->deleteAllAdditionalImages($organiser);
-                $updateData['additional_images'] = [];
+                $updateData['additional_images'] = null;
             }
+
+            Log::info('Organiser update data', ['updateData_keys' => array_keys($updateData), 'has_additional_images' => array_key_exists('additional_images', $updateData)]);
 
             $organiser->update($updateData);
 

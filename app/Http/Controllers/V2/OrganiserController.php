@@ -155,7 +155,16 @@ class OrganiserController extends Controller
             ], 403);
         }
 
-        $organiser = $this->organiserService->update($organiser, $request->validated(), $request);
+        // $organiser = $this->organiserService->update($organiser, $request->validated(), $request);
+        $data = $request->validated();
+ 
+        // When frontend sends empty additional_images (cleared), validated() strips it.
+        // Explicitly pass empty array so the service knows to clear them.
+        if (!$request->hasFile('additional_images') && !array_key_exists('additional_images', $data)) {
+            $data['additional_images'] = [];
+        }
+ 
+        $organiser = $this->organiserService->update($organiser, $data, $request);
 
         $organiser->refresh();
         $subcategoryIds = is_array($organiser->subcategory_ids) ? $organiser->subcategory_ids : [];

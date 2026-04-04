@@ -133,7 +133,15 @@ class TalentController extends Controller
             ], 403);
         }
 
-        $talent = $this->talentService->update($talent, $request->validated(), $request);
+        $data = $request->validated();
+
+        // When frontend sends empty additional_images (cleared), validated() strips it.
+        // Explicitly pass empty array so the service knows to clear them.
+        if (!$request->hasFile('additional_images') && !array_key_exists('additional_images', $data)) {
+            $data['additional_images'] = [];
+        }
+
+        $talent = $this->talentService->update($talent, $data, $request);
 
         $talent->refresh();
 
