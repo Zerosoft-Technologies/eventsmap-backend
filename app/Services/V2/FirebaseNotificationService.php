@@ -56,7 +56,7 @@ class FirebaseNotificationService
         $docId = $this->documentId($invitation->id);
         $receiverId = (string) $invitation->receiver_id;
         $senderName = $invitation->sender?->name ?? 'Someone';
-        $message = "You have a pending invitation from {$senderName}. Please check your email to accept the invitation.";
+        $message = "You have a pending invitation from {$senderName}. Please log in to The Events Map to accept or decline the invitation.";
 
         $fields = [
             'receiver_id' => ['stringValue' => $receiverId],
