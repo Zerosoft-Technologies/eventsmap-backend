@@ -29,6 +29,7 @@ class OrganiserService
                 'slug' => $this->generateUniqueSlug($data['title']),
                 'event_type' => $data['event_type'] ?? 'free',
                 'category_id' => $data['category_id'] ?? null,
+                'organiser_category_id' => $data['organiser_category_id'] ?? null,
                 'address' => $data['address'],
                 'latitude' => $data['latitude'] ?? null,
                 'longitude' => $data['longitude'] ?? null,
@@ -77,9 +78,14 @@ class OrganiserService
 
             $organiser = OrganiserV2::create($organiserData);
 
+            // Sync organiser subcategories pivot
+            if (!empty($data['organiser_subcategory_ids'])) {
+                $organiser->organiserSubcategories()->sync($data['organiser_subcategory_ids']);
+            }
+
             Log::info('Organiser created', ['organiser_id' => $organiser->id, 'user_id' => $user->id]);
 
-            return $organiser->load(['category', 'user']);
+            return $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
         });
     }
 
@@ -91,6 +97,7 @@ class OrganiserService
         return DB::transaction(function () use ($organiser, $data, $request) {
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids',
+                'organiser_category_id',
                 'address', 'latitude', 'longitude',
                 'description', 'contact_phone', 'contact_email', 'contact_website',
                 'facebook_url', 'instagram_url', 'tiktok_url',
@@ -163,9 +170,14 @@ class OrganiserService
 
             $organiser->update($updateData);
 
+            // Sync organiser subcategories pivot
+            if (array_key_exists('organiser_subcategory_ids', $data)) {
+                $organiser->organiserSubcategories()->sync($data['organiser_subcategory_ids'] ?? []);
+            }
+
             Log::info('Organiser updated', ['organiser_id' => $organiser->id]);
 
-            return $organiser->load(['category', 'user']);
+            return $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
         });
     }
 

@@ -8,6 +8,7 @@ use App\Http\Controllers\UpgradePlanController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\GalleryImageController;
 use App\Http\Controllers\V2\TalentCategoryController;
+use App\Http\Controllers\V2\OrganiserCategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -34,6 +35,9 @@ Route::prefix('v1')->group(function () {
 
     // Talent Categories endpoints
     Route::get('/categories-talents', [TalentCategoryController::class, 'index']);
+
+    // Organiser Categories endpoints
+    Route::get('/categories-organisers', [OrganiserCategoryController::class, 'index']);
 });
 
 // Payment verification (no auth required)

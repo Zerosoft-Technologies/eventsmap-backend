@@ -76,6 +76,28 @@ class OrganiserResource extends JsonResource
                 ]);
             }),
 
+            'organiser_category_id' => $this->organiser_category_id,
+
+            'organiser_category' => $this->whenLoaded('organiserCategory', function () {
+                return [
+                    'id' => $this->organiserCategory->id,
+                    'name' => $this->organiserCategory->name,
+                    'slug' => $this->organiserCategory->slug,
+                ];
+            }),
+
+            'organiser_subcategory_ids' => $this->whenLoaded('organiserSubcategories', function () {
+                return $this->organiserSubcategories->pluck('id')->values();
+            }),
+
+            'organiser_subcategories' => $this->whenLoaded('organiserSubcategories', function () {
+                return $this->organiserSubcategories->map(fn ($sc) => [
+                    'id' => $sc->id,
+                    'name' => $sc->name,
+                    'slug' => $sc->slug,
+                ]);
+            }),
+
             // Location
             'address' => $this->address,
             'latitude' => $this->latitude !== null ? (float) $this->latitude : null,

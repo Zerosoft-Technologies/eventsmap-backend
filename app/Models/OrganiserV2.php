@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class OrganiserV2 extends Model
@@ -20,6 +21,7 @@ class OrganiserV2 extends Model
         'event_type',
         'category_id',
         'subcategory_ids',
+        'organiser_category_id',
         'address',
         'latitude',
         'longitude',
@@ -78,6 +80,21 @@ class OrganiserV2 extends Model
         }
 
         return SubCategory::whereIn('id', $this->subcategory_ids)->get();
+    }
+
+    public function organiserCategory(): BelongsTo
+    {
+        return $this->belongsTo(OrganiserCategory::class, 'organiser_category_id');
+    }
+
+    public function organiserSubcategories(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            OrganiserSubcategory::class,
+            'organiser_organiser_subcategory',
+            'organiser_id',
+            'subcategory_id'
+        );
     }
 
     // ──────────────────────────────────────

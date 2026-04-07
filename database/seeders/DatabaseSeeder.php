@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
             V2DemoSeeder::class,
             EventV2Seeder::class,
             TalentCategorySeeder::class,
+            OrganiserCategorySeeder2::class,
         ]);
     }
 }

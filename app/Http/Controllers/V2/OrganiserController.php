@@ -59,7 +59,7 @@ class OrganiserController extends Controller
      */
     public function show(Request $request, int $id): JsonResponse
     {
-        $organiser = OrganiserV2::with(['category', 'user'])->findOrFail($id);
+        $organiser = OrganiserV2::with(['category', 'user', 'organiserCategory', 'organiserSubcategories'])->findOrFail($id);
 
         $user = $request->user();
         if (!$organiser->isOwner($user) && !$user->isAdmin()) {
@@ -78,6 +78,8 @@ class OrganiserController extends Controller
             'event_type' => $organiser->event_type ?? 'free',
             'category_id' => $organiser->category_id,
             'subcategory_ids' => $subcategoryIds,
+            'organiser_category_id' => $organiser->organiser_category_id,
+            'organiser_subcategory_ids' => $organiser->organiserSubcategories->pluck('id')->values(),
             'address' => $organiser->address,
             'latitude' => $organiser->latitude !== null ? (float) $organiser->latitude : null,
             'longitude' => $organiser->longitude !== null ? (float) $organiser->longitude : null,
@@ -167,6 +169,7 @@ class OrganiserController extends Controller
         $organiser = $this->organiserService->update($organiser, $data, $request);
 
         $organiser->refresh();
+        $organiser->load(['organiserCategory', 'organiserSubcategories']);
         $subcategoryIds = is_array($organiser->subcategory_ids) ? $organiser->subcategory_ids : [];
 
         $data = [
@@ -175,6 +178,8 @@ class OrganiserController extends Controller
             'event_type' => $organiser->event_type ?? 'free',
             'category_id' => $organiser->category_id,
             'subcategory_ids' => $subcategoryIds,
+            'organiser_category_id' => $organiser->organiser_category_id,
+            'organiser_subcategory_ids' => $organiser->organiserSubcategories->pluck('id')->values(),
             'address' => $organiser->address,
             'description' => $organiser->description ?? null,
             'image_url' => $organiser->image_path ? MediaHelper::url($organiser->image_path) : null,
