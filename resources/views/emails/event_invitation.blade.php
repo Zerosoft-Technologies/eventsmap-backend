@@ -44,32 +44,15 @@
             font-size: 16px;
             margin-top: 4px;
         }
-        .buttons {
+        .login-notice {
             margin-top: 32px;
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        .btn {
-            display: inline-block;
-            padding: 14px 28px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 16px;
-            text-align: center;
-            transition: opacity 0.2s;
-        }
-        .btn-accept {
-            background-color: #16a34a;
-            color: #ffffff !important;
-        }
-        .btn-reject {
-            background-color: #dc2626;
-            color: #ffffff !important;
-        }
-        .btn:hover {
-            opacity: 0.9;
+            padding: 16px 20px;
+            background-color: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            font-size: 15px;
+            color: #1e40af;
+            line-height: 1.5;
         }
         .footer {
             margin-top: 32px;
@@ -77,11 +60,6 @@
             border-top: 1px solid #eee;
             font-size: 14px;
             color: #666;
-        }
-        .expiry-note {
-            margin-top: 20px;
-            font-size: 13px;
-            color: #888;
         }
     </style>
 </head>
@@ -120,12 +98,9 @@
 
         <p>By accepting, you will be able to participate in the event chat and coordinate with other participants.</p>
 
-        <div class="buttons">
-            <a href="{{ $acceptUrl }}" class="btn btn-accept">Accept Invitation</a>
-            <!-- <a href="{{ $rejectUrl }}" class="btn btn-reject">Decline Invitation</a> -->
+        <div class="login-notice">
+            To respond to this invitation, please <strong>log in to your account</strong> on The Events Map website. You will find the Accept and Decline options in your notifications.
         </div>
-
-        <p class="expiry-note">This invitation link expires in 48 hours.</p>
 
         <div class="footer">
             <p>If you have any questions, please contact the event organizer.</p>

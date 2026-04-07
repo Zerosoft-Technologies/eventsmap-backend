@@ -18,20 +18,10 @@ class EventInvitationMail extends Mailable
 
     public int $backoff = 60;
 
-    public string $acceptUrl;
-
-    public string $rejectUrl;
-
     public function __construct(
         public EventInvitation $invitation
     ) {
         // $this->onQueue('emails');
-
-        $frontendUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:5173'));
-        $token = $invitation->invitation_token;
-
-        $this->acceptUrl = $frontendUrl . '/invitations/' . $invitation->id . '/respond?action=accept&token=' . $token;
-        $this->rejectUrl = $frontendUrl . '/invitations/' . $invitation->id . '/respond?action=reject&token=' . $token;
     }
 
     public function envelope(): Envelope

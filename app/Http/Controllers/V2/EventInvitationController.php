@@ -112,10 +112,13 @@ class EventInvitationController extends Controller
         $invitation = EventInvitation::with(['event', 'sender', 'receiver'])->findOrFail($id);
 
         try {
+            // Try to resolve authenticated user even on this public route
+            $user = auth('sanctum')->user();
+
             $invitation = $this->invitationService->respond(
                 $invitation,
                 $request->input('status'),
-                $request->user(),
+                $user,
                 $request->input('token')
             );
 
