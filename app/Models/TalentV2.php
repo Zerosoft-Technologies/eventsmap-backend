@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TalentV2 extends Model
@@ -20,6 +21,7 @@ class TalentV2 extends Model
         'event_type',
         'category_id',
         'subcategory_ids',
+        'talent_category_id',
         'address',
         'latitude',
         'longitude',
@@ -73,6 +75,21 @@ class TalentV2 extends Model
         }
 
         return SubCategory::whereIn('id', $this->subcategory_ids)->get();
+    }
+
+    public function talentCategory(): BelongsTo
+    {
+        return $this->belongsTo(TalentCategory::class, 'talent_category_id');
+    }
+
+    public function talentSubcategories(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            TalentSubcategory::class,
+            'talent_talent_subcategory',
+            'talent_id',
+            'subcategory_id'
+        );
     }
 
     public function isOwner(?User $user): bool

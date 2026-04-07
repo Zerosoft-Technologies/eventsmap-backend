@@ -37,7 +37,7 @@ class TalentController extends Controller
      */
     public function show(Request $request, int $id): JsonResponse
     {
-        $talent = TalentV2::with(['category', 'user'])->findOrFail($id);
+        $talent = TalentV2::with(['category', 'user', 'talentCategory', 'talentSubcategories'])->findOrFail($id);
 
         $user = $request->user();
         if (!$talent->isOwner($user) && !$user->isAdmin()) {
@@ -54,6 +54,8 @@ class TalentController extends Controller
             'event_type' => $talent->event_type ?? 'free',
             'category_id' => $talent->category_id,
             'subcategory_ids' => $talent->subcategory_ids ?? [],
+            'talent_category_id' => $talent->talent_category_id,
+            'talent_subcategory_ids' => $talent->talentSubcategories->pluck('id')->values(),
             'address' => $talent->address,
             'latitude' => $talent->latitude !== null ? (float) $talent->latitude : null,
             'longitude' => $talent->longitude !== null ? (float) $talent->longitude : null,
@@ -144,6 +146,7 @@ class TalentController extends Controller
         $talent = $this->talentService->update($talent, $data, $request);
 
         $talent->refresh();
+        $talent->load(['talentCategory', 'talentSubcategories']);
 
         $data = [
             'id' => $talent->id,
@@ -151,6 +154,8 @@ class TalentController extends Controller
             'event_type' => $talent->event_type ?? 'free',
             'category_id' => $talent->category_id,
             'subcategory_ids' => is_array($talent->subcategory_ids) ? $talent->subcategory_ids : [],
+            'talent_category_id' => $talent->talent_category_id,
+            'talent_subcategory_ids' => $talent->talentSubcategories->pluck('id')->values(),
             'address' => $talent->address,
             'description' => $talent->description ?? null,
             'image_url' => $talent->image_path ? MediaHelper::url($talent->image_path) : null,

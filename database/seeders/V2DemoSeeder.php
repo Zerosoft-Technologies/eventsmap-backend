@@ -120,30 +120,33 @@ class V2DemoSeeder extends Seeder
                 "After Midnight Bar", "After Midnight Restaurant", "After Midnight Show",
                 "After Party", "Cinema", "Dance", "Dancing", "Dinner Show", "DJ/VJ Session",
                 "Karaoke", "Ladies Night", "Late Night Parties", "Live Music", "Live Music Bar",
-                "Nightclub", "Parties", "Quiz, Bingo, Blind Test", "Slots & Gambling", "Theatre", "Other"
+                "Nightclub", "Parties", "Slots & Gambling", "Theatre", "Comedy Night", "Silent Disco", 
+                "Themed Party", "Club Night", "Day Party", "Brunch & Beats", "Sunset Party", "Other"
             ],
             "film" => [
                 "Action", "Adventure", "Adult", "Animation", "Biographical", "Children",
-                "Comedy", "Crime", "Detective", "Drama", "Educational", "Fantasy", "Horror",
+                "Comedy", "Crime", "Detective", "Documentary", "Drama", "Educational", "Fantasy", "Horror",
                 "Historical", "Musical", "Mystery", "Romance", "Science Fiction", "Short",
                 "Sports", "Thriller", "War", "Western", "Other"
             ],
             "theatre" => [
-                "Acting", "Cabaret", "Children", "Circus", "Comedy", "Drama", "Experimental",
+                "Acting", "Cabaret", "Children", "Circus", "Comedy","Dinner show" , "Drama", "Experimental",
                 "Farce", "Immersive", "Improvisational", "Magic & Illusion", "Melodrama",
                 "Mime", "Musical", "Of The Absurd", "Open Stage", "Opera", "Performance",
                 "Play", "Play With Music", "Puppetry", "Revue", "Rock Opera", "Show",
                 "Stand Up Comedy", "Storytelling", "Tragedy", "Variety Show", "Other"
             ],
             "dance" => [
-                "Ballet", "Ballroom", "Belly Dance", "Bharatanatyam", "Break", "Can-Can",
+                "Bachata","Ballet", "Ballroom", "Belly Dance", "Bharatanatyam", "Break", "Can-Can",
                 "Cha-Cha", "Children", "Classical", "Contemporary", "Country", "Folk",
-                "Highland", "Hip Hop", "Irish", "Jazz", "Kathak", "Modern", "Pole",
+                "Highland", "Hip Hop", "Irish", "Jazz", "Kathak", "Kizomba", "Modern", "Pole",
                 "Rumba", "Salsa", "Street", "Swing", "Tap", "Other"
             ],
             "community" => [
                 "Carnival", "Children", "Christmas Market", "Fair", "Festival", "Field Day",
-                "Food & Drink", "Light Show", "Market", "Meetup", "Neighbourhood", "Other"
+                "Food & Drink", "Light Show", "Neighbourhood", "Parade", "Fireworks", 
+                "Light Show / Drone Show", "City Sports Festival", "Games & Quiz", "Outdoor Cinema", 
+                "Beach Party", "New Year’s Eve", "Family Events", "Open-Air Party", "Other"
             ],
             "music" => [
                 "Alternative", "Ambient", "Blues", "Children", "Classic Pop", "Concert",
@@ -167,15 +170,21 @@ class V2DemoSeeder extends Seeder
         foreach ($categories as $category) {
             if (isset($categoriesData[$category->slug])) {
                 foreach ($categoriesData[$category->slug] as $subName) {
-                    $subcategory = SubCategory::updateOrCreate(
-                        [
+                    $slug = Str::slug($subName);
+                    
+                    // Check if subcategory already exists
+                    $subcategory = SubCategory::where('category_id', $category->id)
+                        ->where('slug', $slug)
+                        ->first();
+                    
+                    if (!$subcategory) {
+                        $subcategory = SubCategory::create([
                             'category_id' => $category->id,
                             'name' => $subName,
-                        ],
-                        [
-                            'slug' => Str::slug($subName),
-                        ]
-                    );
+                            'slug' => $slug,
+                        ]);
+                    }
+                    
                     $subcategories->push($subcategory);
                 }
             }

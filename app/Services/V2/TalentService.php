@@ -22,6 +22,7 @@ class TalentService
                 'slug' => $this->generateUniqueSlug($data['title']),
                 'event_type' => $data['event_type'] ?? 'free',
                 'category_id' => $data['category_id'] ?? null,
+                'talent_category_id' => $data['talent_category_id'] ?? null,
                 'address' => $data['address'],
                 'latitude' => $data['latitude'] ?? null,
                 'longitude' => $data['longitude'] ?? null,
@@ -71,9 +72,14 @@ class TalentService
 
             $talent = TalentV2::create($talentData);
 
+            // Sync talent subcategories pivot
+            if (!empty($data['talent_subcategory_ids'])) {
+                $talent->talentSubcategories()->sync($data['talent_subcategory_ids']);
+            }
+
             Log::info('Talent created', ['talent_id' => $talent->id, 'user_id' => $user->id]);
 
-            return $talent->load(['category', 'user']);
+            return $talent->load(['category', 'user', 'talentCategory', 'talentSubcategories']);
         });
     }
 
@@ -82,6 +88,7 @@ class TalentService
         return DB::transaction(function () use ($talent, $data, $request) {
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids',
+                'talent_category_id',
                 'address', 'latitude', 'longitude',
                 'description', 'contact_phone', 'contact_email', 'contact_website',
                 'facebook_url', 'instagram_url', 'tiktok_url',
@@ -152,9 +159,14 @@ class TalentService
 
             $talent->update($updateData);
 
+            // Sync talent subcategories pivot
+            if (array_key_exists('talent_subcategory_ids', $data)) {
+                $talent->talentSubcategories()->sync($data['talent_subcategory_ids'] ?? []);
+            }
+
             Log::info('Talent updated', ['talent_id' => $talent->id]);
 
-            return $talent->load(['category', 'user']);
+            return $talent->load(['category', 'user', 'talentCategory', 'talentSubcategories']);
         });
     }
 

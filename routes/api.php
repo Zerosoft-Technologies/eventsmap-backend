@@ -7,6 +7,7 @@ use App\Http\Controllers\StripeController;
 use App\Http\Controllers\UpgradePlanController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\GalleryImageController;
+use App\Http\Controllers\V2\TalentCategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,6 +31,9 @@ Route::prefix('v1')->group(function () {
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::get('/categories/{slug}', [CategoryController::class, 'show']);
     Route::get('/categories/{slug}/subcategories', [CategoryController::class, 'subcategories']);
+
+    // Talent Categories endpoints
+    Route::get('/categories-talents', [TalentCategoryController::class, 'index']);
 });
 
 // Payment verification (no auth required)

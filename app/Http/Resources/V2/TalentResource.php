@@ -74,6 +74,28 @@ class TalentResource extends JsonResource
                 ]);
             }),
 
+            'talent_category_id' => $this->talent_category_id,
+
+            'talent_category' => $this->whenLoaded('talentCategory', function () {
+                return [
+                    'id' => $this->talentCategory->id,
+                    'name' => $this->talentCategory->name,
+                    'slug' => $this->talentCategory->slug,
+                ];
+            }),
+
+            'talent_subcategory_ids' => $this->whenLoaded('talentSubcategories', function () {
+                return $this->talentSubcategories->pluck('id')->values();
+            }),
+
+            'talent_subcategories' => $this->whenLoaded('talentSubcategories', function () {
+                return $this->talentSubcategories->map(fn ($sc) => [
+                    'id' => $sc->id,
+                    'name' => $sc->name,
+                    'slug' => $sc->slug,
+                ]);
+            }),
+
             // Location
             'address' => $this->address,
             'latitude' => $this->latitude !== null ? (float) $this->latitude : null,
