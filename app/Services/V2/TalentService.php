@@ -33,7 +33,7 @@ class TalentService
                 'subcategory_ids', 'description',
                 'contact_phone', 'contact_email', 'contact_website',
                 'facebook_url', 'instagram_url', 'tiktok_url',
-                'fan_club_url', 'nationality', 'age', 'languages', 'highlights',
+                'fan_club_url', 'nationality', 'show_nationality', 'age', 'show_age', 'languages', 'highlights',
                 'show_upcoming_events', 'show_past_events',
             ];
 
@@ -92,7 +92,7 @@ class TalentService
                 'address', 'latitude', 'longitude',
                 'description', 'contact_phone', 'contact_email', 'contact_website',
                 'facebook_url', 'instagram_url', 'tiktok_url',
-                'fan_club_url', 'nationality', 'age', 'languages', 'highlights',
+                'fan_club_url', 'nationality', 'show_nationality', 'age', 'show_age', 'languages', 'highlights',
                 'show_upcoming_events', 'show_past_events',
             ];
 

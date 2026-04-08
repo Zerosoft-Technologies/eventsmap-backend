@@ -14,6 +14,16 @@ class UpdateTalentRequest extends FormRequest
         return true;
     }
 
+    /**
+     * JSON clients often send age as a number; validation expects a string.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('age') && is_numeric($this->input('age'))) {
+            $this->merge(['age' => (string) $this->input('age')]);
+        }
+    }
+
     public function rules(): array
     {
         $rules = [
@@ -37,7 +47,9 @@ class UpdateTalentRequest extends FormRequest
             'tiktok_url' => 'nullable|url|max:500',
             'fan_club_url' => 'nullable|url|max:500',
             'nationality' => 'nullable|string|max:255',
+            'show_nationality' => 'nullable|string|max:32',
             'age' => 'nullable|string|max:10',
+            'show_age' => 'nullable|string|max:32',
             'languages' => 'nullable|array',
             'languages.*' => 'nullable|string|max:100',
             'highlights' => 'nullable|string|max:10000',

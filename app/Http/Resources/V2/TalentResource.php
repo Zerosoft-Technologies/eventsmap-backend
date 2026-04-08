@@ -115,7 +115,9 @@ class TalentResource extends JsonResource
             // Talent-specific
             'fan_club_url' => $this->fan_club_url,
             'nationality' => $this->nationality,
+            'show_nationality' => $this->show_nationality,
             'age' => $this->age,
+            'show_age' => $this->show_age,
             'languages' => $this->languages ?? [],
             'highlights' => $this->highlights,
 
