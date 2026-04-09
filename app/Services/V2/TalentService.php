@@ -13,6 +13,14 @@ use Illuminate\Support\Str;
 
 class TalentService
 {
+    public function getUserTalents(User $user)
+    {
+        return TalentV2::where('user_id', $user->id)
+            ->with(['category', 'user', 'talentCategory', 'talentSubcategories'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+    }
+
     public function create(array $data, User $user): TalentV2
     {
         return DB::transaction(function () use ($data, $user) {

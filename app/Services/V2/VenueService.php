@@ -13,6 +13,14 @@ use Illuminate\Support\Str;
 
 class VenueService
 {
+    public function getUserVenues(User $user)
+    {
+        return VenueV2::where('user_id', $user->id)
+            ->with(['category', 'user'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+    }
+
     public function create(array $data, User $user): VenueV2
     {
         return DB::transaction(function () use ($data, $user) {

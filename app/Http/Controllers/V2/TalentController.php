@@ -19,6 +19,19 @@ class TalentController extends Controller
     ) {}
 
     /**
+     * GET /api/v2/my-talents
+     */
+    public function myTalents(Request $request): JsonResponse
+    {
+        $talents = $this->talentService->getUserTalents($request->user());
+
+        return response()->json([
+            'success' => true,
+            'data' => TalentResource::collection($talents),
+        ]);
+    }
+
+    /**
      * POST /api/v2/talents
      */
     public function store(StoreTalentRequest $request): JsonResponse

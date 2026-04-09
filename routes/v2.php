@@ -53,6 +53,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // My Organisers (sidebar)
     Route::get('/my-organisers', [OrganiserController::class, 'myOrganisers']);
 
+    // My Talents (sidebar)
+    Route::get('/my-talents', [TalentController::class, 'myTalents']);
+
+    // My Venues (sidebar)
+    Route::get('/my-venues', [VenueController::class, 'myVenues']);
+
     // My Wishlist
     Route::get('/my-wishlist', [WishlistController::class, 'index']);
 

@@ -19,6 +19,19 @@ class VenueController extends Controller
     ) {}
 
     /**
+     * GET /api/v2/my-venues
+     */
+    public function myVenues(Request $request): JsonResponse
+    {
+        $venues = $this->venueService->getUserVenues($request->user());
+
+        return response()->json([
+            'success' => true,
+            'data' => VenueResource::collection($venues),
+        ]);
+    }
+
+    /**
      * POST /api/v2/venues
      */
     public function store(StoreVenueRequest $request): JsonResponse
