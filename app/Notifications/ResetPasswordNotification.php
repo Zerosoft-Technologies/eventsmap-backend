@@ -44,7 +44,7 @@ class ResetPasswordNotification extends Notification
         $url = $this->resetUrl($notifiable);
 
         return (new MailMessage)
-            ->subject('Reset Your Password - Events Map')
+            ->subject('Reset Your Password - The Events Map')
             ->greeting('Hello!')
             ->line('You are receiving this email because we received a password reset request for your account.')
             ->action('Reset Password', $url)

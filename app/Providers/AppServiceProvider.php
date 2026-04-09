@@ -28,7 +28,7 @@ class AppServiceProvider extends ServiceProvider
 
         VerifyEmail::toMailUsing(function (object $notifiable, string $url) {
             return (new MailMessage)
-                ->subject('Verify Email Address')
+                ->subject('Verify Email Address - The Events Map')
                 ->greeting('Hello,')
                 ->line('Thank you for registering with The Events Map.')
                 ->line('To complete your registration, please verify your email address by clicking the button below:')

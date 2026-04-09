@@ -21,7 +21,7 @@ class MailTestController extends Controller
         try {
             Mail::raw('This is a test email from Events Map backend.', function ($message) use ($request) {
                 $message->to($request->to)
-                    ->subject('Test Email - Events Map');
+                    ->subject('Test Email - The Events Map');
             });
 
             return response()->json([

@@ -20,7 +20,7 @@ Route::get('/test-mail', function () {
     try {
         Mail::raw('This is a test email from Events Map to verify mail configuration.', function ($message) use ($to) {
             $message->to($to)
-                ->subject('Events Map - Test Email');
+                ->subject('The Events Map - Test Email');
         });
 
         return response()->json([
