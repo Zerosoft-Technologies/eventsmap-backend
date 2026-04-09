@@ -152,6 +152,10 @@ img {
     word-break: break-all;
 }
 
+.inner-body .action a.button {
+    word-break: normal;
+}
+
 /* Subcopy */
 
 .subcopy {
@@ -216,7 +220,7 @@ img {
     padding: 32px;
 }
 
-/* Buttons */
+/* Buttons — brand CTA (Verify / Reset emails): #0061FF, full width, rounded-lg, py-2.5, semibold */
 
 .action {
     -premailer-cellpadding: 0;
@@ -232,24 +236,37 @@ img {
 .button {
     -webkit-text-size-adjust: none;
     border-radius: 8px;
-    color: #2563eb !important;
+    color: #ffffff;
     display: inline-block;
     overflow: hidden;
     text-decoration: none;
 }
 
+.action .button {
+    border-radius: 8px;
+    box-sizing: border-box;
+    display: block;
+    font-weight: 600;
+    text-align: center;
+    width: 100%;
+}
+
 .button-blue,
-.button-primary,
+.button-primary {
+    background-color: #0061ff;
+    border-bottom: 10px solid #0061ff;
+    border-left: 18px solid #0061ff;
+    border-right: 18px solid #0061ff;
+    border-top: 10px solid #0061ff;
+}
+
 .button-green,
 .button-success {
-    background-color: #ffffff !important;
-    /* border-bottom: 8px solid #ff7a1a;
-    border-left: 18px solid #ff7a1a;
-    border-right: 18px solid #ff7a1a;
-    border-top: 8px solid #ff7a1a; */
-    border: 1px solid #ff7a1a;
-    padding: 10px;
-    font-size: 18px;
+    background-color: #16a34a;
+    border-bottom: 8px solid #16a34a;
+    border-left: 18px solid #16a34a;
+    border-right: 18px solid #16a34a;
+    border-top: 8px solid #16a34a;
 }
 
 .button-red,

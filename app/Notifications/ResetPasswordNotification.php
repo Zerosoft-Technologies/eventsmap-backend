@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use Illuminate\Notifications\Messages\MailMessage;
+use App\Mail\ResetPasswordMail;
 use Illuminate\Notifications\Notification;
 
 /**
@@ -39,18 +39,9 @@ class ResetPasswordNotification extends Notification
     /**
      * Get the mail representation of the notification.
      */
-    public function toMail(object $notifiable): MailMessage
+    public function toMail(object $notifiable): ResetPasswordMail
     {
-        $url = $this->resetUrl($notifiable);
-
-        return (new MailMessage)
-            ->subject('Reset Your Password - The Events Map')
-            ->greeting('Hello!')
-            ->line('You are receiving this email because we received a password reset request for your account.')
-            ->action('Reset Password', $url)
-            ->line('This password reset link will expire in ' . config('auth.passwords.users.expire', 60) . ' minutes.')
-            ->line('If you did not request a password reset, no further action is required.')
-            ->salutation('Best regards, The Events Map Team');
+        return new ResetPasswordMail($notifiable, $this->resetUrl($notifiable));
     }
 
     /**
