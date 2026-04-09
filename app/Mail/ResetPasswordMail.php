@@ -33,7 +33,10 @@ class ResetPasswordMail extends Mailable
         $this->recipientEmail = $notifiable->email
             ?? (method_exists($notifiable, 'getEmailForPasswordReset') ? $notifiable->getEmailForPasswordReset() : null)
             ?? '';
-        $this->userName = $notifiable->name ?? 'there';
+        $rawName = $notifiable->name ?? null;
+        $this->userName = ($rawName === null || $rawName === '')
+            ? 'there'
+            : VerifyEmailMail::displayNameForEmail((string) $rawName);
         $this->profileType = $notifiable->profile_type ?? 'event';
         $this->profileTypeLabel = VerifyEmailMail::labelForProfileType($this->profileType);
         $this->accountType = $notifiable->account_type ?? 'free';

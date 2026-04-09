@@ -32,11 +32,31 @@ class VerifyEmailMail extends Mailable
         $this->recipientEmail = $notifiable->email
             ?? (method_exists($notifiable, 'getEmailForVerification') ? $notifiable->getEmailForVerification() : null)
             ?? '';
-        $this->userName = $notifiable->name ?? 'there';
+        $rawName = $notifiable->name ?? null;
+        $this->userName = ($rawName === null || $rawName === '')
+            ? 'there'
+            : self::displayNameForEmail((string) $rawName);
         $this->profileType = $notifiable->profile_type ?? 'event';
         $this->profileTypeLabel = self::labelForProfileType($this->profileType);
         $this->accountType = $notifiable->account_type ?? 'free';
         $this->isPremium = $this->accountType === 'premium';
+    }
+
+    /**
+     * Capitalize the first character only when it is lowercase; if the user
+     * already used an uppercase first letter, leave the name unchanged.
+     */
+    public static function displayNameForEmail(string $name): string
+    {
+        $first = mb_substr($name, 0, 1, 'UTF-8');
+        $lower = mb_strtolower($first, 'UTF-8');
+        $upper = mb_strtoupper($first, 'UTF-8');
+
+        if ($first === $lower && $lower !== $upper) {
+            return $upper.mb_substr($name, 1, null, 'UTF-8');
+        }
+
+        return $name;
     }
 
     public static function labelForProfileType(string $type): string
