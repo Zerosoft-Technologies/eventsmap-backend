@@ -22,6 +22,7 @@ class TalentV2 extends Model
         'category_id',
         'subcategory_ids',
         'talent_category_id',
+        'city',
         'address',
         'latitude',
         'longitude',

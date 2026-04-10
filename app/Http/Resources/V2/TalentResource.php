@@ -97,6 +97,7 @@ class TalentResource extends JsonResource
             }),
 
             // Location
+            'city' => $this->city,
             'address' => $this->address,
             'latitude' => $this->latitude !== null ? (float) $this->latitude : null,
             'longitude' => $this->longitude !== null ? (float) $this->longitude : null,

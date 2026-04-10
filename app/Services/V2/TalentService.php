@@ -31,6 +31,7 @@ class TalentService
                 'event_type' => $data['event_type'] ?? 'free',
                 'category_id' => $data['category_id'] ?? null,
                 'talent_category_id' => $data['talent_category_id'] ?? null,
+                'city' => $data['city'] ?? null,
                 'address' => $data['address'],
                 'latitude' => $data['latitude'] ?? null,
                 'longitude' => $data['longitude'] ?? null,
@@ -97,7 +98,7 @@ class TalentService
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids',
                 'talent_category_id',
-                'address', 'latitude', 'longitude',
+                'city', 'address', 'latitude', 'longitude',
                 'description', 'contact_phone', 'contact_email', 'contact_website',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'fan_club_url', 'nationality', 'show_nationality', 'age', 'show_age', 'languages', 'highlights',

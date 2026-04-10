@@ -35,6 +35,7 @@ class UpdateTalentRequest extends FormRequest
             'talent_category_id' => 'nullable|integer|exists:talent_categories,id',
             'talent_subcategory_ids' => 'nullable|array',
             'talent_subcategory_ids.*' => 'integer|exists:talent_subcategories,id',
+            'city' => 'nullable|string|max:255',
             'address' => 'required|string|max:500',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
