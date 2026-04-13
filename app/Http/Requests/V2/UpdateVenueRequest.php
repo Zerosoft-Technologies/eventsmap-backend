@@ -2,6 +2,9 @@
 
 namespace App\Http\Requests\V2;
 
+use App\Http\Requests\V2\Concerns\NormalizesVenueAccessibilityInput;
+use App\Http\Requests\V2\Concerns\NormalizesVenueOpeningHoursInput;
+use App\Http\Requests\V2\Concerns\VenueAllowanceOfDogs;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -9,9 +12,18 @@ use Illuminate\Validation\Rule;
 
 class UpdateVenueRequest extends FormRequest
 {
+    use NormalizesVenueAccessibilityInput;
+    use NormalizesVenueOpeningHoursInput;
+
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->prepareVenueAccessibilityForValidation();
+        $this->prepareOpeningHoursForValidation();
     }
 
     public function rules(): array
@@ -26,8 +38,12 @@ class UpdateVenueRequest extends FormRequest
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
             'description' => 'nullable|string|max:10000',
+            'description_items' => 'nullable|array',
+            'description_items.*' => 'nullable|string|max:255',
+            'allowance_of_dogs' => ['nullable', 'string', Rule::in(VenueAllowanceOfDogs::VALUES)],
             'allow_dogs' => 'nullable|boolean',
             'wheelchair_accessible' => 'nullable|boolean',
+            'accessibility_description' => 'nullable|string|max:10000',
             'parking' => 'nullable|boolean',
             'valet' => 'nullable|boolean',
             'play_area' => 'nullable|boolean',

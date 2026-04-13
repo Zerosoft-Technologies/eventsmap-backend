@@ -71,8 +71,11 @@ class VenueController extends Controller
             'latitude' => $venue->latitude !== null ? (float) $venue->latitude : null,
             'longitude' => $venue->longitude !== null ? (float) $venue->longitude : null,
             'description' => $venue->description ?? null,
+            'description_items' => $venue->description_items ?? [],
             'allow_dogs' => (bool) ($venue->allow_dogs ?? false),
+            'allowance_of_dogs' => $venue->allowance_of_dogs,
             'wheelchair_accessible' => (bool) ($venue->wheelchair_accessible ?? false),
+            'accessibility_description' => $venue->accessibility_description,
             'parking' => (bool) ($venue->parking ?? false),
             'valet' => (bool) ($venue->valet ?? false),
             'play_area' => (bool) ($venue->play_area ?? false),
@@ -167,6 +170,9 @@ class VenueController extends Controller
             'subcategory_ids' => is_array($venue->subcategory_ids) ? $venue->subcategory_ids : [],
             'address' => $venue->address,
             'description' => $venue->description ?? null,
+            'description_items' => $venue->description_items ?? [],
+            'allowance_of_dogs' => $venue->allowance_of_dogs,
+            'accessibility_description' => $venue->accessibility_description,
             'image_url' => $venue->image_path ? MediaHelper::url($venue->image_path) : null,
         ];
 

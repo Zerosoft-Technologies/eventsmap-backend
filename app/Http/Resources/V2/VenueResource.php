@@ -81,6 +81,7 @@ class VenueResource extends JsonResource
 
             // Contact
             'description' => $this->description,
+            'description_items' => $this->description_items ?? [],
             'contact_phone' => $this->contact_phone,
             'contact_email' => $this->contact_email,
             'contact_website' => $this->contact_website,
@@ -92,7 +93,9 @@ class VenueResource extends JsonResource
 
             // Venue-specific
             'allow_dogs' => (bool) ($this->allow_dogs ?? false),
+            'allowance_of_dogs' => $this->allowance_of_dogs,
             'wheelchair_accessible' => (bool) ($this->wheelchair_accessible ?? false),
+            'accessibility_description' => $this->accessibility_description,
             'parking' => (bool) ($this->parking ?? false),
             'valet' => (bool) ($this->valet ?? false),
             'play_area' => (bool) ($this->play_area ?? false),

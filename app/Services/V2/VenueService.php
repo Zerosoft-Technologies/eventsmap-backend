@@ -37,8 +37,8 @@ class VenueService
             ];
 
             $optionalFields = [
-                'subcategory_ids', 'description',
-                'allow_dogs', 'wheelchair_accessible', 'parking', 'valet', 'play_area',
+                'subcategory_ids', 'description', 'description_items',
+                'allow_dogs', 'allowance_of_dogs', 'wheelchair_accessible', 'accessibility_description', 'parking', 'valet', 'play_area',
                 'contact_phone', 'contact_email', 'contact_website',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'opening_hours',
@@ -92,8 +92,8 @@ class VenueService
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids',
                 'address', 'latitude', 'longitude',
-                'description',
-                'allow_dogs', 'wheelchair_accessible', 'parking', 'valet', 'play_area',
+                'description', 'description_items',
+                'allow_dogs', 'allowance_of_dogs', 'wheelchair_accessible', 'accessibility_description', 'parking', 'valet', 'play_area',
                 'contact_phone', 'contact_email', 'contact_website',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'opening_hours',
