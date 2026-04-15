@@ -306,7 +306,20 @@ class EventController extends Controller
             ], 403);
         }
 
-        $event = $this->eventService->update($event, $request->validated(), $request);
+        $data = $request->validated();
+
+        // Empty `additional_images` / `additional_images[]` may be present in the request but omitted from
+        // validated data in some clients; normalize so the service can persist an explicit clear.
+        if (
+            !$request->hasFile('additional_images')
+            && array_key_exists('additional_images', $request->all())
+            && !array_key_exists('additional_images', $data)
+        ) {
+            $raw = $request->input('additional_images');
+            $data['additional_images'] = is_array($raw) ? $raw : [];
+        }
+
+        $event = $this->eventService->update($event, $data, $request);
 
         $event->refresh();
         $subcategoryIds = is_array($event->subcategory_ids) ? $event->subcategory_ids : $event->subcategories()->pluck('id')->toArray();
