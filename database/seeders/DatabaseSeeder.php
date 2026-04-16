@@ -33,6 +33,8 @@ class DatabaseSeeder extends Seeder
             EventV2Seeder::class,
             TalentCategorySeeder::class,
             OrganiserCategorySeeder2::class,
+            // After V2Demo (and any other seeders): drop legacy Venue dupes, remap FKs.
+            VenueSubcategoryCleanupSeeder::class,
         ]);
     }
 }
