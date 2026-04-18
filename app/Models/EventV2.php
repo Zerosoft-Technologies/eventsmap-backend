@@ -541,6 +541,17 @@ class EventV2 extends Model
     }
 
     /**
+     * Haversine distance (km). The value passed to acos() is clamped to [-1, 1] so floating-point
+     * error does not exceed the domain and trigger PostgreSQL error 22003.
+     */
+    protected static function haversineDistanceKmSql(): string
+    {
+        $cosArg = 'GREATEST(-1.0, LEAST(1.0, cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))';
+
+        return "(6371 * acos($cosArg))";
+    }
+
+    /**
      * Scope to filter events within radius (Haversine formula).
      *
      * @param float $lat Center latitude
@@ -549,7 +560,7 @@ class EventV2 extends Model
      */
     public function scopeWithinRadius(Builder $query, float $lat, float $lng, float $radiusKm): Builder
     {
-        $haversine = "(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))";
+        $haversine = self::haversineDistanceKmSql();
 
         return $query->whereRaw("$haversine <= ?", [$lat, $lng, $lat, $radiusKm]);
     }
@@ -559,7 +570,7 @@ class EventV2 extends Model
      */
     public function scopeWithDistance(Builder $query, float $lat, float $lng): Builder
     {
-        $haversine = "(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))";
+        $haversine = self::haversineDistanceKmSql();
 
         return $query->selectRaw("*, $haversine as distance_km", [$lat, $lng, $lat]);
     }

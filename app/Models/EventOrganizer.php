@@ -244,7 +244,7 @@ class EventOrganizer extends Model
         } else {
             // SQLite - use Haversine formula
             return $query->whereRaw(
-                '(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) <= ?',
+                '(6371 * acos(GREATEST(-1.0, LEAST(1.0, cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))))) <= ?',
                 [$latitude, $longitude, $latitude, $radiusKm]
             );
         }
@@ -267,7 +267,7 @@ class EventOrganizer extends Model
         } else {
             // SQLite - use Haversine formula to calculate distance in meters
             return $query->addSelect([
-                DB::raw("(6371000 * acos(cos(radians({$latitude})) * cos(radians(latitude)) * cos(radians(longitude) - radians({$longitude})) + sin(radians({$latitude})) * sin(radians(latitude)))) as distance_meters"),
+                DB::raw("(6371000 * acos(GREATEST(-1.0, LEAST(1.0, cos(radians({$latitude})) * cos(radians(latitude)) * cos(radians(longitude) - radians({$longitude})) + sin(radians({$latitude})) * sin(radians(latitude)))))) as distance_meters"),
             ]);
         }
     }
