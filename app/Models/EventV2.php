@@ -562,14 +562,38 @@ class EventV2 extends Model
     }
 
     /**
+     * Inner cos(Δ) expression for Haversine (same placeholder order as Laravel bindings).
+     */
+    protected static function haversineCosArgExpression(): string
+    {
+        return 'cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))';
+    }
+
+    /**
+     * Clamp acos input to [-1, 1] without GREATEST/LEAST (SQLite before 3.39 has neither).
+     */
+    protected static function clampAcosArgSql(): string
+    {
+        $e = self::haversineCosArgExpression();
+
+        return "CASE WHEN ($e) < -1.0 THEN -1.0 WHEN ($e) > 1.0 THEN 1.0 ELSE ($e) END";
+    }
+
+    /**
      * Haversine distance (km). The value passed to acos() is clamped to [-1, 1] so floating-point
      * error does not exceed the domain and trigger PostgreSQL error 22003.
      */
     protected static function haversineDistanceKmSql(): string
     {
-        $cosArg = 'GREATEST(-1.0, LEAST(1.0, cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))';
+        $cosArg = self::clampAcosArgSql();
 
         return "(6371 * acos($cosArg))";
+    }
+
+    /** Bindings for one Haversine expression (cos-arg appears three times in CASE clamp). */
+    protected static function haversineDistanceKmBindings(float $lat, float $lng): array
+    {
+        return [$lat, $lng, $lat, $lat, $lng, $lat, $lat, $lng, $lat];
     }
 
     /**
@@ -582,8 +606,9 @@ class EventV2 extends Model
     public function scopeWithinRadius(Builder $query, float $lat, float $lng, float $radiusKm): Builder
     {
         $haversine = self::haversineDistanceKmSql();
+        $bindings = array_merge(self::haversineDistanceKmBindings($lat, $lng), [$radiusKm]);
 
-        return $query->whereRaw("$haversine <= ?", [$lat, $lng, $lat, $radiusKm]);
+        return $query->whereRaw("$haversine <= ?", $bindings);
     }
 
     /**
@@ -593,7 +618,7 @@ class EventV2 extends Model
     {
         $haversine = self::haversineDistanceKmSql();
 
-        return $query->selectRaw("*, $haversine as distance_km", [$lat, $lng, $lat]);
+        return $query->selectRaw("*, $haversine as distance_km", self::haversineDistanceKmBindings($lat, $lng));
     }
 
     /**
