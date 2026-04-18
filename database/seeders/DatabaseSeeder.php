@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             CategoriesSeeder::class,
             SubcategoriesSeeder::class,
+            AccountsV2Seeder::class,
             EventsSeeder::class,
             TalentSeeder::class,
             EventDetailsSeeder::class,
