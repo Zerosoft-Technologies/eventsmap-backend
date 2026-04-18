@@ -2,8 +2,6 @@
 
 namespace App\Services\V2;
 
-use App\Http\Resources\V2\InvitedUserResource;
-use App\Http\Resources\V2\InvitedVenueResource;
 use App\Models\EventV2;
 use App\Models\User;
 use App\Models\Venue;
@@ -68,24 +66,24 @@ class EventInvitedEntitiesService
     }
 
     /**
-     * Load only columns needed for {@see InvitedUserResource} (no Stripe / payment tokens).
+     * Load only columns needed for {@see InvitedUserPayload} (no Stripe / payment tokens).
      *
      * @param  int[]  $userIds
      * @return Collection<int, User>
      */
     private function loadUsersForInvites(array $userIds): Collection
     {
-        $columns = [
+        $wanted = [
             'id', 'name', 'email', 'role', 'is_active', 'email_verified_at',
             'profile_type', 'account_type', 'status', 'billing_type',
             'full_name', 'company_name', 'vat_number', 'vat_validated',
             'country', 'address', 'postal_code', 'city',
+            'premium_started_at', 'profile_image',
         ];
-        if (Schema::hasColumn('users', 'premium_started_at')) {
-            $columns[] = 'premium_started_at';
-        }
-        if (Schema::hasColumn('users', 'profile_image')) {
-            $columns[] = 'profile_image';
+
+        $columns = array_values(array_filter($wanted, fn (string $c) => Schema::hasColumn('users', $c)));
+        if (! in_array('id', $columns, true)) {
+            $columns[] = 'id';
         }
 
         return User::query()
@@ -126,7 +124,7 @@ class EventInvitedEntitiesService
             if (! $usersById->has($id)) {
                 continue;
             }
-            $out[] = (new InvitedUserResource($usersById->get($id)))->resolve();
+            $out[] = InvitedUserPayload::toArray($usersById->get($id));
         }
 
         return $out;
@@ -143,7 +141,7 @@ class EventInvitedEntitiesService
             if (! $venuesById->has($id)) {
                 continue;
             }
-            $out[] = (new InvitedVenueResource($venuesById->get($id)))->resolve();
+            $out[] = InvitedVenuePayload::toArray($venuesById->get($id));
         }
 
         return $out;

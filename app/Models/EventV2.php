@@ -432,7 +432,14 @@ class EventV2 extends Model
         }
 
         $baseDate = $this->start_date?->format('Y-m-d') ?? $this->event_date?->format('Y-m-d');
-        return Carbon::parse($baseDate . ' ' . $this->start_time);
+        if ($baseDate === null || $baseDate === '') {
+            $baseDate = Carbon::now()->format('Y-m-d');
+        }
+        $time = ($this->start_time !== null && $this->start_time !== '')
+            ? (string) $this->start_time
+            : '00:00:00';
+
+        return Carbon::parse($baseDate . ' ' . $time);
     }
 
     /**
@@ -448,7 +455,13 @@ class EventV2 extends Model
         $baseDate = $this->end_date?->format('Y-m-d')
             ?? $this->start_date?->format('Y-m-d')
             ?? $this->event_date?->format('Y-m-d');
-        $end = Carbon::parse($baseDate . ' ' . $this->end_time);
+        if ($baseDate === null || $baseDate === '') {
+            $baseDate = $start->format('Y-m-d');
+        }
+        $time = ($this->end_time !== null && $this->end_time !== '')
+            ? (string) $this->end_time
+            : '23:59:59';
+        $end = Carbon::parse($baseDate . ' ' . $time);
 
         if ($end->lte($start)) {
             $end->addDay();
@@ -462,8 +475,16 @@ class EventV2 extends Model
      */
     public function getIsOvernightAttribute(): bool
     {
+        if (
+            $this->start_time === null || $this->start_time === ''
+            || $this->end_time === null || $this->end_time === ''
+        ) {
+            return false;
+        }
+
         $start = Carbon::parse($this->start_time);
         $end = Carbon::parse($this->end_time);
+
         return $end->lte($start);
     }
 
