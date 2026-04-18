@@ -8,8 +8,11 @@ use App\Http\Requests\V2\StoreEventRequest;
 use App\Http\Requests\V2\UpdateEventRequest;
 use App\Http\Resources\V2\EventResource;
 use App\Http\Resources\V2\EventSidebarResource;
+use App\Models\Category;
 use App\Models\EventV2;
+use App\Models\SubCategory;
 use App\Services\V2\EventService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -38,6 +41,8 @@ class EventController extends Controller
             'per_page' => 'nullable|integer|min:1|max:100',
             'search' => 'nullable|string|max:255',
             'category_id' => 'nullable|integer|exists:categories,id',
+            'category' => 'nullable|string|max:100',
+            'subcategory' => 'nullable|string|max:100',
             'status' => 'nullable|string|in:draft,upcoming,live,completed,cancelled',
             'entrance_status' => 'nullable|string|in:free,paid,sold_out,cancelled',
             // Date range (support frontend param names)
@@ -45,6 +50,9 @@ class EventController extends Controller
             'date_to' => 'nullable|date',
             'from_date' => 'nullable|date',
             'to_date' => 'nullable|date',
+            // Time-of-day window (matches events whose start_time falls in range, inclusive)
+            'start_time' => ['nullable', 'string', 'regex:/^\d{1,2}:\d{2}(:\d{2})?$/'],
+            'end_time' => ['nullable', 'string', 'regex:/^\d{1,2}:\d{2}(:\d{2})?$/'],
 
             // Geo filtering (optional)
             'lat' => 'nullable|numeric|between:-90,90',
@@ -68,10 +76,46 @@ class EventController extends Controller
             });
         });
 
-        // Category filter
-        $query->when($request->filled('category_id'), function ($q) use ($request) {
-            $q->where('category_id', $request->input('category_id'));
-        });
+        // Category filter (slug takes precedence over category_id when both are sent)
+        $categoryFromSlug = $request->filled('category')
+            ? Category::where('slug', $request->input('category'))->first()
+            : null;
+
+        if ($request->filled('category')) {
+            if ($categoryFromSlug) {
+                $query->where('category_id', $categoryFromSlug->id);
+            } else {
+                $query->whereRaw('0 = 1');
+            }
+        } elseif ($request->filled('category_id')) {
+            $query->where('category_id', $request->input('category_id'));
+        }
+
+        // Subcategory filter (slug; scoped by category slug when provided)
+        if ($request->filled('subcategory')) {
+            $subQuery = SubCategory::query()->where('slug', $request->input('subcategory'));
+            if ($request->filled('category')) {
+                if ($categoryFromSlug) {
+                    $subQuery->where('category_id', $categoryFromSlug->id);
+                } else {
+                    $subQuery->whereRaw('0 = 1');
+                }
+            }
+            $subIds = $subQuery->pluck('id');
+            if ($subIds->isEmpty()) {
+                $query->whereRaw('0 = 1');
+            } else {
+                $query->where(function ($q) use ($subIds) {
+                    $q->where(function ($inner) use ($subIds) {
+                        foreach ($subIds as $sid) {
+                            $inner->orWhereJsonContains('subcategory_ids', (int) $sid);
+                        }
+                    })->orWhereHas('subcategories', function ($sq) use ($subIds) {
+                        $sq->whereIn('subcategories.id', $subIds);
+                    });
+                });
+            }
+        }
 
         // Status filter
         $query->when($request->filled('status'), function ($q) use ($request) {
@@ -93,6 +137,25 @@ class EventController extends Controller
             $query->where('event_date', '<=', $dateTo);
         }
 
+        // Time-of-day filter on stored TIME columns (start_time / end_time)
+        if ($request->filled('start_time') || $request->filled('end_time')) {
+            $start = $this->parseQueryTime($request->input('start_time'));
+            $end = $this->parseQueryTime($request->input('end_time'));
+            if ($start !== null && $end !== null) {
+                if ($start->greaterThan($end)) {
+                    [$start, $end] = [$end, $start];
+                }
+                $query->whereBetween('start_time', [
+                    $start->format('H:i:s'),
+                    $end->format('H:i:s'),
+                ]);
+            } elseif ($start !== null) {
+                $query->where('start_time', '>=', $start->format('H:i:s'));
+            } elseif ($end !== null) {
+                $query->where('start_time', '<=', $end->format('H:i:s'));
+            }
+        }
+
         // Geo radius filter (if provided)
         if ($request->filled(['lat', 'lng']) && ($request->filled('radius') || $request->filled('radius_km'))) {
             $lat = (float) $request->input('lat');
@@ -106,7 +169,7 @@ class EventController extends Controller
         $sort = $request->input('sort', 'event_date');
         $order = $request->input('order', 'asc');
         // If geo filter was applied, default to distance sort unless explicitly sorting by other field
-        if ($request->filled(['lat', 'lng']) && ($request->filled('radius') || $request->filled('radius_km')) && !$request->filled('sort')) {
+        if ($request->filled(['lat', 'lng']) && ($request->filled('radius') || $request->filled('radius_km')) && ! $request->filled('sort')) {
             $query->orderBy('distance_km', 'asc');
         } else {
             $query->orderBy($sort, $order);
@@ -129,6 +192,22 @@ class EventController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Parse a time query param (e.g. "12:04", "12:04:05") for DB TIME comparison.
+     */
+    private function parseQueryTime(?string $value): ?Carbon
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -158,15 +237,15 @@ class EventController extends Controller
         Log::info('Store event request', [
             'all_data' => $request->all(),
             'has_file' => $request->hasFile('image_path'),
-            'files' => $request->allFiles()
+            'files' => $request->allFiles(),
         ]);
-        
+
         $validated = $request->validated();
         Log::info('Validated data', [
             'validated' => $validated,
-            'image_path_type' => isset($validated['image_path']) ? gettype($validated['image_path']) : 'not_set'
+            'image_path_type' => isset($validated['image_path']) ? gettype($validated['image_path']) : 'not_set',
         ]);
-        
+
         $event = $this->eventService->create($validated, $request->user());
 
         return response()->json([
@@ -184,12 +263,12 @@ class EventController extends Controller
     public function show(Request $request, int $id): JsonResponse
     {
         $event = EventV2::with(['category', 'venue', 'organisers', 'talents', 'user'])->findOrFail($id);
-        
+
         // Manually load subcategories from IDs
         $event->setRelation('subcategories', $event->subcategories_from_ids);
 
         $user = $request->user();
-        if (!$event->isOwner($user) && !$user->isAdmin()) {
+        if (! $event->isOwner($user) && ! $user->isAdmin()) {
             return response()->json([
                 'success' => false,
                 'message' => 'You are not authorized to view this event.',
@@ -248,7 +327,7 @@ class EventController extends Controller
                     ->where('user_id', $event->user_id)
                     ->where('is_deleted', false)
                     ->first();
-                
+
                 $data['image_url'] = $galleryImage ? MediaHelper::url($galleryImage->file_path) : null;
             } else {
                 // It's a regular file path
@@ -261,15 +340,15 @@ class EventController extends Controller
         // Handle additional images
         $additionalImages = $event->additional_images ?? [];
         $additionalImageUrls = [];
-        
-        if (!empty($additionalImages) && is_array($additionalImages)) {
+
+        if (! empty($additionalImages) && is_array($additionalImages)) {
             // Fetch gallery images for the additional image IDs
             $galleryImages = \App\Models\GalleryImage::whereIn('image_id', $additionalImages)
                 ->where('user_id', $event->user_id)
                 ->where('is_deleted', false)
                 ->get()
                 ->keyBy('image_id');
-            
+
             // Build URLs maintaining the same order as the additional_images array
             foreach ($additionalImages as $imageId) {
                 if (isset($galleryImages[$imageId])) {
@@ -278,7 +357,7 @@ class EventController extends Controller
                 }
             }
         }
-        
+
         $data['additional_images'] = $additionalImages;
         $data['additional_image_urls'] = $additionalImageUrls;
 
@@ -299,7 +378,7 @@ class EventController extends Controller
         $event = EventV2::findOrFail($id);
 
         $user = $request->user();
-        if (!$user || $event->user_id !== $user->id) {
+        if (! $user || $event->user_id !== $user->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized',
@@ -311,9 +390,9 @@ class EventController extends Controller
         // Empty `additional_images` / `additional_images[]` may be present in the request but omitted from
         // validated data in some clients; normalize so the service can persist an explicit clear.
         if (
-            !$request->hasFile('additional_images')
+            ! $request->hasFile('additional_images')
             && array_key_exists('additional_images', $request->all())
-            && !array_key_exists('additional_images', $data)
+            && ! array_key_exists('additional_images', $data)
         ) {
             $raw = $request->input('additional_images');
             $data['additional_images'] = is_array($raw) ? $raw : [];
@@ -355,7 +434,7 @@ class EventController extends Controller
         $event = EventV2::findOrFail($id);
 
         $user = request()->user();
-        if (!$user || ($event->user_id !== $user->id && !$user->isAdmin())) {
+        if (! $user || ($event->user_id !== $user->id && ! $user->isAdmin())) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized',
