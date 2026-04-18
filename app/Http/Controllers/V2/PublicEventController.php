@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V2;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V2\EventResource;
 use App\Models\EventV2;
+use App\Services\V2\EventInvitedEntitiesService;
 use App\Services\V2\EventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,8 @@ use Illuminate\Support\Facades\Cache;
 class PublicEventController extends Controller
 {
     public function __construct(
-        private readonly EventService $eventService
+        private readonly EventService $eventService,
+        private readonly EventInvitedEntitiesService $eventInvitedEntitiesService,
     ) {}
 
     /**
@@ -129,6 +131,8 @@ class PublicEventController extends Controller
         $perPage = $request->input('per_page', 20);
         $events = $query->paginate($perPage);
 
+        $this->eventInvitedEntitiesService->hydrate($events->items());
+
         return response()->json([
             'success' => true,
             'message' => 'Events fetched successfully',
@@ -167,6 +171,8 @@ class PublicEventController extends Controller
             $request->header('referer')
         );
 
+        $this->eventInvitedEntitiesService->hydrate([$event]);
+
         return response()->json([
             'success' => true,
             'message' => 'Event fetched successfully',
@@ -197,6 +203,8 @@ class PublicEventController extends Controller
             $request->userAgent(),
             $request->header('referer')
         );
+
+        $this->eventInvitedEntitiesService->hydrate([$event]);
 
         return response()->json([
             'success' => true,

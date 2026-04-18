@@ -56,7 +56,10 @@ class EventResource extends JsonResource
             'invited_talents' => $this->invited_talents ?? [],
             'invited_organisers' => $this->invited_organisers ?? [],
             'invited_venues' => $this->invited_venues ?? [],
-            
+            'invited_talents_objects' => $this->invited_talents_objects ?? [],
+            'invited_organisers_objects' => $this->invited_organisers_objects ?? [],
+            'invited_venues_objects' => $this->invited_venues_objects ?? [],
+
             // Additional images
             'additional_images' => $this->when(isset($this->additional_images), function () {
                 if (empty($this->additional_images)) {

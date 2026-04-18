@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\V2\EventResource;
 use App\Models\EventV2;
 use App\Models\Wishlist;
+use App\Services\V2\EventInvitedEntitiesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,10 @@ use Illuminate\Support\Facades\DB;
  */
 class WishlistController extends Controller
 {
+    public function __construct(
+        private readonly EventInvitedEntitiesService $eventInvitedEntitiesService
+    ) {}
+
     /**
      * POST /api/v2/events/{id}/wishlist
      *
@@ -83,6 +88,8 @@ class WishlistController extends Controller
         $events->each(function ($event) {
             $event->setRelation('subcategories', $event->subcategories_from_ids);
         });
+
+        $this->eventInvitedEntitiesService->hydrate($events);
 
         return response()->json([
             'success' => true,

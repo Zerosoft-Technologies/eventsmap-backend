@@ -11,6 +11,7 @@ use App\Http\Resources\V2\EventSidebarResource;
 use App\Models\Category;
 use App\Models\EventV2;
 use App\Models\SubCategory;
+use App\Services\V2\EventInvitedEntitiesService;
 use App\Services\V2\EventService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -26,7 +27,8 @@ use Illuminate\Support\Facades\Log;
 class EventController extends Controller
 {
     public function __construct(
-        private readonly EventService $eventService
+        private readonly EventService $eventService,
+        private readonly EventInvitedEntitiesService $eventInvitedEntitiesService,
     ) {}
 
     /**
@@ -179,6 +181,8 @@ class EventController extends Controller
         $perPage = $request->input('per_page', 20);
         $events = $query->paginate($perPage);
 
+        $this->eventInvitedEntitiesService->hydrate($events->items());
+
         return response()->json([
             'success' => true,
             'message' => 'Events fetched successfully',
@@ -247,6 +251,8 @@ class EventController extends Controller
         ]);
 
         $event = $this->eventService->create($validated, $request->user());
+
+        $this->eventInvitedEntitiesService->hydrate([$event]);
 
         return response()->json([
             'success' => true,
