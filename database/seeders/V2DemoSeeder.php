@@ -113,8 +113,21 @@ class V2DemoSeeder extends Seeder
                 "Player", "Puppeteer", "Singer", "Other"
             ],
             "venue" => [
-                "Bar", "Casino", "Cinema", "Concert Hall", "Government", "Hall", "Hotel",
-                "Night Club", "Open Air", "Restaurant", "Stadium", "Theatre", "Other"
+                'Bar',
+                'Casino',
+                'Cinema',
+                'Concert Hall',
+                'Dance Venue',
+                'Event Hall',
+                'Government Venue',
+                'Hotel',
+                'Nightclub',
+                'Open-air Venue',
+                'Festival Grounds',
+                'Restaurant',
+                'Stadium',
+                'Theatre',
+                'Other',
             ],
             "nightlife" => [
                 "After Midnight Bar", "After Midnight Restaurant", "After Midnight Show",
