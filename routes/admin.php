@@ -1,17 +1,20 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Admin\AdminEventV2Controller;
+use App\Http\Controllers\Admin\AdminOrganiserV2Controller;
+use App\Http\Controllers\Admin\AdminTalentV2Controller;
+use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\AdminVenueV2Controller;
+use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\BulkOperationsController;
+use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\EventController;
+use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\OrganizerEventController;
 use App\Http\Controllers\Admin\TalentController;
-use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\UserController;
-use App\Http\Controllers\Admin\AdminUserController;
-use App\Http\Controllers\Admin\AnalyticsController;
-use App\Http\Controllers\Admin\BulkOperationsController;
-use App\Http\Controllers\Admin\MediaController;
-use App\Http\Controllers\Admin\AdminEventV2Controller;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -86,10 +89,10 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::get('/{id}', [OrganizerEventController::class, 'show']);
         Route::put('/{id}', [OrganizerEventController::class, 'update']);
         Route::delete('/{id}', [OrganizerEventController::class, 'destroy']);
-        
+
         // Fixed endpoint
         Route::get('/fixed', [OrganizerEventFixedController::class, 'index']);
-        
+
         // Debug endpoints
         Route::get('/debug', [OrganizerEventDebugController::class, 'debug']);
         Route::get('/debug-with-relations', [OrganizerEventDebugController::class, 'debugWithRelations']);
@@ -168,16 +171,103 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     // V2 Events Admin Management
     // ──────────────────────────────────────
     Route::prefix('events-v2')->group(function () {
-        // Event listing and stats
+        // Listing, stats, and filtered views
         Route::get('/', [AdminEventV2Controller::class, 'index']);
         Route::get('/stats', [AdminEventV2Controller::class, 'stats']);
         Route::get('/pending', [AdminEventV2Controller::class, 'pending']);
         Route::get('/trashed', [AdminEventV2Controller::class, 'trashed']);
 
-        // Event moderation actions
+        // Bulk operations
+        Route::post('/bulk-approve', [AdminEventV2Controller::class, 'bulkApprove']);
+        Route::post('/bulk-delete', [AdminEventV2Controller::class, 'bulkDelete']);
+
+        // Invited entities relationships (must be before /{id})
+        Route::get('/{id}/talents', [AdminEventV2Controller::class, 'talents']);
+        Route::get('/{id}/organisers', [AdminEventV2Controller::class, 'organisers']);
+        Route::get('/{id}/venues', [AdminEventV2Controller::class, 'venues']);
+
+        // CRUD
+        Route::post('/', [AdminEventV2Controller::class, 'store']);
+        Route::get('/{id}', [AdminEventV2Controller::class, 'show']);
+        Route::put('/{id}', [AdminEventV2Controller::class, 'update']);
+        Route::delete('/{id}', [AdminEventV2Controller::class, 'destroy']);
+
+        // Moderation actions
         Route::patch('/{id}/status', [AdminEventV2Controller::class, 'updateStatus']);
+        Route::post('/{id}/approve', [AdminEventV2Controller::class, 'approve']);
+        Route::post('/{id}/unapprove', [AdminEventV2Controller::class, 'unapprove']);
+        Route::post('/{id}/suspend', [AdminEventV2Controller::class, 'suspend']);
+        Route::post('/{id}/unsuspend', [AdminEventV2Controller::class, 'unsuspend']);
+
+        // Trash management
         Route::patch('/{id}/restore', [AdminEventV2Controller::class, 'restore']);
         Route::delete('/{id}/force', [AdminEventV2Controller::class, 'forceDelete']);
+    });
+
+    // ──────────────────────────────────────
+    // V2 Organisers Admin Management
+    // ──────────────────────────────────────
+    Route::prefix('organisers-v2')->group(function () {
+        Route::get('/', [AdminOrganiserV2Controller::class, 'index']);
+        Route::get('/stats', [AdminOrganiserV2Controller::class, 'stats']);
+
+        // Bulk operations
+        Route::post('/bulk-approve', [AdminOrganiserV2Controller::class, 'bulkApprove']);
+        Route::post('/bulk-delete', [AdminOrganiserV2Controller::class, 'bulkDelete']);
+
+        // CRUD
+        Route::post('/', [AdminOrganiserV2Controller::class, 'store']);
+        Route::get('/{id}', [AdminOrganiserV2Controller::class, 'show']);
+        Route::put('/{id}', [AdminOrganiserV2Controller::class, 'update']);
+        Route::delete('/{id}', [AdminOrganiserV2Controller::class, 'destroy']);
+
+        // Moderation
+        Route::post('/{id}/approve', [AdminOrganiserV2Controller::class, 'approve']);
+        Route::post('/{id}/unapprove', [AdminOrganiserV2Controller::class, 'unapprove']);
+    });
+
+    // ──────────────────────────────────────
+    // V2 Talents Admin Management
+    // ──────────────────────────────────────
+    Route::prefix('talents-v2')->group(function () {
+        Route::get('/', [AdminTalentV2Controller::class, 'index']);
+        Route::get('/stats', [AdminTalentV2Controller::class, 'stats']);
+
+        // Bulk operations
+        Route::post('/bulk-approve', [AdminTalentV2Controller::class, 'bulkApprove']);
+        Route::post('/bulk-delete', [AdminTalentV2Controller::class, 'bulkDelete']);
+
+        // CRUD
+        Route::post('/', [AdminTalentV2Controller::class, 'store']);
+        Route::get('/{id}', [AdminTalentV2Controller::class, 'show']);
+        Route::put('/{id}', [AdminTalentV2Controller::class, 'update']);
+        Route::delete('/{id}', [AdminTalentV2Controller::class, 'destroy']);
+
+        // Moderation
+        Route::post('/{id}/approve', [AdminTalentV2Controller::class, 'approve']);
+        Route::post('/{id}/unapprove', [AdminTalentV2Controller::class, 'unapprove']);
+    });
+
+    // ──────────────────────────────────────
+    // V2 Venues Admin Management
+    // ──────────────────────────────────────
+    Route::prefix('venues-v2')->group(function () {
+        Route::get('/', [AdminVenueV2Controller::class, 'index']);
+        Route::get('/stats', [AdminVenueV2Controller::class, 'stats']);
+
+        // Bulk operations
+        Route::post('/bulk-approve', [AdminVenueV2Controller::class, 'bulkApprove']);
+        Route::post('/bulk-delete', [AdminVenueV2Controller::class, 'bulkDelete']);
+
+        // CRUD
+        Route::post('/', [AdminVenueV2Controller::class, 'store']);
+        Route::get('/{id}', [AdminVenueV2Controller::class, 'show']);
+        Route::put('/{id}', [AdminVenueV2Controller::class, 'update']);
+        Route::delete('/{id}', [AdminVenueV2Controller::class, 'destroy']);
+
+        // Moderation
+        Route::post('/{id}/approve', [AdminVenueV2Controller::class, 'approve']);
+        Route::post('/{id}/unapprove', [AdminVenueV2Controller::class, 'unapprove']);
     });
 
     // Organizer API routes

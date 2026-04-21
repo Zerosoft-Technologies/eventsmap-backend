@@ -1,13 +1,16 @@
 <?php
 
-namespace App\Http\Resources\V2;
+namespace App\Http\Resources\Admin;
 
 use App\Helpers\MediaHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class OrganiserResource extends JsonResource
+class AdminTalentV2Resource extends JsonResource
 {
+    /**
+     * Transform the resource into an array.
+     */
     public function toArray(Request $request): array
     {
         return [
@@ -24,9 +27,9 @@ class OrganiserResource extends JsonResource
                         ->first();
 
                     return $galleryImage ? MediaHelper::url($galleryImage->file_path) : null;
-                } else {
-                    return MediaHelper::resolveUrl($this->image_path);
                 }
+
+                return MediaHelper::resolveUrl($this->image_path);
             }),
 
             // Category
@@ -39,6 +42,34 @@ class OrganiserResource extends JsonResource
             }),
 
             'subcategory_ids' => $this->subcategory_ids ?? [],
+            'subcategories' => $this->when(! empty($this->subcategory_ids), function () {
+                return $this->subcategories_from_ids->map(fn ($sc) => [
+                    'id' => $sc->id,
+                    'name' => $sc->name,
+                    'slug' => $sc->slug,
+                ]);
+            }),
+
+            'talent_category_id' => $this->talent_category_id,
+            'talent_category' => $this->whenLoaded('talentCategory', function () {
+                return [
+                    'id' => $this->talentCategory->id,
+                    'name' => $this->talentCategory->name,
+                    'slug' => $this->talentCategory->slug,
+                ];
+            }),
+
+            'talent_subcategory_ids' => $this->whenLoaded('talentSubcategories', function () {
+                return $this->talentSubcategories->pluck('id')->values();
+            }),
+
+            'talent_subcategories' => $this->whenLoaded('talentSubcategories', function () {
+                return $this->talentSubcategories->map(fn ($sc) => [
+                    'id' => $sc->id,
+                    'name' => $sc->name,
+                    'slug' => $sc->slug,
+                ]);
+            }),
 
             // Additional images
             'additional_images' => $this->when(isset($this->additional_images), function () {
@@ -58,47 +89,14 @@ class OrganiserResource extends JsonResource
                             'url' => MediaHelper::url($galleryImage->file_path),
                             'caption' => $galleryImage->caption,
                         ] : null;
-                    } else {
-                        return [
-                            'id' => null,
-                            'url' => MediaHelper::resolveUrl($image),
-                            'caption' => null,
-                        ];
                     }
+
+                    return ['id' => null, 'url' => MediaHelper::resolveUrl($image), 'caption' => null];
                 })->filter()->values();
             }),
 
-            'subcategories' => $this->when(! empty($this->subcategory_ids), function () {
-                return $this->subcategories_from_ids->map(fn ($sc) => [
-                    'id' => $sc->id,
-                    'name' => $sc->name,
-                    'slug' => $sc->slug,
-                ]);
-            }),
-
-            'organiser_category_id' => $this->organiser_category_id,
-
-            'organiser_category' => $this->whenLoaded('organiserCategory', function () {
-                return [
-                    'id' => $this->organiserCategory->id,
-                    'name' => $this->organiserCategory->name,
-                    'slug' => $this->organiserCategory->slug,
-                ];
-            }),
-
-            'organiser_subcategory_ids' => $this->whenLoaded('organiserSubcategories', function () {
-                return $this->organiserSubcategories->pluck('id')->values();
-            }),
-
-            'organiser_subcategories' => $this->whenLoaded('organiserSubcategories', function () {
-                return $this->organiserSubcategories->map(fn ($sc) => [
-                    'id' => $sc->id,
-                    'name' => $sc->name,
-                    'slug' => $sc->slug,
-                ]);
-            }),
-
             // Location
+            'city' => $this->city,
             'address' => $this->address,
             'latitude' => $this->latitude !== null ? (float) $this->latitude : null,
             'longitude' => $this->longitude !== null ? (float) $this->longitude : null,
@@ -114,15 +112,25 @@ class OrganiserResource extends JsonResource
             'instagram_url' => $this->instagram_url,
             'tiktok_url' => $this->tiktok_url,
 
+            // Talent-specific
+            'fan_club_url' => $this->fan_club_url,
+            'nationality' => $this->nationality,
+            'show_nationality' => $this->show_nationality,
+            'age' => $this->age,
+            'show_age' => $this->show_age,
+            'languages' => $this->languages ?? [],
+            'highlights' => $this->highlights,
+
             // Settings
             'show_upcoming_events' => (bool) ($this->show_upcoming_events ?? false),
             'show_past_events' => (bool) ($this->show_past_events ?? false),
 
-            // Owner
+            // Owner (admin view includes email)
             'user' => $this->whenLoaded('user', function () {
                 return [
                     'id' => $this->user->id,
                     'name' => $this->user->name,
+                    'email' => $this->user->email,
                 ];
             }),
 
@@ -132,6 +140,7 @@ class OrganiserResource extends JsonResource
             // Timestamps
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
+            'deleted_at' => $this->when($this->deleted_at, fn () => $this->deleted_at?->toIso8601String()),
         ];
     }
 }

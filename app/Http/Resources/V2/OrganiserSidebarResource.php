@@ -26,7 +26,7 @@ class OrganiserSidebarResource extends JsonResource
 
                     return $galleryImage ? MediaHelper::url($galleryImage->file_path) : null;
                 } else {
-                    return MediaHelper::url($this->image_path);
+                    return MediaHelper::resolveUrl($this->image_path);
                 }
             }),
             'created_at' => $this->created_at?->toIso8601String(),

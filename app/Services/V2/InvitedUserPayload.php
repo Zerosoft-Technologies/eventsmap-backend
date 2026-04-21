@@ -50,7 +50,9 @@ final class InvitedUserPayload
             'city' => $user->city,
 
             'premium_started_at' => Schema::hasColumn('users', 'premium_started_at')
-                ? $user->premium_started_at?->toIso8601String()
+                ? ($user->premium_started_at instanceof \Carbon\Carbon
+                    ? $user->premium_started_at->toIso8601String()
+                    : $user->premium_started_at)
                 : null,
 
             'profile_image' => $profileImage,

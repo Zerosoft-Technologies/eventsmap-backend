@@ -25,7 +25,7 @@ class TalentResource extends JsonResource
 
                     return $galleryImage ? MediaHelper::url($galleryImage->file_path) : null;
                 } else {
-                    return MediaHelper::url($this->image_path);
+                    return MediaHelper::resolveUrl($this->image_path);
                 }
             }),
 
@@ -54,19 +54,19 @@ class TalentResource extends JsonResource
                         return $galleryImage ? [
                             'id' => $galleryImage->image_id,
                             'url' => MediaHelper::url($galleryImage->file_path),
-                            'caption' => $galleryImage->caption
+                            'caption' => $galleryImage->caption,
                         ] : null;
                     } else {
                         return [
                             'id' => null,
-                            'url' => MediaHelper::url($image),
-                            'caption' => null
+                            'url' => MediaHelper::resolveUrl($image),
+                            'caption' => null,
                         ];
                     }
                 })->filter()->values();
             }),
 
-            'subcategories' => $this->when(!empty($this->subcategory_ids), function () {
+            'subcategories' => $this->when(! empty($this->subcategory_ids), function () {
                 return $this->subcategories_from_ids->map(fn ($sc) => [
                     'id' => $sc->id,
                     'name' => $sc->name,

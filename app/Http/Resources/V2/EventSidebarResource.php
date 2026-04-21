@@ -35,11 +35,11 @@ class EventSidebarResource extends JsonResource
                         ->where('user_id', $this->user_id)
                         ->where('is_deleted', false)
                         ->first();
-                    
+
                     return $galleryImage ? MediaHelper::url($galleryImage->file_path) : null;
                 } else {
                     // It's a regular file path
-                    return MediaHelper::url($this->image_path);
+                    return MediaHelper::resolveUrl($this->image_path);
                 }
             }),
         ];

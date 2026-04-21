@@ -1,13 +1,16 @@
 <?php
 
-namespace App\Http\Resources\V2;
+namespace App\Http\Resources\Admin;
 
 use App\Helpers\MediaHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class OrganiserResource extends JsonResource
+class AdminVenueV2Resource extends JsonResource
 {
+    /**
+     * Transform the resource into an array.
+     */
     public function toArray(Request $request): array
     {
         return [
@@ -24,9 +27,9 @@ class OrganiserResource extends JsonResource
                         ->first();
 
                     return $galleryImage ? MediaHelper::url($galleryImage->file_path) : null;
-                } else {
-                    return MediaHelper::resolveUrl($this->image_path);
                 }
+
+                return MediaHelper::resolveUrl($this->image_path);
             }),
 
             // Category
@@ -39,6 +42,13 @@ class OrganiserResource extends JsonResource
             }),
 
             'subcategory_ids' => $this->subcategory_ids ?? [],
+            'subcategories' => $this->when(! empty($this->subcategory_ids), function () {
+                return $this->subcategories_from_ids->map(fn ($sc) => [
+                    'id' => $sc->id,
+                    'name' => $sc->name,
+                    'slug' => $sc->slug,
+                ]);
+            }),
 
             // Additional images
             'additional_images' => $this->when(isset($this->additional_images), function () {
@@ -58,44 +68,10 @@ class OrganiserResource extends JsonResource
                             'url' => MediaHelper::url($galleryImage->file_path),
                             'caption' => $galleryImage->caption,
                         ] : null;
-                    } else {
-                        return [
-                            'id' => null,
-                            'url' => MediaHelper::resolveUrl($image),
-                            'caption' => null,
-                        ];
                     }
+
+                    return ['id' => null, 'url' => MediaHelper::resolveUrl($image), 'caption' => null];
                 })->filter()->values();
-            }),
-
-            'subcategories' => $this->when(! empty($this->subcategory_ids), function () {
-                return $this->subcategories_from_ids->map(fn ($sc) => [
-                    'id' => $sc->id,
-                    'name' => $sc->name,
-                    'slug' => $sc->slug,
-                ]);
-            }),
-
-            'organiser_category_id' => $this->organiser_category_id,
-
-            'organiser_category' => $this->whenLoaded('organiserCategory', function () {
-                return [
-                    'id' => $this->organiserCategory->id,
-                    'name' => $this->organiserCategory->name,
-                    'slug' => $this->organiserCategory->slug,
-                ];
-            }),
-
-            'organiser_subcategory_ids' => $this->whenLoaded('organiserSubcategories', function () {
-                return $this->organiserSubcategories->pluck('id')->values();
-            }),
-
-            'organiser_subcategories' => $this->whenLoaded('organiserSubcategories', function () {
-                return $this->organiserSubcategories->map(fn ($sc) => [
-                    'id' => $sc->id,
-                    'name' => $sc->name,
-                    'slug' => $sc->slug,
-                ]);
             }),
 
             // Location
@@ -105,6 +81,7 @@ class OrganiserResource extends JsonResource
 
             // Contact
             'description' => $this->description,
+            'description_items' => $this->description_items ?? [],
             'contact_phone' => $this->contact_phone,
             'contact_email' => $this->contact_email,
             'contact_website' => $this->contact_website,
@@ -114,15 +91,26 @@ class OrganiserResource extends JsonResource
             'instagram_url' => $this->instagram_url,
             'tiktok_url' => $this->tiktok_url,
 
+            // Venue-specific
+            'allow_dogs' => (bool) ($this->allow_dogs ?? false),
+            'allowance_of_dogs' => $this->allowance_of_dogs,
+            'wheelchair_accessible' => (bool) ($this->wheelchair_accessible ?? false),
+            'accessibility_description' => $this->accessibility_description,
+            'parking' => (bool) ($this->parking ?? false),
+            'valet' => (bool) ($this->valet ?? false),
+            'play_area' => (bool) ($this->play_area ?? false),
+            'opening_hours' => $this->opening_hours ?? [],
+
             // Settings
             'show_upcoming_events' => (bool) ($this->show_upcoming_events ?? false),
             'show_past_events' => (bool) ($this->show_past_events ?? false),
 
-            // Owner
+            // Owner (admin view includes email)
             'user' => $this->whenLoaded('user', function () {
                 return [
                     'id' => $this->user->id,
                     'name' => $this->user->name,
+                    'email' => $this->user->email,
                 ];
             }),
 
@@ -132,6 +120,7 @@ class OrganiserResource extends JsonResource
             // Timestamps
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
+            'deleted_at' => $this->when($this->deleted_at, fn () => $this->deleted_at?->toIso8601String()),
         ];
     }
 }
