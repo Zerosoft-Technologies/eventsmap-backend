@@ -55,7 +55,7 @@ class PrerequisiteSeeder extends Seeder
     {
         while (User::query()->count() < $minimum) {
             User::factory()->create([
-                'email' => fake()->unique()->safeEmail(),
+                'email' => \fake()->unique()->safeEmail(),
             ]);
         }
     }
@@ -84,12 +84,12 @@ class PrerequisiteSeeder extends Seeder
                 'longitude' => $city['lng'],
                 'city' => $city['city'],
                 'country' => $city['country'],
-                'phone' => fake()->phoneNumber(),
-                'email' => fake()->companyEmail(),
-                'website' => fake()->url(),
-                'description' => fake()->sentence(12),
+                'phone' => \fake()->phoneNumber(),
+                'email' => \fake()->companyEmail(),
+                'website' => \fake()->url(),
+                'description' => \fake()->sentence(12),
                 'image_path' => 'venues/images/placeholder.jpg',
-                'capacity' => fake()->numberBetween(80, 5000),
+                'capacity' => \fake()->numberBetween(80, 5000),
                 'is_active' => true,
             ]);
         }

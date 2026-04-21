@@ -278,19 +278,19 @@ class CityDataProvider
      */
     public static function randomFormattedAddress(array $city): string
     {
-        $num = fake()->numberBetween(1, 350);
-        $street = fake()->randomElement($city['streets']);
+        $num = \fake()->numberBetween(1, 350);
+        $street = \fake()->randomElement($city['streets']);
         $cityName = $city['city'];
         $country = $city['country'];
 
         $formats = [
             fn (): string => "{$num} {$street}, {$cityName}, {$country}",
-            fn (): string => 'Unit '.fake()->numberBetween(1, 20).", {$num} {$street}, {$cityName}, {$country}",
+            fn (): string => 'Unit '.\fake()->numberBetween(1, 20).", {$num} {$street}, {$cityName}, {$country}",
             fn (): string => "{$street} {$num}, {$cityName}, {$country}",
-            fn (): string => fake()->randomElement(['The ', 'Central ', 'Metro ', 'City ', 'Grand ']).$street.', '.$cityName.', '.$country,
+            fn (): string => \fake()->randomElement(['The ', 'Central ', 'Metro ', 'City ', 'Grand ']).$street.', '.$cityName.', '.$country,
         ];
 
-        return fake()->randomElement($formats)();
+        return \fake()->randomElement($formats)();
     }
 
     /**
