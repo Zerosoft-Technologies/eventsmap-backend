@@ -7,6 +7,7 @@ use App\Http\Controllers\StripeController;
 use App\Http\Controllers\UpgradePlanController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\GalleryImageController;
+use App\Http\Controllers\MyAccountInvitesController;
 use App\Http\Controllers\V2\TalentCategoryController;
 use App\Http\Controllers\V2\OrganiserCategoryController;
 
@@ -62,6 +63,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/gallery-images', [GalleryImageController::class, 'index'])->name('gallery.index');
     Route::post('/gallery-images/upload', [GalleryImageController::class, 'store'])->name('gallery.store');
     Route::delete('/gallery-images/{image_id}', [GalleryImageController::class, 'destroy'])->name('gallery.destroy');
+
+    // Account owner: all event invites (aggregated)
+    Route::get('/my-account/invites', [MyAccountInvitesController::class, 'index']);
+    Route::delete('/my-account/invites', [MyAccountInvitesController::class, 'destroy']);
 });
 
 // Premium-only routes (requires auth + active premium status)
