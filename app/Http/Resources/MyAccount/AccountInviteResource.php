@@ -12,6 +12,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *     type:string,
  *     profile_id:int,
  *     name:string,
+ *     email:string,
  *     image_path:string,
  *     slug:string
  * }
@@ -29,6 +30,7 @@ class AccountInviteResource extends JsonResource
             'type' => $this->resource['type'],
             'profile_id' => $this->resource['profile_id'],
             'name' => $this->resource['name'],
+            'email' => $this->resource['email'],
             'image_path' => $this->resource['image_path'],
             'slug' => $this->resource['slug'],
         ];

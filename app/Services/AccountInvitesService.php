@@ -77,13 +77,13 @@ class AccountInvitesService
     private function loadOwnedEventsWithInvites(int $userId): EloquentCollection
     {
         $userTable = (new User)->getTable();
-        $userColumns = ["{$userTable}.id", "{$userTable}.name", "{$userTable}.full_name"];
+        $userColumns = ["{$userTable}.id", "{$userTable}.name", "{$userTable}.email", "{$userTable}.full_name"];
         if (Schema::hasColumn($userTable, 'profile_image')) {
             $userColumns[] = "{$userTable}.profile_image";
         }
 
         $venueTable = (new Venue)->getTable();
-        $venueColumns = ["{$venueTable}.id", "{$venueTable}.name", "{$venueTable}.slug", "{$venueTable}.image_path"];
+        $venueColumns = ["{$venueTable}.id", "{$venueTable}.name", "{$venueTable}.email", "{$venueTable}.slug", "{$venueTable}.image_path"];
 
         return EventV2::query()
             ->where('user_id', $userId)
@@ -202,7 +202,7 @@ class AccountInvitesService
             ? collect()
             : Venue::query()
                 ->whereIn('id', array_keys($fallbackVenueIds))
-                ->select(['id', 'name', 'slug', 'image_path'])
+                ->select(['id', 'name', 'email', 'slug', 'image_path'])
                 ->get()
                 ->keyBy('id');
 
@@ -275,7 +275,10 @@ class AccountInvitesService
             $needle = Str::lower($search);
             $invites = $invites
                 ->filter(static function (array $row) use ($needle): bool {
-                    return str_contains(Str::lower((string) $row['name']), $needle);
+                    $email = Str::lower((string) ($row['email'] ?? ''));
+
+                    return str_contains(Str::lower((string) $row['name']), $needle)
+                        || ($email !== '' && str_contains($email, $needle));
                 })
                 ->values();
         }
@@ -316,6 +319,7 @@ class AccountInvitesService
             'type' => 'talent',
             'profile_id' => $user->id,
             'name' => $name,
+            'email' => (string) ($user->email ?? ''),
             'image_path' => $this->resolveImagePath($profile?->image_path ?? ($user->profile_image ?? null)),
             'slug' => (string) ($profile?->slug ?? ''),
         ];
@@ -337,6 +341,7 @@ class AccountInvitesService
             'type' => 'organiser',
             'profile_id' => $user->id,
             'name' => $name,
+            'email' => (string) ($user->email ?? ''),
             'image_path' => $this->resolveImagePath($profile?->image_path ?? ($user->profile_image ?? null)),
             'slug' => (string) ($profile?->slug ?? ''),
         ];
@@ -353,6 +358,7 @@ class AccountInvitesService
             'type' => 'venue',
             'profile_id' => $venue->id,
             'name' => $venue->name,
+            'email' => (string) ($venue->email ?? ''),
             'image_path' => $this->resolveImagePath($venue->image_path),
             'slug' => (string) $venue->slug,
         ];
@@ -373,7 +379,7 @@ class AccountInvitesService
      */
     private function loadUsersForInvites(array $userIds): EloquentCollection
     {
-        $columns = ['id', 'name', 'full_name'];
+        $columns = ['id', 'name', 'email', 'full_name'];
         if (Schema::hasColumn('users', 'profile_image')) {
             $columns[] = 'profile_image';
         }
