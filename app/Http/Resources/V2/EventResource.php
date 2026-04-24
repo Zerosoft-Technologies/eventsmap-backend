@@ -43,6 +43,24 @@ class EventResource extends JsonResource
                 }
             }),
 
+            'additional_images' => $this->additional_images && is_array($this->additional_images) ?  $this->when($this->additional_images, function () {
+                return collect($this->additional_images)->map(function ($image) {
+                    return MediaHelper::resolveUrl($image);
+                });
+            }) : [],
+
+            'social_media_urls' => [
+                'facebook' => $this->facebook_url,
+                // 'twitter' => $this->twitter_url,
+                'instagram' => $this->instagram_url,
+                'tiktok' => $this->tiktok_url,
+                // 'youtube' => $this->youtube_url,
+            ],
+
+            'contact_email' => $this->contact_email,
+            'contact_phone' => $this->contact_phone,
+            'contact_website' => $this->contact_website,
+
             // Category
             'category' => $this->whenLoaded('category', function () {
                 return [
