@@ -5,10 +5,12 @@ namespace App\Http\Controllers\V2;
 use App\Helpers\MediaHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V2\StoreTalentRequest;
+use App\Http\Requests\V2\UpdateProfilePublicationStatusRequest;
 use App\Http\Requests\V2\UpdateTalentRequest;
 use App\Http\Resources\V2\TalentResource;
 use App\Models\TalentV2;
 use App\Services\V2\TalentService;
+use App\Support\ProfilePublicationStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -64,6 +66,9 @@ class TalentController extends Controller
             'id' => $talent->id,
             'title' => $talent->title,
             'slug' => $talent->slug,
+            'status' => $talent->status ?? ProfilePublicationStatus::DRAFT,
+            'status_label' => ProfilePublicationStatus::labels()[$talent->status ?? ProfilePublicationStatus::DRAFT]
+                ?? ($talent->status ?? ProfilePublicationStatus::DRAFT),
             'event_type' => $talent->event_type ?? 'free',
             'category_id' => $talent->category_id,
             'subcategory_ids' => $talent->subcategory_ids ?? [],
@@ -167,6 +172,9 @@ class TalentController extends Controller
         $data = [
             'id' => $talent->id,
             'title' => $talent->title,
+            'status' => $talent->status ?? ProfilePublicationStatus::DRAFT,
+            'status_label' => ProfilePublicationStatus::labels()[$talent->status ?? ProfilePublicationStatus::DRAFT]
+                ?? ($talent->status ?? ProfilePublicationStatus::DRAFT),
             'event_type' => $talent->event_type ?? 'free',
             'category_id' => $talent->category_id,
             'subcategory_ids' => is_array($talent->subcategory_ids) ? $talent->subcategory_ids : [],
@@ -182,6 +190,32 @@ class TalentController extends Controller
             'success' => true,
             'message' => 'Talent updated successfully',
             'data' => $data,
+        ]);
+    }
+
+    /**
+     * PATCH /api/v2/talents/{id}/status
+     */
+    public function updateStatus(UpdateProfilePublicationStatusRequest $request, int $id): JsonResponse
+    {
+        $talent = TalentV2::findOrFail($id);
+
+        $user = $request->user();
+        if (!$user || ($talent->user_id !== $user->id && !$user->isAdmin())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $talent->update(['status' => $request->validated('status')]);
+        $talent->refresh();
+        $talent->load(['category', 'user', 'talentCategory', 'talentSubcategories']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Publication status updated successfully',
+            'data' => new TalentResource($talent),
         ]);
     }
 

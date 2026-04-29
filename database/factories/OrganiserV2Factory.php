@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Support\ProfilePublicationStatus;
 use App\Models\Category;
 use App\Models\OrganiserCategory;
 use App\Models\OrganiserV2;
@@ -47,6 +48,7 @@ class OrganiserV2Factory extends Factory
 
         return [
             'user_id' => User::query()->inRandomOrder()->value('id') ?? User::factory(),
+            'status' => ProfilePublicationStatus::DRAFT,
             'title' => $title,
             'slug' => $slug,
             'event_type' => fake()->randomElement(['free', 'premium']),

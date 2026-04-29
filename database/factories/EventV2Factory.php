@@ -140,6 +140,7 @@ class EventV2Factory extends Factory
             'start_datetime' => $schedule['start_datetime'],
             'end_datetime' => $schedule['end_datetime'],
             'address' => CityDataProvider::randomFormattedAddress($city),
+            'venue_name' => fake()->optional(0.65)->company(),
             'latitude' => $city['lat'],
             'longitude' => $city['lng'],
             'dress_code' => fake()->randomElement(EventV2::DRESS_CODES),
@@ -333,6 +334,7 @@ class EventV2Factory extends Factory
                 'latitude' => $city['lat'],
                 'longitude' => $city['lng'],
                 'address' => CityDataProvider::randomFormattedAddress($city),
+                'venue_name' => fake()->optional(0.65)->company(),
                 'venue_id' => Venue::query()->where('city', $city['city'])->inRandomOrder()->value('id')
                     ?? Venue::query()->inRandomOrder()->value('id'),
             ];

@@ -26,6 +26,7 @@ class EventResource extends JsonResource
         return [
             'id' => $this->id,
             'title' => $this->title,
+            'venue_name' => $this->resource->getAttribute('venue_name'),
             'slug' => $this->slug,
             'cover_image' => $this->when($this->image_path, function () {
                 // Check if image_path is a UUID format

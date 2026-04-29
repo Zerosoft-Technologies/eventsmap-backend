@@ -50,6 +50,7 @@ class UpdateEventV2Request extends FormRequest
             'start_datetime' => 'sometimes|date',
             'end_datetime' => 'sometimes|date|after:start_datetime',
             'address' => 'sometimes|string|max:500',
+            'venue_name' => 'sometimes|nullable|string|max:255',
             'latitude' => 'sometimes|numeric|between:-90,90',
             'longitude' => 'sometimes|numeric|between:-180,180',
             'dress_code' => ['sometimes', 'nullable', 'string', Rule::in(EventV2::DRESS_CODES)],

@@ -3,16 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\Stripe\PremiumCheckoutSessionFactory;
+use App\Services\Stripe\StripeWebhookProcessor;
+use App\Services\Stripe\SubscriptionPersistService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\StripeClient;
-use Stripe\Webhook;
 
 class StripeController extends Controller
 {
+    public function __construct(
+        private readonly SubscriptionPersistService $subscriptionPersist,
+        private readonly StripeWebhookProcessor $webhookProcessor,
+        private readonly PremiumCheckoutSessionFactory $premiumCheckout,
+    ) {}
+
     /**
      * POST /api/payment/verify
      *
@@ -27,12 +35,11 @@ class StripeController extends Controller
 
         try {
             $stripeSecret = config('services.stripe.secret');
-            // Fallback in case config cache is stale.
-            if (!is_string($stripeSecret) || $stripeSecret === '') {
+            if (! is_string($stripeSecret) || $stripeSecret === '') {
                 $stripeSecret = env('STRIPE_SECRET');
             }
 
-            if (!is_string($stripeSecret) || $stripeSecret === '') {
+            if (! is_string($stripeSecret) || $stripeSecret === '') {
                 return response()->json([
                     'success' => false,
                     'message' => 'Stripe is not configured on the server.',
@@ -43,7 +50,7 @@ class StripeController extends Controller
 
             $session = $stripe->checkout->sessions->retrieve(
                 $request->input('session_id'),
-                ['expand' => ['subscription', 'payment_intent']]
+                ['expand' => ['subscription', 'payment_intent', 'line_items']]
             );
 
             if ($session->payment_status !== 'paid') {
@@ -53,11 +60,14 @@ class StripeController extends Controller
                 ], 400);
             }
 
-            $user = User::where('stripe_session_id', $session->id)
-                ->orWhere('stripe_customer_id', $session->customer)
+            $customerId = is_string($session->customer) ? $session->customer : ($session->customer->id ?? null);
+
+            $user = User::query()
+                ->where('stripe_session_id', $session->id)
+                ->when(is_string($customerId), fn ($q) => $q->orWhere('stripe_customer_id', $customerId))
                 ->first();
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
                     'message' => 'User not found for this payment session.',
@@ -72,7 +82,6 @@ class StripeController extends Controller
             }
 
             if ($user->status === User::STATUS_ACTIVE) {
-                // Already verified: still sync stripe_subscription_id / stripe_session_id / account_type if missing (backfill)
                 $updateData = [];
                 if (empty($user->stripe_subscription_id) && $stripeSubscriptionId) {
                     $updateData['stripe_subscription_id'] = $stripeSubscriptionId;
@@ -83,12 +92,21 @@ class StripeController extends Controller
                 if ($user->account_type === User::ACCOUNT_FREE) {
                     $updateData['account_type'] = User::ACCOUNT_PREMIUM;
                     $updateData['premium_started_at'] = $user->premium_started_at ?? now();
-                } elseif ($user->account_type === User::ACCOUNT_PREMIUM && !$user->premium_started_at) {
+                } elseif ($user->account_type === User::ACCOUNT_PREMIUM && ! $user->premium_started_at) {
                     $updateData['premium_started_at'] = now();
                 }
-                if (!empty($updateData)) {
+                if (! empty($updateData)) {
                     $user->update($updateData);
                     $user->refresh();
+                }
+
+                try {
+                    $this->subscriptionPersist->syncFromCheckoutSession($session, $user);
+                } catch (\Throwable $e) {
+                    Log::error('Subscription persist failed after verify (active user)', [
+                        'user_id' => $user->id,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
 
                 $token = $user->createToken('auth_token')->plainTextToken;
@@ -105,7 +123,7 @@ class StripeController extends Controller
 
             $updateData = [
                 'status' => User::STATUS_ACTIVE,
-                'stripe_customer_id' => $session->customer,
+                'stripe_customer_id' => is_string($customerId) ? $customerId : $user->stripe_customer_id,
                 'stripe_subscription_id' => $stripeSubscriptionId,
                 'stripe_session_id' => $session->id,
                 'email_verified_at' => $user->email_verified_at ?? now(),
@@ -113,10 +131,21 @@ class StripeController extends Controller
             if ($user->account_type === User::ACCOUNT_FREE) {
                 $updateData['account_type'] = User::ACCOUNT_PREMIUM;
                 $updateData['premium_started_at'] = now();
-            } elseif ($user->account_type === User::ACCOUNT_PREMIUM && !$user->premium_started_at) {
+            } elseif ($user->account_type === User::ACCOUNT_PREMIUM && ! $user->premium_started_at) {
                 $updateData['premium_started_at'] = now();
             }
             $user->update($updateData);
+
+            $user->refresh();
+
+            try {
+                $this->subscriptionPersist->syncFromCheckoutSession($session, $user);
+            } catch (\Throwable $e) {
+                Log::error('Subscription persist failed after verify', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             $user->refresh();
             $token = $user->createToken('auth_token')->plainTextToken;
@@ -149,11 +178,7 @@ class StripeController extends Controller
         $signature = $request->header('Stripe-Signature');
 
         try {
-            $event = Webhook::constructEvent(
-                $payload,
-                $signature, 
-                config('services.stripe.webhook_secret')
-            );
+            $event = $this->webhookProcessor->verifyAndParseEvent($payload, $signature);
         } catch (SignatureVerificationException $e) {
             return response()->json([
                 'success' => false,
@@ -164,61 +189,26 @@ class StripeController extends Controller
                 'success' => false,
                 'message' => 'Invalid webhook payload.',
             ], 400);
+        } catch (\RuntimeException $e) {
+            Log::error('Stripe webhook misconfiguration', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Webhook is not configured on the server.',
+            ], 500);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
         }
 
-        switch ($event->type) {
-            case 'checkout.session.completed':
-                $session = $event->data->object;
-                $user = User::where('stripe_customer_id', $session->customer)->first();
+        try {
+            $this->webhookProcessor->process($event, $payload);
+        } catch (\Throwable $e) {
+            Log::error('Stripe webhook fatal error', ['error' => $e->getMessage()]);
 
-                if ($user) {
-                    $stripeSubscriptionId = $session->subscription ?? $session->payment_intent;
-                    $isUpgrade = isset($session->metadata->type) && $session->metadata->type === 'upgrade';
-
-                    $updateData = [
-                        'status' => User::STATUS_ACTIVE,
-                        'stripe_subscription_id' => $stripeSubscriptionId,
-                        'email_verified_at' => $user->email_verified_at ?? now(),
-                    ];
-
-                    // Handle upgrade from free to premium
-                    if ($isUpgrade || $user->account_type === User::ACCOUNT_FREE) {
-                        $updateData['account_type'] = User::ACCOUNT_PREMIUM;
-                        $updateData['premium_started_at'] = now();
-                    }
-
-                    // For new premium registrations, also set premium_started_at
-                    if ($user->account_type === User::ACCOUNT_PREMIUM && !$user->premium_started_at) {
-                        $updateData['premium_started_at'] = now();
-                    }
-
-                    $user->update($updateData);
-
-                    Log::info('Stripe checkout completed for user ' . $user->id . ($isUpgrade ? ' (upgrade)' : ''));
-                }
-                break;
-
-            case 'invoice.payment_succeeded':
-                $invoice = $event->data->object;
-                $user = User::where('stripe_customer_id', $invoice->customer)->first();
-
-                if ($user) {
-                    $user->update([
-                        'status' => User::STATUS_ACTIVE,
-                    ]);
-                }
-                break;
-
-            case 'invoice.payment_failed':
-                $invoice = $event->data->object;
-                $user = User::where('stripe_customer_id', $invoice->customer)->first();
-
-                if ($user) {
-                    $user->update([
-                        'status' => User::STATUS_PENDING_PAYMENT,
-                    ]);
-                }
-                break;
+            return response()->json(['received' => true]);
         }
 
         return response()->json(['received' => true]);
@@ -248,7 +238,7 @@ class StripeController extends Controller
             ], 403);
         }
 
-        if (!$user->stripe_customer_id) {
+        if (! $user->stripe_customer_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'No Stripe customer found. Please contact support.',
@@ -256,43 +246,15 @@ class StripeController extends Controller
         }
 
         try {
-            $stripeSecret = config('services.stripe.secret');
-            // Fallback in case config cache is stale.
-            if (!is_string($stripeSecret) || $stripeSecret === '') {
-                $stripeSecret = env('STRIPE_SECRET');
-            }
-
-            if (!is_string($stripeSecret) || $stripeSecret === '') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Stripe is not configured on the server.',
-                ], 500);
-            }
-
-            $stripe = new StripeClient($stripeSecret);
-
-            $checkoutSession = $stripe->checkout->sessions->create([
-                'customer' => $user->stripe_customer_id,
-                'payment_method_types' => ['card'],
-                'mode' => 'payment',
-                'line_items' => [
-                    [
-                        'price_data' => [
-                            'currency' => 'usd',
-                            'product_data' => [
-                                'name' => 'Premium Account',
-                            ],
-                            'unit_amount' => 100,
-                        ],
-                        'quantity' => 1,
-                    ],
+            $checkoutSession = $this->premiumCheckout->create(
+                $user,
+                [
+                    'user_id' => (string) $user->id,
                 ],
-                'success_url' => config('app.frontend_url') . '/payment/success?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => config('app.frontend_url') . '/payment/cancel',
-                'metadata' => [
-                    'user_id' => $user->id,
-                ],
-            ]);
+                config('app.frontend_url').'/payment/success?session_id={CHECKOUT_SESSION_ID}',
+                config('app.frontend_url').'/payment/cancel',
+                'Premium Account',
+            );
 
             $user->update(['stripe_session_id' => $checkoutSession->id]);
 

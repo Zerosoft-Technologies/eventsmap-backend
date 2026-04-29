@@ -74,7 +74,8 @@ class EventController extends Controller
             $op = $q->getConnection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'like';
             $q->where(function ($sub) use ($search, $op) {
                 $sub->where('title', $op, "%{$search}%")
-                    ->orWhere('address', $op, "%{$search}%");
+                    ->orWhere('address', $op, "%{$search}%")
+                    ->orWhere('venue_name', $op, "%{$search}%");
             });
         });
 
@@ -297,6 +298,7 @@ class EventController extends Controller
             'start_datetime' => $event->start_datetime?->toIso8601String(),
             'end_datetime' => $event->end_datetime?->toIso8601String(),
             'address' => $event->address,
+            'venue_name' => $event->venue_name,
             'latitude' => $event->latitude !== null ? (float) $event->latitude : null,
             'longitude' => $event->longitude !== null ? (float) $event->longitude : null,
             'dress_code' => $event->dress_code,
@@ -419,6 +421,7 @@ class EventController extends Controller
             'start_time' => $event->start_time,
             'end_time' => $event->end_time,
             'address' => $event->address,
+            'venue_name' => $event->venue_name,
             'description' => $event->description ?? null,
             'image_url' => $event->image_path ? MediaHelper::url($event->image_path) : null,
         ];

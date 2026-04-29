@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $start_time
  * @property string $end_time
  * @property string $address
+ * @property string|null $venue_name Display name for the event location / venue (free & premium)
  * @property float $latitude
  * @property float $longitude
  * @property string $dress_code
@@ -157,6 +158,7 @@ class EventV2 extends Model
         'start_time',
         'end_time',
         'address',
+        'venue_name',
         'latitude',
         'longitude',
         'dress_code',

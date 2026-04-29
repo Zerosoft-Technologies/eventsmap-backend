@@ -6,10 +6,12 @@ use App\Helpers\MediaHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V2\StoreOrganiserRequest;
 use App\Http\Requests\V2\UpdateOrganiserRequest;
+use App\Http\Requests\V2\UpdateProfilePublicationStatusRequest;
 use App\Http\Resources\V2\OrganiserResource;
 use App\Http\Resources\V2\OrganiserSidebarResource;
 use App\Models\OrganiserV2;
 use App\Services\V2\OrganiserService;
+use App\Support\ProfilePublicationStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -75,6 +77,9 @@ class OrganiserController extends Controller
             'id' => $organiser->id,
             'title' => $organiser->title,
             'slug' => $organiser->slug,
+            'status' => $organiser->status ?? ProfilePublicationStatus::DRAFT,
+            'status_label' => ProfilePublicationStatus::labels()[$organiser->status ?? ProfilePublicationStatus::DRAFT]
+                ?? ($organiser->status ?? ProfilePublicationStatus::DRAFT),
             'event_type' => $organiser->event_type ?? 'free',
             'category_id' => $organiser->category_id,
             'subcategory_ids' => $subcategoryIds,
@@ -175,6 +180,9 @@ class OrganiserController extends Controller
         $data = [
             'id' => $organiser->id,
             'title' => $organiser->title,
+            'status' => $organiser->status ?? ProfilePublicationStatus::DRAFT,
+            'status_label' => ProfilePublicationStatus::labels()[$organiser->status ?? ProfilePublicationStatus::DRAFT]
+                ?? ($organiser->status ?? ProfilePublicationStatus::DRAFT),
             'event_type' => $organiser->event_type ?? 'free',
             'category_id' => $organiser->category_id,
             'subcategory_ids' => $subcategoryIds,
@@ -189,6 +197,32 @@ class OrganiserController extends Controller
             'success' => true,
             'message' => 'Organiser updated successfully',
             'data' => $data,
+        ]);
+    }
+
+    /**
+     * PATCH /api/v2/organisers/{id}/status
+     */
+    public function updateStatus(UpdateProfilePublicationStatusRequest $request, int $id): JsonResponse
+    {
+        $organiser = OrganiserV2::findOrFail($id);
+
+        $user = $request->user();
+        if (!$user || ($organiser->user_id !== $user->id && !$user->isAdmin())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $organiser->update(['status' => $request->validated('status')]);
+        $organiser->refresh();
+        $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Publication status updated successfully',
+            'data' => new OrganiserResource($organiser),
         ]);
     }
 

@@ -261,7 +261,7 @@ class PublicEventController extends Controller
 
         $events = Cache::remember($cacheKey, now()->addMinutes(2), function () use ($request, $dateFrom, $dateTo, $limit) {
             return EventV2::query()
-                ->select(['id', 'title', 'slug', 'latitude', 'longitude', 'event_date', 'start_time', 'category_id', 'entrance_status'])
+                ->select(['id', 'title', 'slug', 'latitude', 'longitude', 'venue_name', 'event_date', 'start_time', 'category_id', 'entrance_status'])
                 ->publicVisible()
                 ->whereIn('status', [EventV2::STATUS_UPCOMING, EventV2::STATUS_LIVE])
                 ->withinBbox(
@@ -284,6 +284,7 @@ class PublicEventController extends Controller
             'id' => $e->id,
             'title' => $e->title,
             'slug' => $e->slug,
+            'venue_name' => $e->venue_name,
             'lat' => (float) $e->latitude,
             'lng' => (float) $e->longitude,
             'event_date' => $e->event_date->format('Y-m-d'),

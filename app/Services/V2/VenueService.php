@@ -3,6 +3,7 @@
 namespace App\Services\V2;
 
 use App\Models\VenueV2;
+use App\Support\ProfilePublicationStatus;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -26,6 +27,7 @@ class VenueService
         return DB::transaction(function () use ($data, $user) {
             $venueData = [
                 'user_id' => $user->id,
+                'status' => ProfilePublicationStatus::DRAFT,
                 'title' => $data['title'],
                 'slug' => $this->generateUniqueSlug($data['title']),
                 'event_type' => $data['event_type'] ?? 'free',
@@ -91,6 +93,7 @@ class VenueService
         return DB::transaction(function () use ($venue, $data, $request) {
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids',
+                'status',
                 'address', 'latitude', 'longitude',
                 'description', 'description_items',
                 'allow_dogs', 'allowance_of_dogs', 'wheelchair_accessible', 'accessibility_description', 'parking', 'valet', 'play_area',

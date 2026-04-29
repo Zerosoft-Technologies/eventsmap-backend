@@ -56,6 +56,7 @@ class StoreVenueRequest extends FormRequest
             'opening_hours' => 'nullable|array',
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',
+            'status' => 'prohibited',
         ];
 
         if ($this->hasFile('image_path')) {

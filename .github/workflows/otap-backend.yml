@@ -142,5 +142,6 @@ jobs:
 
             podman pull ghcr.io/${{ env.IMAGE_NAME }}:$TAG &&
             podman-compose --env-file .image.env -f $COMPOSE up -d --force-recreate &&
-            podman exec -i $CONTAINER_NAME php artisan migrate --force
+            podman exec -i $CONTAINER_NAME php artisan migrate --force &&
+            podman cp /home/minaxi/eventsmap-d4fe8-firebase-adminsdk-fbsvc-aa723928e8.json $CONTAINER_NAME:/var/www/storage/app/
           "

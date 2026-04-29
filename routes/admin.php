@@ -182,7 +182,13 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::post('/bulk-delete', [AdminEventV2Controller::class, 'bulkDelete']);
 
         // Invited entities relationships (must be before /{id})
+        Route::patch('/{id}/talents/reorder', [AdminEventV2Controller::class, 'reorderTalents']);
         Route::get('/{id}/talents', [AdminEventV2Controller::class, 'talents']);
+        Route::post('/{id}/talents', [AdminEventV2Controller::class, 'syncTalents']);
+        Route::delete('/{id}/talents/{talentId}', [AdminEventV2Controller::class, 'detachTalent']);
+        Route::get('/{id}/media', [AdminEventV2Controller::class, 'getMedia']);
+        Route::post('/{id}/media', [AdminEventV2Controller::class, 'attachMedia']);
+        Route::delete('/{id}/media/{mediaId}', [AdminEventV2Controller::class, 'detachMedia']);
         Route::get('/{id}/organisers', [AdminEventV2Controller::class, 'organisers']);
         Route::get('/{id}/venues', [AdminEventV2Controller::class, 'venues']);
 

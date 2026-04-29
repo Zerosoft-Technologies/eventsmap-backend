@@ -3,6 +3,7 @@
 namespace App\Services\V2;
 
 use App\Models\OrganiserV2;
+use App\Support\ProfilePublicationStatus;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -25,6 +26,7 @@ class OrganiserService
         return DB::transaction(function () use ($data, $user) {
             $organiserData = [
                 'user_id' => $user->id,
+                'status' => ProfilePublicationStatus::DRAFT,
                 'title' => $data['title'],
                 'slug' => $this->generateUniqueSlug($data['title']),
                 'event_type' => $data['event_type'] ?? 'free',
@@ -97,6 +99,7 @@ class OrganiserService
         return DB::transaction(function () use ($organiser, $data, $request) {
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids',
+                'status',
                 'organiser_category_id',
                 'address', 'latitude', 'longitude',
                 'description', 'contact_phone', 'contact_email', 'contact_website',

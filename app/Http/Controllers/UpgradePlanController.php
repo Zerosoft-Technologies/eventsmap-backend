@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\Stripe\PremiumCheckoutSessionFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +12,10 @@ use Stripe\StripeClient;
 
 class UpgradePlanController extends Controller
 {
+    public function __construct(
+        private readonly PremiumCheckoutSessionFactory $premiumCheckout,
+    ) {}
+
     /**
      * POST /api/user/upgrade-plan
      *
@@ -30,7 +35,7 @@ class UpgradePlanController extends Controller
         }
 
         // Check if email is verified
-        if (!$user->hasVerifiedEmail()) {
+        if (! $user->hasVerifiedEmail()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Please verify your email before upgrading.',
@@ -67,7 +72,7 @@ class UpgradePlanController extends Controller
 
         // Validate VAT number format for business
         if ($billingType === 'business') {
-            if (!preg_match('/^[A-Z]{2}[0-9A-Z]{2,13}$/', $validated['vat_number'])) {
+            if (! preg_match('/^[A-Z]{2}[0-9A-Z]{2,13}$/', $validated['vat_number'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid VAT number format.',
@@ -99,11 +104,11 @@ class UpgradePlanController extends Controller
         try {
             $stripeSecret = config('services.stripe.secret');
             // Fallback in case config cache is stale.
-            if (!is_string($stripeSecret) || $stripeSecret === '') {
+            if (! is_string($stripeSecret) || $stripeSecret === '') {
                 $stripeSecret = env('STRIPE_SECRET');
             }
 
-            if (!is_string($stripeSecret) || $stripeSecret === '') {
+            if (! is_string($stripeSecret) || $stripeSecret === '') {
                 return response()->json([
                     'success' => false,
                     'message' => 'Stripe is not configured on the server.',
@@ -113,7 +118,7 @@ class UpgradePlanController extends Controller
             $stripe = new StripeClient($stripeSecret);
 
             // Create or retrieve Stripe customer
-            if (!$user->stripe_customer_id) {
+            if (! $user->stripe_customer_id) {
                 $customer = $stripe->customers->create([
                     'name' => $billingType === 'business'
                         ? $validated['company_name']
@@ -151,30 +156,16 @@ class UpgradePlanController extends Controller
                 ]);
             }
 
-            // Create Stripe Checkout Session (same config as registration)
-            $checkoutSession = $stripe->checkout->sessions->create([
-                'customer' => $user->stripe_customer_id,
-                'payment_method_types' => ['card'],
-                'mode' => 'payment',
-                'line_items' => [
-                    [
-                        'price_data' => [
-                            'currency' => 'usd',
-                            'product_data' => [
-                                'name' => 'Premium Account Upgrade',
-                            ],
-                            'unit_amount' => 100, // Same price as registration
-                        ],
-                        'quantity' => 1,
-                    ],
-                ],
-                'success_url' => config('app.frontend_url') . '/payment/success?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => config('app.frontend_url') . '/event-settings?upgrade=cancelled',
-                'metadata' => [
-                    'user_id' => $user->id,
+            $checkoutSession = $this->premiumCheckout->create(
+                $user,
+                [
+                    'user_id' => (string) $user->id,
                     'type' => 'upgrade',
                 ],
-            ]);
+                config('app.frontend_url').'/payment/success?session_id={CHECKOUT_SESSION_ID}',
+                config('app.frontend_url').'/event-settings?upgrade=cancelled',
+                'Premium Account Upgrade',
+            );
 
             $user->update(['stripe_session_id' => $checkoutSession->id]);
 
@@ -184,7 +175,7 @@ class UpgradePlanController extends Controller
                 'session_id' => $checkoutSession->id,
             ]);
         } catch (ApiErrorException $e) {
-            Log::error('Stripe upgrade error for user ' . $user->id . ': ' . $e->getMessage());
+            Log::error('Stripe upgrade error for user '.$user->id.': '.$e->getMessage());
 
             return response()->json([
                 'success' => false,

@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V2;
 
 use App\Helpers\MediaHelper;
+use App\Support\ProfilePublicationStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,6 +15,9 @@ class OrganiserResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'slug' => $this->slug,
+            'status' => $this->status ?? ProfilePublicationStatus::DRAFT,
+            'status_label' => ProfilePublicationStatus::labels()[$this->status ?? ProfilePublicationStatus::DRAFT]
+                ?? ($this->status ?? ProfilePublicationStatus::DRAFT),
             'event_type' => $this->event_type,
 
             'cover_image' => $this->when($this->image_path, function () {

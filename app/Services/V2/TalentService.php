@@ -3,6 +3,7 @@
 namespace App\Services\V2;
 
 use App\Models\TalentV2;
+use App\Support\ProfilePublicationStatus;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -26,6 +27,7 @@ class TalentService
         return DB::transaction(function () use ($data, $user) {
             $talentData = [
                 'user_id' => $user->id,
+                'status' => ProfilePublicationStatus::DRAFT,
                 'title' => $data['title'],
                 'slug' => $this->generateUniqueSlug($data['title']),
                 'event_type' => $data['event_type'] ?? 'free',
@@ -97,6 +99,7 @@ class TalentService
         return DB::transaction(function () use ($talent, $data, $request) {
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids',
+                'status',
                 'talent_category_id',
                 'city', 'address', 'latitude', 'longitude',
                 'description', 'contact_phone', 'contact_email', 'contact_website',

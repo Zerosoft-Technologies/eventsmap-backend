@@ -37,20 +37,21 @@ class FirebaseTokenController extends Controller
             ],
         ];
 
-        $token = $this->firebaseService->generateCustomToken($user, $claims);
+        $result = $this->firebaseService->generateCustomToken($user, $claims);
 
-        if (!$token) {
-            return response()->json([
+        if (!$result['token']) {
+            return response()->json(array_filter([
                 'success' => false,
                 'message' => 'Failed to generate Firebase token.',
-            ], 500);
+                'debug' => config('app.debug') ? ($result['error'] ?? null) : null,
+            ]), 500);
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Firebase token generated successfully',
             'data' => [
-                'token' => $token,
+                'token' => $result['token'],
                 'expires_in' => 3600,
             ],
         ]);
@@ -81,24 +82,25 @@ class FirebaseTokenController extends Controller
             'is_muted' => $request->user()->isMutedInEventChat($eventId),
         ];
 
-        $token = $this->firebaseService->generateEventChatToken(
+        $result = $this->firebaseService->generateEventChatToken(
             $request->user(),
             $eventId,
             $permissions
         );
 
-        if (!$token) {
-            return response()->json([
+        if (!$result['token']) {
+            return response()->json(array_filter([
                 'success' => false,
                 'message' => 'Failed to generate Firebase token.',
-            ], 500);
+                'debug' => config('app.debug') ? ($result['error'] ?? null) : null,
+            ]), 500);
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Firebase event token generated successfully',
             'data' => [
-                'token' => $token,
+                'token' => $result['token'],
                 'expires_in' => 3600,
                 'permissions' => $permissions,
             ],

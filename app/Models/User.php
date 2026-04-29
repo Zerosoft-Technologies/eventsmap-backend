@@ -13,22 +13,30 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens, SoftDeletes;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     const ROLE_USER = 'user';
+
     const ROLE_ADMIN = 'admin';
+
     const ROLE_SUPER_ADMIN = 'super_admin';
 
     const PROFILE_EVENT = 'event';
+
     const PROFILE_TALENT = 'talent';
+
     const PROFILE_ORGANIZER = 'organizer';
+
     const PROFILE_VENUE = 'venue';
 
     const ACCOUNT_FREE = 'free';
+
     const ACCOUNT_PREMIUM = 'premium';
 
     const STATUS_ACTIVE = 'active';
+
     const STATUS_PENDING_PAYMENT = 'pending_payment';
+
     const STATUS_SUSPENDED = 'suspended';
 
     /**
@@ -82,6 +90,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'is_active' => 'boolean',
             'vat_validated' => 'boolean',
+            'premium_started_at' => 'datetime',
         ];
     }
 
@@ -271,5 +280,21 @@ class User extends Authenticatable implements MustVerifyEmail
     public function galleryImages()
     {
         return $this->hasMany(GalleryImage::class);
+    }
+
+    /**
+     * Stripe subscription rows (current and historical).
+     */
+    public function subscriptions()
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * Stored Stripe invoices for this user.
+     */
+    public function subscriptionInvoices()
+    {
+        return $this->hasMany(SubscriptionInvoice::class);
     }
 }

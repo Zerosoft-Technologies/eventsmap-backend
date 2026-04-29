@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\Stripe\PremiumCheckoutSessionFactory;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,10 @@ use Stripe\StripeClient;
 
 class RegisterController extends Controller
 {
+    public function __construct(
+        private readonly PremiumCheckoutSessionFactory $premiumCheckout,
+    ) {}
+
     /**
      * POST /api/auth/register
      *
@@ -88,7 +93,7 @@ class RegisterController extends Controller
         $premiumValidated = $request->validate($premiumRules);
 
         if ($billingType === 'business') {
-            if (!preg_match('/^[A-Z]{2}[0-9A-Z]{2,13}$/', $premiumValidated['vat_number'])) {
+            if (! preg_match('/^[A-Z]{2}[0-9A-Z]{2,13}$/', $premiumValidated['vat_number'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid VAT number format.',
@@ -129,11 +134,11 @@ class RegisterController extends Controller
             $stripeSecret = config('services.stripe.secret');
             // When config is cached on live and env vars were changed,
             // `config()` can return null. Fallback to raw env value.
-            if (!is_string($stripeSecret) || $stripeSecret === '') {
+            if (! is_string($stripeSecret) || $stripeSecret === '') {
                 $stripeSecret = env('STRIPE_SECRET');
             }
 
-            if (!is_string($stripeSecret) || $stripeSecret === '') {
+            if (! is_string($stripeSecret) || $stripeSecret === '') {
                 return response()->json([
                     'success' => false,
                     'message' => 'Stripe is not configured on the server.',
@@ -160,28 +165,15 @@ class RegisterController extends Controller
 
             $user->update(['stripe_customer_id' => $customer->id]);
 
-            $checkoutSession = $stripe->checkout->sessions->create([
-                'mode' => 'payment',
-                'customer' => $customer->id,
-                'line_items' => [
-                    [
-                        'price_data' => [
-                            'currency' => 'usd',
-                            'product_data' => [
-                                'name' => 'Premium Account',
-                            ],
-                            'unit_amount' => 100,
-                        ],
-                        'quantity' => 1,
-                    ],
+            $checkoutSession = $this->premiumCheckout->create(
+                $user,
+                [
+                    'user_id' => (string) $user->id,
                 ],
-                // 'automatic_tax' => ['enabled' => true], // Disabled - requires business address in Stripe settings
-                'success_url' => config('app.frontend_url') . '/payment/success?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => config('app.frontend_url') . '/payment/cancel',
-                'metadata' => [
-                    'user_id' => $user->id,
-                ],
-            ]);
+                config('app.frontend_url').'/payment/success?session_id={CHECKOUT_SESSION_ID}',
+                config('app.frontend_url').'/payment/cancel',
+                'Premium Account',
+            );
 
             $user->update(['stripe_session_id' => $checkoutSession->id]);
 

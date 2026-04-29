@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\V2;
 
+use App\Support\ProfilePublicationStatus;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -38,6 +39,7 @@ class UpdateOrganiserRequest extends FormRequest
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',
             'remove_additional_images' => 'nullable|boolean',
+            'status' => ['nullable', 'string', Rule::in(ProfilePublicationStatus::ALL)],
         ];
 
         // Main image: file upload or UUID string (nullable on update)

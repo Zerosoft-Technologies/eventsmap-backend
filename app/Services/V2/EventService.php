@@ -75,6 +75,7 @@ class EventService
                 'start_time' => $data['start_time'],
                 'end_time' => $data['end_time'],
                 'address' => $data['address'],
+                'venue_name' => $data['venue_name'] ?? null,
                 'latitude' => $data['latitude'],
                 'longitude' => $data['longitude'],
                 'dress_code' => $data['dress_code'] ?? null,
@@ -215,7 +216,7 @@ class EventService
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids', 'event_date', 'start_time', 'end_time',
                 'start_date', 'end_date', 'start_datetime', 'end_datetime',
-                'address', 'latitude', 'longitude', 'dress_code', 'age_limit',
+                'address', 'venue_name', 'latitude', 'longitude', 'dress_code', 'age_limit',
                 'entrance_status', 'entrance_fee', 'venue_id', 'image_path',
                 'contact_phone', 'contact_email', 'contact_website', 'description',
                 'contact_box_message', 'venue_details', 'facebook_url', 'instagram_url',

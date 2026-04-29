@@ -5,10 +5,12 @@ namespace App\Http\Controllers\V2;
 use App\Helpers\MediaHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V2\StoreVenueRequest;
+use App\Http\Requests\V2\UpdateProfilePublicationStatusRequest;
 use App\Http\Requests\V2\UpdateVenueRequest;
 use App\Http\Resources\V2\VenueResource;
 use App\Models\VenueV2;
 use App\Services\V2\VenueService;
+use App\Support\ProfilePublicationStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -64,6 +66,9 @@ class VenueController extends Controller
             'id' => $venue->id,
             'title' => $venue->title,
             'slug' => $venue->slug,
+            'status' => $venue->status ?? ProfilePublicationStatus::DRAFT,
+            'status_label' => ProfilePublicationStatus::labels()[$venue->status ?? ProfilePublicationStatus::DRAFT]
+                ?? ($venue->status ?? ProfilePublicationStatus::DRAFT),
             'event_type' => $venue->event_type ?? 'free',
             'category_id' => $venue->category_id,
             'subcategory_ids' => $venue->subcategory_ids ?? [],
@@ -165,6 +170,9 @@ class VenueController extends Controller
         $data = [
             'id' => $venue->id,
             'title' => $venue->title,
+            'status' => $venue->status ?? ProfilePublicationStatus::DRAFT,
+            'status_label' => ProfilePublicationStatus::labels()[$venue->status ?? ProfilePublicationStatus::DRAFT]
+                ?? ($venue->status ?? ProfilePublicationStatus::DRAFT),
             'event_type' => $venue->event_type ?? 'free',
             'category_id' => $venue->category_id,
             'subcategory_ids' => is_array($venue->subcategory_ids) ? $venue->subcategory_ids : [],
@@ -180,6 +188,32 @@ class VenueController extends Controller
             'success' => true,
             'message' => 'Venue updated successfully',
             'data' => $data,
+        ]);
+    }
+
+    /**
+     * PATCH /api/v2/venues/{id}/status
+     */
+    public function updateStatus(UpdateProfilePublicationStatusRequest $request, int $id): JsonResponse
+    {
+        $venue = VenueV2::findOrFail($id);
+
+        $user = $request->user();
+        if (!$user || ($venue->user_id !== $user->id && !$user->isAdmin())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $venue->update(['status' => $request->validated('status')]);
+        $venue->refresh();
+        $venue->load(['category', 'user']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Publication status updated successfully',
+            'data' => new VenueResource($venue),
         ]);
     }
 

@@ -16,6 +16,7 @@ class TalentV2 extends Model
 
     protected $fillable = [
         'user_id',
+        'status',
         'title',
         'slug',
         'event_type',

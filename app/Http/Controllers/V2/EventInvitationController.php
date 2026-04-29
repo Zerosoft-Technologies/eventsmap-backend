@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\V2;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\V2\IndexInvitedEventsRequest;
+use App\Http\Requests\V2\RespondToInvitationRequest;
+use App\Http\Resources\V2\ReceivedInvitationResource;
 use App\Models\EventInvitation;
 use App\Models\EventV2;
 use App\Services\V2\EventInvitationService;
@@ -17,43 +20,33 @@ class EventInvitationController extends Controller
 
     /**
      * GET /api/v2/invitations
+     * GET /api/v2/invited-events
      *
-     * Get all invitations received by the authenticated user.
+     * Paginated invitations received by the authenticated user with full {@see EventV2} payloads.
      */
-    public function index(Request $request): JsonResponse
+    public function index(IndexInvitedEventsRequest $request): JsonResponse
     {
-        $request->validate([
-            'status' => 'nullable|string|in:pending,accepted,rejected',
-        ]);
+        $validated = $request->validated();
 
-        $invitations = $this->invitationService->getUserInvitations(
-            $request->user(),
-            $request->input('status')
-        );
+        $paginator = $this->invitationService->paginateReceivedInvitations($request->user(), [
+            'status' => $validated['status'] ?? null,
+            'event_timing' => $validated['event_timing'] ?? null,
+            'per_page' => $validated['per_page'] ?? null,
+            'page' => $validated['page'] ?? null,
+        ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Invitations fetched successfully',
-            'data' => $invitations->map(fn($invitation) => [
-                'id' => $invitation->id,
-                'event' => [
-                    'id' => $invitation->event->id,
-                    'title' => $invitation->event->title,
-                    'event_date' => $invitation->event->event_date->format('Y-m-d'),
-                    'start_time' => $invitation->event->start_time,
-                    'end_time' => $invitation->event->end_time,
-                    'address' => $invitation->event->address,
-                    'image_path' => $invitation->event->image_path,
+            'data' => [
+                'invitations' => ReceivedInvitationResource::collection($paginator->items()),
+                'pagination' => [
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
                 ],
-                'sender' => [
-                    'id' => $invitation->sender->id,
-                    'name' => $invitation->sender->name,
-                ],
-                'receiver_type' => $invitation->receiver_type,
-                'status' => $invitation->status,
-                'created_at' => $invitation->created_at->toIso8601String(),
-                'responded_at' => $invitation->responded_at?->toIso8601String(),
-            ]),
+            ],
         ]);
     }
 
@@ -134,6 +127,38 @@ class EventInvitationController extends Controller
                         'title' => $invitation->event->title,
                     ],
                 ],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    /**
+     * POST /api/v2/invitations/{id}/respond
+     *
+     * Authenticated-only response to an invitation (same rules as token flow; no token required).
+     */
+    public function respondAuthenticated(RespondToInvitationRequest $request, int $id): JsonResponse
+    {
+        $invitation = EventInvitation::with(['event', 'sender', 'receiver'])->findOrFail($id);
+
+        try {
+            $invitation = $this->invitationService->respond(
+                $invitation,
+                $request->validated('status'),
+                $request->user(),
+                null
+            );
+
+            $invitation = $this->invitationService->decorateInvitationForDetailResponse($invitation);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Invitation '.$request->validated('status').' successfully',
+                'data' => new ReceivedInvitationResource($invitation),
             ]);
         } catch (\InvalidArgumentException $e) {
             return response()->json([

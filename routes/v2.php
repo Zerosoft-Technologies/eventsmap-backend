@@ -86,6 +86,21 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/venues/{id}', [VenueController::class, 'update']);
     Route::delete('/venues/{id}', [VenueController::class, 'destroy']);
 
+    Route::patch('/talents/{id}/status', [TalentController::class, 'updateStatus'])->whereNumber('id');
+    Route::patch('/venues/{id}/status', [VenueController::class, 'updateStatus'])->whereNumber('id');
+    Route::patch('/organisers/{id}/status', [OrganiserController::class, 'updateStatus'])->whereNumber('id');
+
+    Route::get('/meta/profile-publication-statuses', function () {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'statuses' => \App\Support\ProfilePublicationStatus::ALL,
+                'sidebar_options' => \App\Support\ProfilePublicationStatus::SIDEBAR_OPTIONS,
+                'labels' => \App\Support\ProfilePublicationStatus::labels(),
+            ],
+        ]);
+    });
+
     // Wishlist toggle
     Route::post('/events/{id}/wishlist', [WishlistController::class, 'toggle']);
 
@@ -93,8 +108,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Event Invitations
     // ──────────────────────────────────────
 
-    // Get invitations received by current user
+    // Get invitations received by current user (paginated, full EventV2 payloads)
     Route::get('/invitations', [EventInvitationController::class, 'index']);
+    Route::get('/invited-events', [EventInvitationController::class, 'index']);
+
+    // Accept / reject invitation (authenticated app; token-free)
+    Route::post('/invitations/{id}/respond', [EventInvitationController::class, 'respondAuthenticated'])
+        ->whereNumber('id');
 
     // Cancel an invitation (sender/owner only)
     Route::delete('/event-invitations/{id}', [EventInvitationController::class, 'destroy']);

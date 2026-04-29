@@ -56,6 +56,7 @@ class StoreTalentRequest extends FormRequest
             'highlights' => 'nullable|string|max:10000',
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',
+            'status' => 'prohibited',
         ];
 
         if ($this->hasFile('image_path')) {

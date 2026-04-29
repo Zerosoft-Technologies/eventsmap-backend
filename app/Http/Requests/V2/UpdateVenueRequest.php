@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\V2;
 
+use App\Support\ProfilePublicationStatus;
 use App\Http\Requests\V2\Concerns\NormalizesVenueAccessibilityInput;
 use App\Http\Requests\V2\Concerns\NormalizesVenueOpeningHoursInput;
 use App\Http\Requests\V2\Concerns\VenueAllowanceOfDogs;
@@ -57,6 +58,7 @@ class UpdateVenueRequest extends FormRequest
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',
             'remove_additional_images' => 'nullable|boolean',
+            'status' => ['nullable', 'string', Rule::in(ProfilePublicationStatus::ALL)],
         ];
 
         if ($this->hasFile('image_path')) {

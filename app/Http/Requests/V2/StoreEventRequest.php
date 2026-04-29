@@ -41,6 +41,7 @@ class StoreEventRequest extends FormRequest
             'start_datetime' => 'required|date',
             'end_datetime' => 'required|date|after:start_datetime',
             'address' => 'required|string|max:500',
+            'venue_name' => 'nullable|string|max:255',
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
             'dress_code' => 'nullable|string',

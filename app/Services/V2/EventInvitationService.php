@@ -7,6 +7,9 @@ use App\Models\EventInvitation;
 use App\Models\EventInvitationLog;
 use App\Models\EventV2;
 use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -15,7 +18,8 @@ use Illuminate\Support\Str;
 class EventInvitationService
 {
     public function __construct(
-        private readonly FirebaseNotificationService $firebaseNotificationService
+        private readonly FirebaseNotificationService $firebaseNotificationService,
+        private readonly EventInvitedEntitiesService $eventInvitedEntitiesService
     ) {}
 
     /**
@@ -239,7 +243,7 @@ class EventInvitationService
     }
 
     /**
-     * Get invitations for a user.
+     * Get invitations for a user (non-paginated; prefer {@see paginateReceivedInvitations} for API).
      */
     public function getUserInvitations(User $user, ?string $status = null): \Illuminate\Database\Eloquent\Collection
     {
@@ -252,6 +256,148 @@ class EventInvitationService
         }
 
         return $query->get();
+    }
+
+    /**
+     * Paginated invitations for the receiver with eager-loaded event graph and hydrated invite payloads.
+     *
+     * @param  array{status?: string|null, event_timing?: string|null, per_page?: int|null, page?: int|null}  $filters
+     */
+    public function paginateReceivedInvitations(User $user, array $filters = []): LengthAwarePaginator
+    {
+        $perPage = (int) ($filters['per_page'] ?? 20);
+        $perPage = max(1, min(100, $perPage));
+
+        $query = EventInvitation::query()
+            ->with([
+                'sender:id,name,email',
+                'event' => function ($q) {
+                    $q->with(['category', 'venue', 'organisers', 'talents', 'user']);
+                },
+            ])
+            ->where('receiver_id', $user->id)
+            ->orderByDesc('created_at');
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if (! empty($filters['event_timing'])) {
+            $this->applyReceivedInvitationEventTimingFilter($query, $filters['event_timing']);
+        }
+
+        $paginator = $query->paginate($perPage, ['*'], 'page', (int) ($filters['page'] ?? 1));
+
+        foreach ($paginator->getCollection() as $invitation) {
+            $event = $invitation->event;
+            if ($event) {
+                $event->setRelation('subcategories', $event->subcategories_from_ids);
+            }
+        }
+
+        $events = $paginator->getCollection()->map(fn (EventInvitation $i) => $i->event)->filter()->values()->all();
+        $this->eventInvitedEntitiesService->hydrate($events);
+
+        return $paginator;
+    }
+
+    /**
+     * Load related models and hydrated invite payloads for API responses after accept/reject.
+     */
+    public function decorateInvitationForDetailResponse(EventInvitation $invitation): EventInvitation
+    {
+        $invitation->loadMissing([
+            'sender:id,name,email',
+            'event' => fn ($q) => $q->with(['category', 'venue', 'organisers', 'talents', 'user']),
+        ]);
+
+        if ($invitation->event) {
+            $invitation->event->setRelation('subcategories', $invitation->event->subcategories_from_ids);
+            $this->eventInvitedEntitiesService->hydrate([$invitation->event]);
+        }
+
+        return $invitation;
+    }
+
+    /**
+     * @param  Builder<\App\Models\EventInvitation>  $query
+     */
+    private function applyReceivedInvitationEventTimingFilter(Builder $query, string $timing): void
+    {
+        $now = Carbon::now();
+        $query->whereHas('event', function (Builder $q) use ($timing, $now) {
+            if ($timing === 'upcoming') {
+                $this->whereEventEffectiveEndIsAfter($q, $now);
+            } elseif ($timing === 'past') {
+                $this->whereEventEffectiveEndIsOnOrBefore($q, $now);
+            }
+        });
+    }
+
+    /**
+     * @param  Builder<\App\Models\EventV2>  $q
+     */
+    private function whereEventEffectiveEndIsAfter(Builder $q, Carbon $moment): void
+    {
+        $table = $q->getModel()->getTable();
+        $m = $moment->format('Y-m-d H:i:s');
+        $q->where(function (Builder $outer) use ($table, $m) {
+            $outer->whereNotNull("{$table}.end_datetime")
+                ->where("{$table}.end_datetime", '>', $m)
+                ->orWhere(function (Builder $inner) use ($table, $m) {
+                    $inner->whereNull("{$table}.end_datetime");
+                    $this->applyFallbackEndComparedToMoment($inner, $table, $m, '>');
+                });
+        });
+    }
+
+    /**
+     * @param  Builder<\App\Models\EventV2>  $q
+     */
+    private function whereEventEffectiveEndIsOnOrBefore(Builder $q, Carbon $moment): void
+    {
+        $table = $q->getModel()->getTable();
+        $m = $moment->format('Y-m-d H:i:s');
+        $q->where(function (Builder $outer) use ($table, $m) {
+            $outer->whereNotNull("{$table}.end_datetime")
+                ->where("{$table}.end_datetime", '<=', $m)
+                ->orWhere(function (Builder $inner) use ($table, $m) {
+                    $inner->whereNull("{$table}.end_datetime");
+                    $this->applyFallbackEndComparedToMoment($inner, $table, $m, '<=');
+                });
+        });
+    }
+
+    /**
+     * @param  Builder<\App\Models\EventV2>  $q
+     */
+    private function applyFallbackEndComparedToMoment(Builder $q, string $table, string $moment, string $operator): void
+    {
+        $driver = $q->getConnection()->getDriverName();
+
+        if ($driver === 'mysql') {
+            $q->whereRaw(
+                "TIMESTAMP({$table}.event_date, COALESCE({$table}.end_time, '23:59:59')) {$operator} ?",
+                [$moment]
+            );
+
+            return;
+        }
+
+        if ($driver === 'pgsql') {
+            $q->whereRaw(
+                "({$table}.event_date + COALESCE({$table}.end_time::time, TIME '23:59:59')) {$operator} ?::timestamp",
+                [$moment]
+            );
+
+            return;
+        }
+
+        // sqlite and others
+        $q->whereRaw(
+            "({$table}.event_date || ' ' || COALESCE({$table}.end_time, '23:59:59')) {$operator} ?",
+            [$moment]
+        );
     }
 
     /**

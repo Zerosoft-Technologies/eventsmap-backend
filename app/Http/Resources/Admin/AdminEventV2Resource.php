@@ -93,6 +93,7 @@ class AdminEventV2Resource extends JsonResource
 
             // Location
             'address' => $this->address,
+            'venue_name' => $this->venue_name,
             'latitude' => (float) $this->latitude,
             'longitude' => (float) $this->longitude,
 

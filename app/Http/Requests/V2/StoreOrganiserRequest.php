@@ -37,6 +37,7 @@ class StoreOrganiserRequest extends FormRequest
             'tiktok_url' => 'nullable|url|max:500',
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',
+            'status' => 'prohibited',
         ];
 
         // Main image: file upload or UUID string

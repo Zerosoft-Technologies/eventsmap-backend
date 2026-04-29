@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\MediaHelper;
 use App\Http\Requests\Admin\EventV2\StoreEventV2Request;
+use App\Http\Requests\Admin\EventV2\SyncEventV2TalentsRequest;
 use App\Http\Requests\Admin\EventV2\UpdateEventV2Request;
 use App\Http\Resources\Admin\AdminEventV2Resource;
 use App\Models\EventV2;
+use App\Models\GalleryImage;
 use App\Services\V2\EventInvitedEntitiesService;
 use App\Services\V2\EventService;
 use Illuminate\Http\JsonResponse;
@@ -172,6 +175,7 @@ class AdminEventV2Controller extends Controller
                 'start_time' => $data['start_time'],
                 'end_time' => $data['end_time'],
                 'address' => $data['address'],
+                'venue_name' => $data['venue_name'] ?? null,
                 'latitude' => $data['latitude'],
                 'longitude' => $data['longitude'],
                 'dress_code' => $data['dress_code'] ?? null,
@@ -258,7 +262,7 @@ class AdminEventV2Controller extends Controller
             $allowedFields = [
                 'user_id', 'title', 'event_type', 'category_id', 'subcategory_ids',
                 'event_date', 'start_date', 'end_date', 'start_datetime', 'end_datetime',
-                'start_time', 'end_time', 'address', 'latitude', 'longitude',
+                'start_time', 'end_time', 'address', 'venue_name', 'latitude', 'longitude',
                 'dress_code', 'age_limit', 'entrance_status', 'entrance_fee', 'venue_id',
                 'contact_phone', 'contact_email', 'contact_website', 'description',
                 'contact_box_message', 'venue_details', 'facebook_url', 'instagram_url',
@@ -751,6 +755,117 @@ class AdminEventV2Controller extends Controller
         }
     }
 
+    /**
+     * @param  list<string>  $paths
+     * @return list<array{id: string, path: string, url: string}>
+     */
+    private function mapAdditionalImagePathsToPayload(array $paths): array
+    {
+        $out = [];
+        foreach ($paths as $p) {
+            if (is_string($p) && $p !== '') {
+                $out[] = [
+                    'id' => $this->deriveEventV2ImagePublicId($p),
+                    'path' => $p,
+                    'url' => MediaHelper::url($p),
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Public id for API clients: gallery `image_id`, else UUID in filename, else full path/URL.
+     */
+    private function deriveEventV2ImagePublicId(string $image): string
+    {
+        $image = trim($image);
+        if ($image === '') {
+            return $image;
+        }
+
+        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $image, $m)) {
+            return strtolower($m[0]);
+        }
+
+        if (preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $image, $m)) {
+            return strtolower($m[0]);
+        }
+
+        return $image;
+    }
+
+    private function publicIdsMatch(string $stored, string $requestedFromClient): bool
+    {
+        return $this->deriveEventV2ImagePublicId($stored) === $this->deriveEventV2ImagePublicId($requestedFromClient);
+    }
+
+    /**
+     * @return array{id: string, url: string|null, caption: string|null}
+     */
+    private function resolveEventV2StoredImage(EventV2 $event, string $image): array
+    {
+        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $image)) {
+            $galleryImage = GalleryImage::where('image_id', $image)
+                ->where('user_id', $event->user_id)
+                ->where('is_deleted', false)
+                ->first();
+
+            if (! $galleryImage) {
+                $publicId = $this->deriveEventV2ImagePublicId($image);
+
+                return ['id' => $publicId, 'url' => null, 'caption' => null];
+            }
+
+            return [
+                'id' => (string) $galleryImage->image_id,
+                'url' => MediaHelper::url($galleryImage->file_path),
+                'caption' => $galleryImage->caption,
+            ];
+        }
+
+        $publicId = $this->deriveEventV2ImagePublicId($image);
+
+        return [
+            'id' => $publicId,
+            'url' => MediaHelper::resolveUrl($image),
+            'caption' => null,
+        ];
+    }
+
+    /**
+     * Find media file path on the public disk by UUID filename (without extension).
+     */
+
+    private function findMediaPathByUuid(string $uuid): ?string
+    {
+        $storage = Storage::disk('public');
+        $foldersToSearch = ['events', 'media', 'uploads', 'images', 'talents', 'categories'];
+
+        foreach ($foldersToSearch as $folder) {
+            if (! $storage->exists($folder)) {
+                continue;
+            }
+            $files = $storage->files($folder);
+            foreach ($files as $file) {
+                $filename = pathinfo($file, PATHINFO_FILENAME);
+                if ($filename === $uuid) {
+                    return $file;
+                }
+            }
+        }
+
+        foreach ($storage->allFiles() as $file) {
+            $filename = pathinfo($file, PATHINFO_FILENAME);
+            if ($filename === $uuid) {
+                return $file;
+            }
+        }
+
+        return null;
+    }
+
     // ──────────────────────────────────────
     // Invited Entities Relationships
     // ──────────────────────────────────────
@@ -770,6 +885,295 @@ class AdminEventV2Controller extends Controller
             'message' => 'Event talents fetched successfully',
             'data' => $talents,
         ]);
+    }
+
+    /**
+     * POST /api/admin/events-v2/{id}/talents
+     *
+     * Sync event talents and pivot sort order. Body: { "items": [ { "id": talentId, "sort_order": 0 }, ... ] }.
+     * An empty items array removes all talents from the event.
+     */
+    public function syncTalents(SyncEventV2TalentsRequest $request, $id): JsonResponse
+    {
+        $event = EventV2::findOrFail($id);
+        $items = $request->validated('items');
+
+        $sync = collect($items)
+            ->keyBy('id')
+            ->map(fn (array $row) => [
+                'sort_order' => (int) ($row['sort_order'] ?? 0),
+            ])
+            ->all();
+
+        $event->talents()->sync($sync);
+        $event->load('talents');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Event talents updated successfully',
+            'data' => $event->talents,
+        ]);
+    }
+
+    /**
+     * PATCH /api/admin/events-v2/{id}/talents/reorder
+     *
+     * Update pivot `sort_order` for talents already linked to the event (same as v1 admin).
+     */
+    public function reorderTalents(Request $request, $id): JsonResponse
+    {
+        $event = EventV2::findOrFail($id);
+
+        $validated = $request->validate([
+            'items' => 'required|array|min:1',
+            'items.*.id' => 'required|integer|exists:talents,id',
+            'items.*.sort_order' => 'required|integer|min:0',
+        ]);
+
+        $attached = $event->talents->pluck('id')->all();
+        foreach ($validated['items'] as $item) {
+            if (! in_array($item['id'], $attached, true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'One or more talents are not linked to this event.',
+                ], 422);
+            }
+        }
+
+        foreach ($validated['items'] as $item) {
+            $event->talents()->updateExistingPivot($item['id'], [
+                'sort_order' => $item['sort_order'],
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'message' => 'Talents reordered successfully.',
+            ],
+        ]);
+    }
+
+    /**
+     * DELETE /api/admin/events-v2/{id}/talents/{talentId}
+     *
+     * Remove a talent from the event pivot (same as v1 admin).
+     */
+    public function detachTalent($id, int $talentId): JsonResponse
+    {
+        $event = EventV2::findOrFail($id);
+        $event->talents()->detach($talentId);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'message' => 'Talent detached successfully.',
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/admin/events-v2/{id}/media
+     *
+     * Cover + additional gallery as a flat list (same shape as v1 admin GET events/{id}/media: id, url, alt_text, caption, is_primary, sort_order) plus `path` for v2.
+     */
+    public function getMedia($id): JsonResponse
+    {
+        $event = EventV2::findOrFail($id);
+        $items = [];
+        $sort = 0;
+
+        if (! empty($event->image_path)) {
+            $resolved = $this->resolveEventV2StoredImage($event, (string) $event->image_path);
+            if ($resolved['url'] !== null) {
+                $items[] = [
+                    'id' => $resolved['id'],
+                    'path' => $event->image_path,
+                    'url' => $resolved['url'],
+                    'alt_text' => null,
+                    'caption' => $resolved['caption'],
+                    'is_primary' => true,
+                    'sort_order' => $sort++,
+                ];
+            }
+        }
+
+        if (! empty($event->additional_images) && is_array($event->additional_images)) {
+            foreach ($event->additional_images as $image) {
+                if (! is_string($image) || $image === '') {
+                    continue;
+                }
+                $resolved = $this->resolveEventV2StoredImage($event, $image);
+                if ($resolved['url'] === null) {
+                    continue;
+                }
+                $items[] = [
+                    'id' => $resolved['id'],
+                    'path' => $image,
+                    'url' => $resolved['url'],
+                    'alt_text' => null,
+                    'caption' => $resolved['caption'],
+                    'is_primary' => false,
+                    'sort_order' => $sort++,
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+        ]);
+    }
+
+    /**
+     * POST /api/admin/events-v2/{id}/media
+     *
+     * Attach a gallery image: resolve by `media_id` (UUID filename on public disk) or by `path`.
+     * Appends to `additional_images` (same contract as v1 admin events /media).
+     */
+    public function attachMedia(Request $request, $id): JsonResponse
+    {
+        $event = EventV2::findOrFail($id);
+
+        $validated = $request->validate([
+            'media_id' => 'nullable|string|uuid',
+            'path' => 'required_without:media_id|nullable|string|max:500',
+        ]);
+
+        $path = null;
+
+        if (! empty($validated['media_id'])) {
+            $path = $this->findMediaPathByUuid($validated['media_id']);
+            if (! $path) {
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'MEDIA_NOT_FOUND',
+                        'message' => 'No media file found with the specified media_id.',
+                    ],
+                ], 404);
+            }
+        } elseif (! empty($validated['path'])) {
+            $path = $validated['path'];
+            if (! Storage::disk('public')->exists($path)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'FILE_NOT_FOUND',
+                        'message' => 'The specified file does not exist in storage.',
+                    ],
+                ], 404);
+            }
+        } else {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'INVALID_REQUEST',
+                    'message' => 'Either media_id or path must be provided.',
+                ],
+            ], 422);
+        }
+
+        $current = is_array($event->additional_images) ? $event->additional_images : [];
+        if (in_array($path, $current, true)) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'message' => 'Media already attached.',
+                    'media' => [
+                        'id' => $this->deriveEventV2ImagePublicId($path),
+                        'path' => $path,
+                        'url' => MediaHelper::url($path),
+                    ],
+                    'additional_images' => $this->mapAdditionalImagePathsToPayload($current),
+                ],
+            ]);
+        }
+
+        $current[] = $path;
+        $event->additional_images = array_values($current);
+        $event->save();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'message' => 'Media attached successfully.',
+                'media' => [
+                    'id' => $this->deriveEventV2ImagePublicId($path),
+                    'path' => $path,
+                    'url' => MediaHelper::url($path),
+                ],
+                'additional_images' => $this->mapAdditionalImagePathsToPayload($event->additional_images),
+            ],
+        ]);
+    }
+
+    /**
+     * DELETE /api/admin/events-v2/{id}/media/{mediaId}
+     *
+     * Remove cover or a gallery item. `mediaId` is the same public `id` returned by GET
+     * (UUID, path-derived UUID, or full URL/path string).
+     */
+    public function detachMedia($id, string $mediaId): JsonResponse
+    {
+        $event = EventV2::findOrFail($id);
+        if (trim($mediaId) === '') {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'MEDIA_NOT_FOUND',
+                    'message' => 'No image matched this id for the event.',
+                ],
+            ], 404);
+        }
+
+        if (! empty($event->image_path) && $this->publicIdsMatch((string) $event->image_path, $mediaId)) {
+            $this->deleteImage((string) $event->image_path);
+            $event->image_path = null;
+            $event->save();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'message' => 'Media removed successfully.',
+                ],
+            ]);
+        }
+
+        if (! empty($event->additional_images) && is_array($event->additional_images)) {
+            $kept = [];
+            $removed = false;
+            foreach ($event->additional_images as $p) {
+                if (! is_string($p) || $p === '') {
+                    continue;
+                }
+                if ($this->publicIdsMatch($p, $mediaId)) {
+                    $this->deleteImage($p);
+                    $removed = true;
+                } else {
+                    $kept[] = $p;
+                }
+            }
+            if ($removed) {
+                $event->additional_images = array_values($kept);
+                $event->save();
+
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'message' => 'Media removed successfully.',
+                    ],
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => false,
+            'error' => [
+                'code' => 'MEDIA_NOT_FOUND',
+                'message' => 'No image matched this id for the event.',
+            ],
+        ], 404);
     }
 
     /**
