@@ -90,6 +90,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::patch('/venues/{id}/status', [VenueController::class, 'updateStatus'])->whereNumber('id');
     Route::patch('/organisers/{id}/status', [OrganiserController::class, 'updateStatus'])->whereNumber('id');
 
+    Route::patch('/talents/{id}/publish-status', [TalentController::class, 'updatePublishStatus'])->whereNumber('id');
+    Route::patch('/venues/{id}/publish-status', [VenueController::class, 'updatePublishStatus'])->whereNumber('id');
+    Route::patch('/organisers/{id}/publish-status', [OrganiserController::class, 'updatePublishStatus'])->whereNumber('id');
+    Route::patch('/events/{id}/publish-status', [EventController::class, 'updatePublishStatus'])->whereNumber('id');
+
     Route::get('/meta/profile-publication-statuses', function () {
         return response()->json([
             'success' => true,
@@ -97,6 +102,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
                 'statuses' => \App\Support\ProfilePublicationStatus::ALL,
                 'sidebar_options' => \App\Support\ProfilePublicationStatus::SIDEBAR_OPTIONS,
                 'labels' => \App\Support\ProfilePublicationStatus::labels(),
+            ],
+        ]);
+    });
+
+    Route::get('/meta/publish-statuses', function () {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'statuses' => \App\Support\PublishStatus::ALL,
+                'labels' => \App\Support\PublishStatus::labels(),
             ],
         ]);
     });

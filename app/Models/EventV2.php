@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $image_path
  * @property int|null $venue_id
  * @property string $status
+ * @property string $publish_status Draft or published visibility ({@see \App\Support\PublishStatus})
  * @property bool $is_free_package
  * @property int $view_count
  * @property int $like_count
@@ -170,6 +171,7 @@ class EventV2 extends Model
         'contact_website',
         'description',
         'contact_box_message',
+        'contact_box_design_message',
         'venue_details',
         'image_path',
         'additional_images',
@@ -177,6 +179,7 @@ class EventV2 extends Model
         'invited_organisers',
         'invited_venues',
         'venue_id',
+        'publish_status',
         'status',
         'is_free_package',
         'view_count',

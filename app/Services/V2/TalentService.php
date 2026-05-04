@@ -4,6 +4,7 @@ namespace App\Services\V2;
 
 use App\Models\TalentV2;
 use App\Support\ProfilePublicationStatus;
+use App\Support\PublishStatus;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -28,6 +29,7 @@ class TalentService
             $talentData = [
                 'user_id' => $user->id,
                 'status' => ProfilePublicationStatus::DRAFT,
+                'publish_status' => PublishStatus::DRAFT,
                 'title' => $data['title'],
                 'slug' => $this->generateUniqueSlug($data['title']),
                 'event_type' => $data['event_type'] ?? 'free',
@@ -43,6 +45,7 @@ class TalentService
             $optionalFields = [
                 'subcategory_ids', 'description',
                 'contact_phone', 'contact_email', 'contact_website',
+                'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'fan_club_url', 'nationality', 'show_nationality', 'age', 'show_age', 'languages', 'highlights',
                 'show_upcoming_events', 'show_past_events',
@@ -99,10 +102,11 @@ class TalentService
         return DB::transaction(function () use ($talent, $data, $request) {
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids',
-                'status',
+                'status', 'publish_status',
                 'talent_category_id',
                 'city', 'address', 'latitude', 'longitude',
                 'description', 'contact_phone', 'contact_email', 'contact_website',
+                'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'fan_club_url', 'nationality', 'show_nationality', 'age', 'show_age', 'languages', 'highlights',
                 'show_upcoming_events', 'show_past_events',

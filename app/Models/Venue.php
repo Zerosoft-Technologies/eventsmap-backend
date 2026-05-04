@@ -25,6 +25,8 @@ class Venue extends Model
         'phone',
         'email',
         'website',
+        'contact_box_message',
+        'contact_box_design_message',
         'description',
         'image_path',
         'capacity',

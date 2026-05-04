@@ -37,6 +37,7 @@ class TalentV2Seeder extends Seeder
                     TalentV2::factory()
                         ->count($cluster['count'])
                         ->forCity($cluster['city'])
+                        ->seedRichContactPresentation()
                         ->create()
                         ->each(function (TalentV2 $talent): void {
                             $this->syncTalentSubcategories($talent);

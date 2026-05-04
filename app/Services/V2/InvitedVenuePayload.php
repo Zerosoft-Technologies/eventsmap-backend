@@ -28,6 +28,8 @@ final class InvitedVenuePayload
             'phone' => $venue->phone,
             'email' => $venue->email,
             'website' => $venue->website,
+            'contact_box_message' => $venue->contact_box_message ?? null,
+            'contact_box_design_message' => $venue->contact_box_design_message ?? null,
             'description' => $venue->description,
             'capacity' => $venue->capacity,
             'is_active' => (bool) $venue->is_active,

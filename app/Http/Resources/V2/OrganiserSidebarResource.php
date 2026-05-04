@@ -4,6 +4,7 @@ namespace App\Http\Resources\V2;
 
 use App\Helpers\MediaHelper;
 use App\Support\ProfilePublicationStatus;
+use App\Support\PublishStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -21,6 +22,9 @@ class OrganiserSidebarResource extends JsonResource
             'status' => $this->status ?? ProfilePublicationStatus::DRAFT,
             'status_label' => ProfilePublicationStatus::labels()[$this->status ?? ProfilePublicationStatus::DRAFT]
                 ?? ($this->status ?? ProfilePublicationStatus::DRAFT),
+            'publish_status' => $this->publish_status ?? PublishStatus::DRAFT,
+            'publish_status_label' => PublishStatus::labels()[$this->publish_status ?? PublishStatus::DRAFT]
+                ?? ($this->publish_status ?? PublishStatus::DRAFT),
             'image' => $this->when($this->image_path, function () {
                 if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $this->image_path)) {
                     $galleryImage = \App\Models\GalleryImage::where('image_id', $this->image_path)

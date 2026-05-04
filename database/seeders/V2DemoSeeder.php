@@ -331,22 +331,22 @@ class V2DemoSeeder extends Seeder
             
             // 2 upcoming events
             $userEvents = $userEvents->merge(
-                EventV2::factory(2)->state(['user_id' => $user->id])->upcoming()->create()
+                EventV2::factory(2)->state(['user_id' => $user->id])->upcoming()->seedRichContactPresentation()->create()
             );
             
             // 1 live event (today)
             $userEvents = $userEvents->merge(
-                EventV2::factory(1)->state(['user_id' => $user->id])->live()->create()
+                EventV2::factory(1)->state(['user_id' => $user->id])->live()->seedRichContactPresentation()->create()
             );
             
             // 2 past events
             $userEvents = $userEvents->merge(
-                EventV2::factory(2)->state(['user_id' => $user->id])->past()->create()
+                EventV2::factory(2)->state(['user_id' => $user->id])->past()->seedRichContactPresentation()->create()
             );
             
             // 1 random status (could be draft, cancelled, or pending)
             $userEvents = $userEvents->merge(
-                EventV2::factory(1)->state(['user_id' => $user->id])->create()
+                EventV2::factory(1)->state(['user_id' => $user->id])->seedRichContactPresentation()->create()
             );
             
             // Download images and attach subcategories for each event

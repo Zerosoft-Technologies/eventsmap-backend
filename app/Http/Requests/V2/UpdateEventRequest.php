@@ -4,6 +4,7 @@ namespace App\Http\Requests\V2;
 
 use App\Models\EventV2;
 use App\Models\SubCategory;
+use App\Support\PublishStatus;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -58,6 +59,7 @@ class UpdateEventRequest extends FormRequest
             'is_copy_event' => 'nullable|boolean',
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',
+            'publish_status' => ['nullable', 'string', Rule::in(PublishStatus::ALL)],
         ];
 
         // Image validation: accept either file upload (for free events) or UUID string (for premium events)
@@ -87,6 +89,7 @@ class UpdateEventRequest extends FormRequest
             $rules['contact_website'] = 'sometimes|nullable|url|max:500';
             $rules['description'] = 'sometimes|nullable|string|max:10000';
             $rules['contact_box_message'] = 'sometimes|nullable|string|max:1000';
+            $rules['contact_box_design_message'] = 'sometimes|nullable|string|max:10000';
             $rules['venue_details'] = 'sometimes|nullable|string|max:2000';
             $rules['facebook_url'] = 'sometimes|nullable|url|max:500';
             $rules['instagram_url'] = 'sometimes|nullable|url|max:500';

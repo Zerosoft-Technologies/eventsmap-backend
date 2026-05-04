@@ -3,6 +3,7 @@
 namespace App\Http\Requests\V2;
 
 use App\Support\ProfilePublicationStatus;
+use App\Support\PublishStatus;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -33,6 +34,8 @@ class UpdateOrganiserRequest extends FormRequest
             'contact_phone' => 'nullable|string|max:50',
             'contact_email' => 'nullable|email',
             'contact_website' => 'nullable|url|max:500',
+            'contact_box_message' => 'nullable|string|max:1000',
+            'contact_box_design_message' => 'nullable|string|max:10000',
             'facebook_url' => 'nullable|url|max:500',
             'instagram_url' => 'nullable|url|max:500',
             'tiktok_url' => 'nullable|url|max:500',
@@ -40,6 +43,7 @@ class UpdateOrganiserRequest extends FormRequest
             'show_past_events' => 'nullable|boolean',
             'remove_additional_images' => 'nullable|boolean',
             'status' => ['nullable', 'string', Rule::in(ProfilePublicationStatus::ALL)],
+            'publish_status' => ['nullable', 'string', Rule::in(PublishStatus::ALL)],
         ];
 
         // Main image: file upload or UUID string (nullable on update)

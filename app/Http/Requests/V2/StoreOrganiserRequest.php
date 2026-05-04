@@ -32,12 +32,15 @@ class StoreOrganiserRequest extends FormRequest
             'contact_phone' => 'nullable|string|max:50',
             'contact_email' => 'nullable|email',
             'contact_website' => 'nullable|url|max:500',
+            'contact_box_message' => 'nullable|string|max:1000',
+            'contact_box_design_message' => 'nullable|string|max:10000',
             'facebook_url' => 'nullable|url|max:500',
             'instagram_url' => 'nullable|url|max:500',
             'tiktok_url' => 'nullable|url|max:500',
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',
             'status' => 'prohibited',
+            'publish_status' => 'prohibited',
         ];
 
         // Main image: file upload or UUID string

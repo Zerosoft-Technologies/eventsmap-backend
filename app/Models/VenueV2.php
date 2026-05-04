@@ -16,6 +16,7 @@ class VenueV2 extends Model
     protected $fillable = [
         'user_id',
         'status',
+        'publish_status',
         'title',
         'slug',
         'event_type',
@@ -38,6 +39,8 @@ class VenueV2 extends Model
         'contact_phone',
         'contact_email',
         'contact_website',
+        'contact_box_message',
+        'contact_box_design_message',
         'facebook_url',
         'instagram_url',
         'tiktok_url',

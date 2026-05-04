@@ -4,6 +4,7 @@ namespace App\Services\V2;
 
 use App\Models\VenueV2;
 use App\Support\ProfilePublicationStatus;
+use App\Support\PublishStatus;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -28,6 +29,7 @@ class VenueService
             $venueData = [
                 'user_id' => $user->id,
                 'status' => ProfilePublicationStatus::DRAFT,
+                'publish_status' => PublishStatus::DRAFT,
                 'title' => $data['title'],
                 'slug' => $this->generateUniqueSlug($data['title']),
                 'event_type' => $data['event_type'] ?? 'free',
@@ -42,6 +44,7 @@ class VenueService
                 'subcategory_ids', 'description', 'description_items',
                 'allow_dogs', 'allowance_of_dogs', 'wheelchair_accessible', 'accessibility_description', 'parking', 'valet', 'play_area',
                 'contact_phone', 'contact_email', 'contact_website',
+                'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'opening_hours',
                 'show_upcoming_events', 'show_past_events',
@@ -93,11 +96,12 @@ class VenueService
         return DB::transaction(function () use ($venue, $data, $request) {
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids',
-                'status',
+                'status', 'publish_status',
                 'address', 'latitude', 'longitude',
                 'description', 'description_items',
                 'allow_dogs', 'allowance_of_dogs', 'wheelchair_accessible', 'accessibility_description', 'parking', 'valet', 'play_area',
                 'contact_phone', 'contact_email', 'contact_website',
+                'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'opening_hours',
                 'show_upcoming_events', 'show_past_events',

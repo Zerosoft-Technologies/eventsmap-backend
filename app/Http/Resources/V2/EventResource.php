@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V2;
 
 use App\Helpers\MediaHelper;
+use App\Support\PublishStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -61,6 +62,12 @@ class EventResource extends JsonResource
             'contact_email' => $this->contact_email,
             'contact_phone' => $this->contact_phone,
             'contact_website' => $this->contact_website,
+            'contact_box_message' => $this->contact_box_message,
+            'contact_box_design_message' => $this->contact_box_design_message,
+            'contact_info' => [
+                'box_message' => $this->contact_box_message,
+                'design_message' => $this->contact_box_design_message,
+            ],
 
             // Category
             'category' => $this->whenLoaded('category', function () {
@@ -153,6 +160,9 @@ class EventResource extends JsonResource
             // Status (stored + computed)
             'status' => $this->status,
             'computed_status' => $this->computed_status,
+            'publish_status' => $this->publish_status ?? PublishStatus::DRAFT,
+            'publish_status_label' => PublishStatus::labels()[$this->publish_status ?? PublishStatus::DRAFT]
+                ?? ($this->publish_status ?? PublishStatus::DRAFT),
 
             // Venue
             'venue' => $this->whenLoaded('venue', function () {

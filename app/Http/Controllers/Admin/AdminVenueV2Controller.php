@@ -161,6 +161,7 @@ class AdminVenueV2Controller extends Controller
                 'allow_dogs', 'allowance_of_dogs', 'wheelchair_accessible', 'accessibility_description',
                 'parking', 'valet', 'play_area',
                 'contact_phone', 'contact_email', 'contact_website',
+                'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'opening_hours', 'show_upcoming_events', 'show_past_events',
             ];
@@ -227,6 +228,7 @@ class AdminVenueV2Controller extends Controller
                 'allow_dogs', 'allowance_of_dogs', 'wheelchair_accessible', 'accessibility_description',
                 'parking', 'valet', 'play_area',
                 'contact_phone', 'contact_email', 'contact_website',
+                'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'opening_hours', 'show_upcoming_events', 'show_past_events', 'is_approved',
             ];

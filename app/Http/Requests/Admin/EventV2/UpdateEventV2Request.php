@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin\EventV2;
 
 use App\Models\EventV2;
+use App\Support\PublishStatus;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -63,6 +64,7 @@ class UpdateEventV2Request extends FormRequest
             'contact_email' => 'sometimes|nullable|email',
             'contact_website' => 'sometimes|nullable|url|max:500',
             'contact_box_message' => 'sometimes|nullable|string|max:1000',
+            'contact_box_design_message' => 'sometimes|nullable|string|max:10000',
             'venue_details' => 'sometimes|nullable|string|max:2000',
             'facebook_url' => 'sometimes|nullable|url|max:500',
             'instagram_url' => 'sometimes|nullable|url|max:500',
@@ -84,6 +86,7 @@ class UpdateEventV2Request extends FormRequest
             'show_upcoming_events' => 'sometimes|nullable|boolean',
             'show_past_events' => 'sometimes|nullable|boolean',
             'status' => ['sometimes', 'nullable', 'string', Rule::in(EventV2::STATUSES)],
+            'publish_status' => ['sometimes', 'nullable', 'string', Rule::in(PublishStatus::ALL)],
             'is_approved' => 'sometimes|nullable|boolean',
         ];
 

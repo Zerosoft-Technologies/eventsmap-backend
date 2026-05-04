@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\MediaHelper;
 use App\Jobs\SendVerificationEmail;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
@@ -321,6 +322,8 @@ class AuthController extends Controller
             'status' => $user->status,
             'email_verified' => $user->hasVerifiedEmail(),
             'country' => $user->country,
+            'profile_image_path' => $user->profile_image_path,
+            'profile_image_url' => MediaHelper::resolveUrl($user->profile_image_path),
             'created_at' => $user->created_at?->toIso8601String(),
         ];
     }

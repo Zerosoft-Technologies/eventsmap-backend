@@ -36,6 +36,7 @@ class VenueV2Seeder extends Seeder
                     VenueV2::factory()
                         ->count($cluster['count'])
                         ->forCity($cluster['city'])
+                        ->seedRichContactPresentation()
                         ->create();
                 }
             });

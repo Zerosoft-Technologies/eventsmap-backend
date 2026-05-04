@@ -106,6 +106,8 @@ class AdminTalentV2Resource extends JsonResource
             'contact_phone' => $this->contact_phone,
             'contact_email' => $this->contact_email,
             'contact_website' => $this->contact_website,
+            'contact_box_message' => $this->contact_box_message,
+            'contact_box_design_message' => $this->contact_box_design_message,
 
             // Social
             'facebook_url' => $this->facebook_url,

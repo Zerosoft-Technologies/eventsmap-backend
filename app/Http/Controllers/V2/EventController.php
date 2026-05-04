@@ -6,6 +6,7 @@ use App\Helpers\MediaHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V2\StoreEventRequest;
 use App\Http\Requests\V2\UpdateEventRequest;
+use App\Http\Requests\V2\UpdatePublishStatusRequest;
 use App\Http\Resources\V2\EventResource;
 use App\Http\Resources\V2\EventSidebarResource;
 use App\Models\Category;
@@ -13,6 +14,7 @@ use App\Models\EventV2;
 use App\Models\SubCategory;
 use App\Services\V2\EventInvitedEntitiesService;
 use App\Services\V2\EventService;
+use App\Support\PublishStatus;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,7 +36,8 @@ class EventController extends Controller
     /**
      * GET /api/v2/events
      *
-     * List events with filtering and pagination.
+     * List events with filtering and pagination (browse feed).
+     * Only events with {@see PublishStatus::PUBLISHED} are returned.
      */
     public function index(Request $request): JsonResponse
     {
@@ -66,7 +69,8 @@ class EventController extends Controller
         ]);
 
         $query = EventV2::query()
-            ->with(['category', 'venue', 'organisers', 'talents']);
+            ->with(['category', 'venue', 'organisers', 'talents'])
+            ->where('publish_status', PublishStatus::PUBLISHED);
 
         // Search filter (ILIKE is PostgreSQL-only; MySQL uses LIKE + case-insensitive collation)
         $query->when($request->filled('search'), function ($q) use ($request) {
@@ -304,11 +308,15 @@ class EventController extends Controller
             'dress_code' => $event->dress_code,
             'age_limit' => $event->age_limit,
             'entrance_status' => $event->entrance_status,
+            'publish_status' => $event->publish_status ?? PublishStatus::DRAFT,
+            'publish_status_label' => PublishStatus::labels()[$event->publish_status ?? PublishStatus::DRAFT]
+                ?? ($event->publish_status ?? PublishStatus::DRAFT),
             'contact_phone' => $event->contact_phone,
             'contact_email' => $event->contact_email,
             'description' => $event->description ?? null,
             'contact_website' => $event->contact_website,
             'contact_box_message' => $event->contact_box_message,
+            'contact_box_design_message' => $event->contact_box_design_message,
             'facebook_url' => $event->facebook_url,
             'instagram_url' => $event->instagram_url,
             'tiktok_url' => $event->tiktok_url,
@@ -386,7 +394,7 @@ class EventController extends Controller
         $event = EventV2::findOrFail($id);
 
         $user = $request->user();
-        if (! $user || $event->user_id !== $user->id) {
+        if (! $user || ($event->user_id !== $user->id && ! $user->isAdmin())) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized',
@@ -423,13 +431,46 @@ class EventController extends Controller
             'address' => $event->address,
             'venue_name' => $event->venue_name,
             'description' => $event->description ?? null,
+            'contact_box_message' => $event->contact_box_message,
+            'contact_box_design_message' => $event->contact_box_design_message,
             'image_url' => $event->image_path ? MediaHelper::url($event->image_path) : null,
+            'publish_status' => $event->publish_status ?? PublishStatus::DRAFT,
+            'publish_status_label' => PublishStatus::labels()[$event->publish_status ?? PublishStatus::DRAFT]
+                ?? ($event->publish_status ?? PublishStatus::DRAFT),
         ];
 
         return response()->json([
             'success' => true,
             'message' => 'Event updated successfully',
             'data' => $data,
+        ]);
+    }
+
+    /**
+     * PATCH /api/v2/events/{id}/publish-status
+     */
+    public function updatePublishStatus(UpdatePublishStatusRequest $request, int $id): JsonResponse
+    {
+        $event = EventV2::findOrFail($id);
+
+        $user = $request->user();
+        if (! $user || ($event->user_id !== $user->id && ! $user->isAdmin())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $event->update(['publish_status' => $request->validated('publish_status')]);
+        $event->refresh();
+        $this->eventInvitedEntitiesService->hydrate([$event]);
+        $event->load(['category', 'venue', 'organisers', 'talents', 'user']);
+        $event->setRelation('subcategories', $event->subcategories_from_ids);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Publish status updated successfully',
+            'data' => new EventResource($event),
         ]);
     }
 

@@ -4,6 +4,7 @@ namespace App\Http\Resources\V2;
 
 use App\Helpers\MediaHelper;
 use App\Support\ProfilePublicationStatus;
+use App\Support\PublishStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,6 +19,9 @@ class OrganiserResource extends JsonResource
             'status' => $this->status ?? ProfilePublicationStatus::DRAFT,
             'status_label' => ProfilePublicationStatus::labels()[$this->status ?? ProfilePublicationStatus::DRAFT]
                 ?? ($this->status ?? ProfilePublicationStatus::DRAFT),
+            'publish_status' => $this->publish_status ?? PublishStatus::DRAFT,
+            'publish_status_label' => PublishStatus::labels()[$this->publish_status ?? PublishStatus::DRAFT]
+                ?? ($this->publish_status ?? PublishStatus::DRAFT),
             'event_type' => $this->event_type,
 
             'cover_image' => $this->when($this->image_path, function () {
@@ -112,6 +116,8 @@ class OrganiserResource extends JsonResource
             'contact_phone' => $this->contact_phone,
             'contact_email' => $this->contact_email,
             'contact_website' => $this->contact_website,
+            'contact_box_message' => $this->contact_box_message,
+            'contact_box_design_message' => $this->contact_box_design_message,
 
             // Social
             'facebook_url' => $this->facebook_url,

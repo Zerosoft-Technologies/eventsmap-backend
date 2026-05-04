@@ -162,6 +162,7 @@ class AdminOrganiserV2Controller extends Controller
             $optionalFields = [
                 'subcategory_ids', 'description',
                 'contact_phone', 'contact_email', 'contact_website',
+                'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'show_upcoming_events', 'show_past_events',
             ];
@@ -229,6 +230,7 @@ class AdminOrganiserV2Controller extends Controller
                 'user_id', 'title', 'event_type', 'category_id', 'subcategory_ids',
                 'organiser_category_id', 'address', 'latitude', 'longitude',
                 'description', 'contact_phone', 'contact_email', 'contact_website',
+                'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'show_upcoming_events', 'show_past_events', 'is_approved',
             ];

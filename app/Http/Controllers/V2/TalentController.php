@@ -6,11 +6,13 @@ use App\Helpers\MediaHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V2\StoreTalentRequest;
 use App\Http\Requests\V2\UpdateProfilePublicationStatusRequest;
+use App\Http\Requests\V2\UpdatePublishStatusRequest;
 use App\Http\Requests\V2\UpdateTalentRequest;
 use App\Http\Resources\V2\TalentResource;
 use App\Models\TalentV2;
 use App\Services\V2\TalentService;
 use App\Support\ProfilePublicationStatus;
+use App\Support\PublishStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -69,6 +71,9 @@ class TalentController extends Controller
             'status' => $talent->status ?? ProfilePublicationStatus::DRAFT,
             'status_label' => ProfilePublicationStatus::labels()[$talent->status ?? ProfilePublicationStatus::DRAFT]
                 ?? ($talent->status ?? ProfilePublicationStatus::DRAFT),
+            'publish_status' => $talent->publish_status ?? PublishStatus::DRAFT,
+            'publish_status_label' => PublishStatus::labels()[$talent->publish_status ?? PublishStatus::DRAFT]
+                ?? ($talent->publish_status ?? PublishStatus::DRAFT),
             'event_type' => $talent->event_type ?? 'free',
             'category_id' => $talent->category_id,
             'subcategory_ids' => $talent->subcategory_ids ?? [],
@@ -82,6 +87,8 @@ class TalentController extends Controller
             'contact_phone' => $talent->contact_phone,
             'contact_email' => $talent->contact_email,
             'contact_website' => $talent->contact_website,
+            'contact_box_message' => $talent->contact_box_message,
+            'contact_box_design_message' => $talent->contact_box_design_message,
             'facebook_url' => $talent->facebook_url,
             'instagram_url' => $talent->instagram_url,
             'tiktok_url' => $talent->tiktok_url,
@@ -175,6 +182,9 @@ class TalentController extends Controller
             'status' => $talent->status ?? ProfilePublicationStatus::DRAFT,
             'status_label' => ProfilePublicationStatus::labels()[$talent->status ?? ProfilePublicationStatus::DRAFT]
                 ?? ($talent->status ?? ProfilePublicationStatus::DRAFT),
+            'publish_status' => $talent->publish_status ?? PublishStatus::DRAFT,
+            'publish_status_label' => PublishStatus::labels()[$talent->publish_status ?? PublishStatus::DRAFT]
+                ?? ($talent->publish_status ?? PublishStatus::DRAFT),
             'event_type' => $talent->event_type ?? 'free',
             'category_id' => $talent->category_id,
             'subcategory_ids' => is_array($talent->subcategory_ids) ? $talent->subcategory_ids : [],
@@ -183,6 +193,8 @@ class TalentController extends Controller
             'city' => $talent->city,
             'address' => $talent->address,
             'description' => $talent->description ?? null,
+            'contact_box_message' => $talent->contact_box_message,
+            'contact_box_design_message' => $talent->contact_box_design_message,
             'image_url' => $talent->image_path ? MediaHelper::url($talent->image_path) : null,
         ];
 
@@ -215,6 +227,32 @@ class TalentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Publication status updated successfully',
+            'data' => new TalentResource($talent),
+        ]);
+    }
+
+    /**
+     * PATCH /api/v2/talents/{id}/publish-status
+     */
+    public function updatePublishStatus(UpdatePublishStatusRequest $request, int $id): JsonResponse
+    {
+        $talent = TalentV2::findOrFail($id);
+
+        $user = $request->user();
+        if (! $user || ($talent->user_id !== $user->id && ! $user->isAdmin())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $talent->update(['publish_status' => $request->validated('publish_status')]);
+        $talent->refresh();
+        $talent->load(['category', 'user', 'talentCategory', 'talentSubcategories']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Publish status updated successfully',
             'data' => new TalentResource($talent),
         ]);
     }

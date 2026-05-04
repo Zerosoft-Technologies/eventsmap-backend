@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Admin;
 
 use App\Helpers\MediaHelper;
+use App\Support\PublishStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -109,6 +110,11 @@ class AdminEventV2Resource extends JsonResource
             'contact_email' => $this->contact_email,
             'contact_website' => $this->contact_website,
             'contact_box_message' => $this->contact_box_message,
+            'contact_box_design_message' => $this->contact_box_design_message,
+            'contact_info' => [
+                'box_message' => $this->contact_box_message,
+                'design_message' => $this->contact_box_design_message,
+            ],
             'venue_details' => $this->venue_details,
 
             // Social & Links
@@ -121,6 +127,9 @@ class AdminEventV2Resource extends JsonResource
             // Status (stored + computed)
             'status' => $this->status,
             'computed_status' => $this->computed_status,
+            'publish_status' => $this->publish_status ?? PublishStatus::DRAFT,
+            'publish_status_label' => PublishStatus::labels()[$this->publish_status ?? PublishStatus::DRAFT]
+                ?? ($this->publish_status ?? PublishStatus::DRAFT),
 
             // Venue
             'venue_id' => $this->venue_id,

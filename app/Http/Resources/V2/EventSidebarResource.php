@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V2;
 
 use App\Helpers\MediaHelper;
+use App\Support\PublishStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,6 +27,9 @@ class EventSidebarResource extends JsonResource
             'start_time' => $this->start_time,
             'status' => $this->status,
             'computed_status' => $this->computed_status,
+            'publish_status' => $this->publish_status ?? PublishStatus::DRAFT,
+            'publish_status_label' => PublishStatus::labels()[$this->publish_status ?? PublishStatus::DRAFT]
+                ?? ($this->publish_status ?? PublishStatus::DRAFT),
             'is_approved' => $this->is_approved ?? false,
             'venue_name' => $this->venue_name,
             'image_url' => $this->when($this->image_path, function () {

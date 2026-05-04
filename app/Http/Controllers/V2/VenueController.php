@@ -6,11 +6,13 @@ use App\Helpers\MediaHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V2\StoreVenueRequest;
 use App\Http\Requests\V2\UpdateProfilePublicationStatusRequest;
+use App\Http\Requests\V2\UpdatePublishStatusRequest;
 use App\Http\Requests\V2\UpdateVenueRequest;
 use App\Http\Resources\V2\VenueResource;
 use App\Models\VenueV2;
 use App\Services\V2\VenueService;
 use App\Support\ProfilePublicationStatus;
+use App\Support\PublishStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -69,6 +71,9 @@ class VenueController extends Controller
             'status' => $venue->status ?? ProfilePublicationStatus::DRAFT,
             'status_label' => ProfilePublicationStatus::labels()[$venue->status ?? ProfilePublicationStatus::DRAFT]
                 ?? ($venue->status ?? ProfilePublicationStatus::DRAFT),
+            'publish_status' => $venue->publish_status ?? PublishStatus::DRAFT,
+            'publish_status_label' => PublishStatus::labels()[$venue->publish_status ?? PublishStatus::DRAFT]
+                ?? ($venue->publish_status ?? PublishStatus::DRAFT),
             'event_type' => $venue->event_type ?? 'free',
             'category_id' => $venue->category_id,
             'subcategory_ids' => $venue->subcategory_ids ?? [],
@@ -87,6 +92,8 @@ class VenueController extends Controller
             'contact_phone' => $venue->contact_phone,
             'contact_email' => $venue->contact_email,
             'contact_website' => $venue->contact_website,
+            'contact_box_message' => $venue->contact_box_message,
+            'contact_box_design_message' => $venue->contact_box_design_message,
             'facebook_url' => $venue->facebook_url,
             'instagram_url' => $venue->instagram_url,
             'tiktok_url' => $venue->tiktok_url,
@@ -173,12 +180,17 @@ class VenueController extends Controller
             'status' => $venue->status ?? ProfilePublicationStatus::DRAFT,
             'status_label' => ProfilePublicationStatus::labels()[$venue->status ?? ProfilePublicationStatus::DRAFT]
                 ?? ($venue->status ?? ProfilePublicationStatus::DRAFT),
+            'publish_status' => $venue->publish_status ?? PublishStatus::DRAFT,
+            'publish_status_label' => PublishStatus::labels()[$venue->publish_status ?? PublishStatus::DRAFT]
+                ?? ($venue->publish_status ?? PublishStatus::DRAFT),
             'event_type' => $venue->event_type ?? 'free',
             'category_id' => $venue->category_id,
             'subcategory_ids' => is_array($venue->subcategory_ids) ? $venue->subcategory_ids : [],
             'address' => $venue->address,
             'description' => $venue->description ?? null,
             'description_items' => $venue->description_items ?? [],
+            'contact_box_message' => $venue->contact_box_message,
+            'contact_box_design_message' => $venue->contact_box_design_message,
             'allowance_of_dogs' => $venue->allowance_of_dogs,
             'accessibility_description' => $venue->accessibility_description,
             'image_url' => $venue->image_path ? MediaHelper::url($venue->image_path) : null,
@@ -213,6 +225,32 @@ class VenueController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Publication status updated successfully',
+            'data' => new VenueResource($venue),
+        ]);
+    }
+
+    /**
+     * PATCH /api/v2/venues/{id}/publish-status
+     */
+    public function updatePublishStatus(UpdatePublishStatusRequest $request, int $id): JsonResponse
+    {
+        $venue = VenueV2::findOrFail($id);
+
+        $user = $request->user();
+        if (! $user || ($venue->user_id !== $user->id && ! $user->isAdmin())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $venue->update(['publish_status' => $request->validated('publish_status')]);
+        $venue->refresh();
+        $venue->load(['category', 'user']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Publish status updated successfully',
             'data' => new VenueResource($venue),
         ]);
     }

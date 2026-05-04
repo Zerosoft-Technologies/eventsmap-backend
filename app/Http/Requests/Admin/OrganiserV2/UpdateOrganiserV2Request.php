@@ -45,6 +45,8 @@ class UpdateOrganiserV2Request extends FormRequest
             'contact_phone' => 'sometimes|nullable|string|max:50',
             'contact_email' => 'sometimes|nullable|email',
             'contact_website' => 'sometimes|nullable|url|max:500',
+            'contact_box_message' => 'sometimes|nullable|string|max:1000',
+            'contact_box_design_message' => 'sometimes|nullable|string|max:10000',
             'facebook_url' => 'sometimes|nullable|url|max:500',
             'instagram_url' => 'sometimes|nullable|url|max:500',
             'tiktok_url' => 'sometimes|nullable|url|max:500',

@@ -44,13 +44,14 @@ class EventV2Seeder extends Seeder
                     EventV2::factory()
                         ->count($cluster['count'])
                         ->forCity($cluster['city'])
+                        ->seedRichContactPresentation()
                         ->create();
                 }
 
-                EventV2::factory()->count(6)->past()->create();
-                EventV2::factory()->count(6)->upcoming()->create();
-                EventV2::factory()->count(4)->live()->create();
-                EventV2::factory()->count(4)->suspended()->create();
+                EventV2::factory()->count(6)->past()->seedRichContactPresentation()->create();
+                EventV2::factory()->count(6)->upcoming()->seedRichContactPresentation()->create();
+                EventV2::factory()->count(4)->live()->seedRichContactPresentation()->create();
+                EventV2::factory()->count(4)->suspended()->seedRichContactPresentation()->create();
 
                 EventV2::query()->orderBy('id')->get()->each(function (EventV2 $event): void {
                     $ids = $event->subcategory_ids;

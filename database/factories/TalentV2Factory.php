@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Support\ProfilePublicationStatus;
+use App\Support\PublishStatus;
 use App\Models\Category;
 use App\Models\SubCategory;
 use App\Models\TalentCategory;
@@ -44,6 +45,7 @@ class TalentV2Factory extends Factory
         return [
             'user_id' => User::query()->inRandomOrder()->value('id') ?? User::factory(),
             'status' => ProfilePublicationStatus::DRAFT,
+            'publish_status' => PublishStatus::DRAFT,
             'title' => $title,
             'slug' => $slug,
             'event_type' => fake()->randomElement(['free', 'premium']),
@@ -82,6 +84,8 @@ class TalentV2Factory extends Factory
             'contact_phone' => fake()->phoneNumber(),
             'contact_email' => fake()->email(),
             'contact_website' => fake()->url(),
+            'contact_box_message' => fake()->optional(0.22)->sentence(),
+            'contact_box_design_message' => fake()->optional(0.12)->paragraph(),
             'facebook_url' => 'https://facebook.com/'.fake()->slug(),
             'instagram_url' => 'https://instagram.com/'.fake()->slug(),
             'tiktok_url' => 'https://tiktok.com/@'.fake()->slug(),
@@ -108,6 +112,26 @@ class TalentV2Factory extends Factory
                 'latitude' => $city['lat'],
                 'longitude' => $city['lng'],
                 'nationality' => $city['country'],
+            ];
+        });
+    }
+
+    /**
+     * Demo-friendly contact tab copy, profile hero image, and {@see PublishStatus::PUBLISHED} (DatabaseSeeder path).
+     */
+    public function seedRichContactPresentation(): static
+    {
+        return $this->state(function (array $attributes): array {
+            $talentCategoryId = $attributes['talent_category_id'] ?? null;
+            $talentCategoryName = $talentCategoryId !== null
+                ? self::getTalentCategoryName((int) $talentCategoryId)
+                : 'Musician';
+
+            return [
+                'publish_status' => PublishStatus::PUBLISHED,
+                'contact_box_message' => 'For bookings, riders, and collaborations—tell us your dates and city.',
+                'contact_box_design_message' => "Welcome!\n\n".fake()->paragraph(2),
+                'image_path' => CategoryImageProvider::getImageUrl($talentCategoryName, 800, 800),
             ];
         });
     }

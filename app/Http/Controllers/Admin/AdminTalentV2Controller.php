@@ -161,6 +161,7 @@ class AdminTalentV2Controller extends Controller
             $optionalFields = [
                 'subcategory_ids', 'city', 'description',
                 'contact_phone', 'contact_email', 'contact_website',
+                'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url', 'fan_club_url',
                 'nationality', 'show_nationality', 'age', 'show_age',
                 'languages', 'highlights',
@@ -230,6 +231,7 @@ class AdminTalentV2Controller extends Controller
                 'user_id', 'title', 'event_type', 'category_id', 'subcategory_ids',
                 'talent_category_id', 'city', 'address', 'latitude', 'longitude',
                 'description', 'contact_phone', 'contact_email', 'contact_website',
+                'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url', 'fan_club_url',
                 'nationality', 'show_nationality', 'age', 'show_age',
                 'languages', 'highlights',

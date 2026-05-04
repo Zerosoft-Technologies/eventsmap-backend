@@ -56,6 +56,7 @@ class StoreEventRequest extends FormRequest
             'is_copy_event' => 'nullable|boolean',
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',
+            'publish_status' => 'prohibited',
         ];
 
         // Image validation: accept either file upload (for free events) or UUID string (for premium events)
@@ -75,6 +76,7 @@ class StoreEventRequest extends FormRequest
             $rules['contact_website'] = 'nullable|url|max:500';
             $rules['description'] = 'nullable|string|max:10000';
             $rules['contact_box_message'] = 'nullable|string|max:1000';
+            $rules['contact_box_design_message'] = 'nullable|string|max:10000';
             $rules['venue_details'] = 'nullable|string|max:2000';
             $rules['facebook_url'] = 'nullable|url|max:500';
             $rules['instagram_url'] = 'nullable|url|max:500';

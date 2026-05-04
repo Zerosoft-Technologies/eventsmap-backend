@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
@@ -48,7 +49,26 @@ class UpdateProfileRequest extends FormRequest
             ],
             'address' => 'sometimes|nullable|string|max:255',
             'country' => 'sometimes|nullable|string|max:255',
+            'profile_image' => ['sometimes', 'nullable', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
+            'avatar' => ['sometimes', 'nullable', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
+            'remove_profile_image' => ['sometimes', 'boolean'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $v): void {
+            if ($this->boolean('remove_profile_image')
+                && ($this->hasFile('profile_image') || $this->hasFile('avatar'))) {
+                $v->errors()->add(
+                    'profile_image',
+                    'Cannot upload a profile image and remove it in the same request.'
+                );
+            }
+            if ($this->hasFile('profile_image') && $this->hasFile('avatar')) {
+                $v->errors()->add('avatar', 'Send either profile_image or avatar, not both.');
+            }
+        });
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Models\EventV2;
 use App\Models\SubCategory;
 use App\Models\User;
 use App\Models\Venue;
+use App\Support\PublishStatus;
 use Carbon\Carbon;
 use Database\Factories\Support\CategoryImageProvider;
 use Database\Factories\Support\CityDataProvider;
@@ -116,6 +117,7 @@ class EventV2Factory extends Factory
             'title' => $title,
             'slug' => $slug,
             'event_type' => fake()->randomElement(['free', 'premium']),
+            'publish_status' => PublishStatus::DRAFT,
             'category_id' => $categoryId,
             'subcategory_ids' => function (array $attributes): ?array {
                 $categoryId = $attributes['category_id'] ?? null;
@@ -159,6 +161,7 @@ class EventV2Factory extends Factory
             'booking_instructions' => fake()->boolean(40) ? fake()->sentence() : null,
             'description' => implode("\n\n", fake()->paragraphs(3)),
             'contact_box_message' => fake()->boolean(30) ? fake()->sentence() : null,
+            'contact_box_design_message' => fake()->boolean(18) ? fake()->paragraph() : null,
             'venue_details' => fake()->boolean(40) ? fake()->sentence() : null,
             'image_path' => $imageUrl,
             'additional_images' => $additionalImages,
@@ -337,6 +340,27 @@ class EventV2Factory extends Factory
                 'venue_name' => fake()->optional(0.65)->company(),
                 'venue_id' => Venue::query()->where('city', $city['city'])->inRandomOrder()->value('id')
                     ?? Venue::query()->inRandomOrder()->value('id'),
+            ];
+        });
+    }
+
+    /**
+     * Demo-friendly contact tab copy, hero image, and {@see PublishStatus::PUBLISHED} (DatabaseSeeder path).
+     */
+    public function seedRichContactPresentation(): static
+    {
+        return $this->state(function (array $attributes): array {
+            $categoryId = $attributes['category_id'] ?? null;
+            $categoryName = $categoryId !== null
+                ? self::getCategoryName((int) $categoryId)
+                : 'Music';
+            $title = (string) ($attributes['title'] ?? 'Demo Event');
+
+            return [
+                'publish_status' => PublishStatus::PUBLISHED,
+                'contact_box_message' => 'Questions about tickets, accessibility, or group bookings? Message us—we usually reply within one business day.',
+                'contact_box_design_message' => "Thanks for stopping by!\n\n".fake()->paragraph(2),
+                'image_path' => CategoryImageProvider::getImageUrlFromTitle($title, $categoryName),
             ];
         });
     }

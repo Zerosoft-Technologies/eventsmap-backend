@@ -24,6 +24,7 @@ class AdminUserSeeder extends Seeder
                 'role' => User::ROLE_SUPER_ADMIN,
                 'is_active' => true,
                 'email_verified_at' => now(),
+                'profile_image_path' => 'https://api.dicebear.com/7.x/avataaars/svg?seed='.rawurlencode('superadmin@eventsmap.com'),
             ]
         );
 
@@ -36,6 +37,7 @@ class AdminUserSeeder extends Seeder
                 'role' => User::ROLE_ADMIN,
                 'is_active' => true,
                 'email_verified_at' => now(),
+                'profile_image_path' => 'https://api.dicebear.com/7.x/avataaars/svg?seed='.rawurlencode('admin@eventsmap.com'),
             ]
         );
 

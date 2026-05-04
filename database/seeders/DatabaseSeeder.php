@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
+            'profile_image_path' => 'https://api.dicebear.com/7.x/avataaars/svg?seed=testexample',
         ]);
 
         $this->call([

@@ -89,6 +89,8 @@ class PrerequisiteSeeder extends Seeder
                 'website' => \fake()->url(),
                 'description' => \fake()->sentence(12),
                 'image_path' => 'venues/images/placeholder.jpg',
+                'contact_box_message' => 'Ask about hosting dates, capacities, and technical packages.',
+                'contact_box_design_message' => "Welcome to our venue.\n\n".\fake()->paragraph(2),
                 'capacity' => \fake()->numberBetween(80, 5000),
                 'is_active' => true,
             ]);

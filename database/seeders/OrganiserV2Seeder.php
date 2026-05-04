@@ -36,6 +36,7 @@ class OrganiserV2Seeder extends Seeder
                     OrganiserV2::factory()
                         ->count($cluster['count'])
                         ->forCity($cluster['city'])
+                        ->seedRichContactPresentation()
                         ->create()
                         ->each(function (OrganiserV2 $organiser): void {
                             $this->syncOrganiserSubcategories($organiser);

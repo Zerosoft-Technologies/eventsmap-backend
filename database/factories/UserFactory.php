@@ -47,6 +47,7 @@ class UserFactory extends Factory
             'vat_number' => ($userIndex % 3 === 0) ? 'NL' . str_pad((string)$userIndex, 8, '0', STR_PAD_LEFT) . 'B' . ($userIndex % 100) : null,
             'stripe_subscription_id' => ($userIndex % 5 === 0) ? 'sub_' . Str::random(20) : null,
             'created_at' => now()->subDays($userIndex),
+            'profile_image_path' => 'https://api.dicebear.com/7.x/avataaars/svg?seed='.rawurlencode('user'.$userIndex.'@example.com'),
         ];
     }
 

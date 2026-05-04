@@ -40,6 +40,7 @@ class AccountsV2Seeder extends Seeder
                         'stripe_subscription_id' => $row['account_type'] === User::ACCOUNT_PREMIUM
                             ? 'sub_seed_'.Str::random(14)
                             : null,
+                        'profile_image_path' => $this->seedProfileImageUrl($row['email']),
                     ]
                 );
             }
@@ -124,5 +125,10 @@ class AccountsV2Seeder extends Seeder
                 'account_type' => User::ACCOUNT_PREMIUM,
             ],
         ];
+    }
+
+    private function seedProfileImageUrl(string $seed): string
+    {
+        return 'https://api.dicebear.com/7.x/avataaars/svg?seed='.rawurlencode($seed);
     }
 }

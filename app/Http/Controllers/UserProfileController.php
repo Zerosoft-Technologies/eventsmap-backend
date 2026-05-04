@@ -2,71 +2,77 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\MediaHelper;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class UserProfileController extends Controller
 {
     /**
      * PUT /api/user/profile
      *
-     * Update the authenticated user's profile.
-     * Requires auth:sanctum middleware.
+     * Update the authenticated user's profile (multipart file fields profile_image or avatar: JPEG/PNG/WebP, max 5MB).
      */
     public function update(UpdateProfileRequest $request): JsonResponse
     {
         $user = $request->user();
-        
-        // Get only the validated fields that were actually sent
+
         $validated = $request->validated();
-        
-        // Prepare update data
+
         $updateData = [];
-        
-        // Update name if provided
+
         if (isset($validated['name'])) {
             $updateData['name'] = $validated['name'];
         }
-        
-        // Update password if provided
+
         if (isset($validated['password'])) {
             $updateData['password'] = Hash::make($validated['password']);
-            // Invalidate all existing tokens to force re-login with new password
             $user->tokens()->delete();
         }
-        
-        // Update billing information if provided
+
         if (isset($validated['billing_type'])) {
             $updateData['billing_type'] = $validated['billing_type'];
         }
-        
+
         if (isset($validated['company_name'])) {
             $updateData['company_name'] = $validated['company_name'];
         }
-        
-        // VAT number validation check is handled in the form request
+
         if (isset($validated['vat_number'])) {
             $updateData['vat_number'] = $validated['vat_number'];
-            // Reset validation status if VAT number changes and wasn't previously validated
-            if (!$user->vat_validated) {
+            if (! $user->vat_validated) {
                 $updateData['vat_validated'] = false;
             }
         }
-        
+
         if (isset($validated['address'])) {
             $updateData['address'] = $validated['address'];
         }
-        
+
         if (isset($validated['country'])) {
             $updateData['country'] = $validated['country'];
         }
-        
-        // Only update if there's actually data to update
-        if (empty($updateData)) {
+
+        $profileImageChanged = false;
+
+        if ($request->boolean('remove_profile_image')) {
+            $this->deleteStoredProfileImage($user->profile_image_path);
+            $updateData['profile_image_path'] = null;
+            $profileImageChanged = true;
+        } elseif ($upload = $request->file('profile_image') ?? $request->file('avatar')) {
+            $this->deleteStoredProfileImage($user->profile_image_path);
+            $updateData['profile_image_path'] = $this->storeProfileImage($user, $upload);
+            $profileImageChanged = true;
+        }
+
+        if ($updateData === [] && ! $profileImageChanged) {
             return response()->json([
                 'success' => true,
                 'message' => 'No changes to update.',
@@ -75,19 +81,17 @@ class UserProfileController extends Controller
                 ],
             ]);
         }
-        
+
         try {
-            // Update the user
             $user->update($updateData);
-            
-            // Log the update for audit purposes
+            $user->refresh();
+
             Log::info('User profile updated', [
                 'user_id' => $user->id,
                 'updated_fields' => array_keys($updateData),
                 'ip' => $request->ip(),
             ]);
-            
-            // Return the updated user data
+
             return response()->json([
                 'success' => true,
                 'message' => 'Profile updated successfully.',
@@ -95,13 +99,13 @@ class UserProfileController extends Controller
                     'user' => $this->formatUser($user),
                 ],
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to update user profile', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update profile. Please try again.',
@@ -109,7 +113,7 @@ class UserProfileController extends Controller
             ], 500);
         }
     }
-    
+
     /**
      * Get user profile.
      * GET /api/user/profile
@@ -117,7 +121,7 @@ class UserProfileController extends Controller
     public function show(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -125,7 +129,40 @@ class UserProfileController extends Controller
             ],
         ]);
     }
-    
+
+    private function storeProfileImage(User $user, UploadedFile $image): string
+    {
+        $extension = strtolower((string) ($image->getClientOriginalExtension() ?: $image->guessExtension() ?: 'jpg'));
+        $extension = preg_replace('/[^a-z0-9]/', '', $extension);
+        if ($extension === '') {
+            $extension = 'jpg';
+        }
+
+        $filename = Str::uuid()->toString().'.'.$extension;
+
+        $path = $image->storeAs('profiles/'.$user->id, $filename, 'public');
+        if ($path === false) {
+            throw new \RuntimeException('Failed to store profile image.');
+        }
+
+        return $path;
+    }
+
+    private function deleteStoredProfileImage(?string $path): void
+    {
+        if ($path === null || $path === '') {
+            return;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return;
+        }
+
+        if (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+    }
+
     /**
      * Format user data for API response.
      */
@@ -151,6 +188,8 @@ class UserProfileController extends Controller
             'postal_code' => $user->postal_code,
             'city' => $user->city,
             'country' => $user->country,
+            'profile_image_path' => $user->profile_image_path,
+            'profile_image_url' => MediaHelper::resolveUrl($user->profile_image_path),
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
         ];

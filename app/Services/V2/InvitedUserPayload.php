@@ -17,8 +17,8 @@ final class InvitedUserPayload
     public static function toArray(User $user): array
     {
         $profileImage = null;
-        if (Schema::hasColumn('users', 'profile_image')) {
-            $path = $user->profile_image ?? null;
+        if (Schema::hasColumn('users', 'profile_image_path')) {
+            $path = $user->profile_image_path ?? null;
             if (is_string($path) && $path !== '') {
                 $profileImage = str_starts_with($path, 'http://') || str_starts_with($path, 'https://')
                     ? $path
