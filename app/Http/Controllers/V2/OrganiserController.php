@@ -14,6 +14,7 @@ use App\Models\OrganiserV2;
 use App\Services\V2\OrganiserService;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
+use App\Support\V2ProfileCoverImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,6 +32,7 @@ class OrganiserController extends Controller
     public function myOrganisers(Request $request): JsonResponse
     {
         $organisers = OrganiserV2::where('user_id', $request->user()->id)
+            ->with('user')
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -104,24 +106,10 @@ class OrganiserController extends Controller
             'tiktok_url' => $organiser->tiktok_url,
             'show_upcoming_events' => (bool) ($organiser->show_upcoming_events ?? false),
             'show_past_events' => (bool) ($organiser->show_past_events ?? false),
-            'image_path' => $organiser->image_path,
+            'image_path' => V2ProfileCoverImage::effectiveStoredPathForProfile($organiser, $organiser->user),
+            'profile_image' => V2ProfileCoverImage::coverImageUrl($organiser, $organiser->user),
+            'image_url' => V2ProfileCoverImage::coverImageUrl($organiser, $organiser->user),
         ];
-
-        // Handle main image URL
-        if ($organiser->image_path) {
-            if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $organiser->image_path)) {
-                $galleryImage = \App\Models\GalleryImage::where('image_id', $organiser->image_path)
-                    ->where('user_id', $organiser->user_id)
-                    ->where('is_deleted', false)
-                    ->first();
-
-                $data['image_url'] = $galleryImage ? MediaHelper::url($galleryImage->file_path) : null;
-            } else {
-                $data['image_url'] = MediaHelper::url($organiser->image_path);
-            }
-        } else {
-            $data['image_url'] = null;
-        }
 
         // Handle additional images
         $additionalImages = $organiser->additional_images ?? [];
@@ -181,7 +169,7 @@ class OrganiserController extends Controller
         $organiser = $this->organiserService->update($organiser, $data, $request);
 
         $organiser->refresh();
-        $organiser->load(['organiserCategory', 'organiserSubcategories']);
+        $organiser->load(['organiserCategory', 'organiserSubcategories', 'user']);
         $subcategoryIds = is_array($organiser->subcategory_ids) ? $organiser->subcategory_ids : [];
 
         $data = [
@@ -202,7 +190,9 @@ class OrganiserController extends Controller
             'description' => $organiser->description ?? null,
             'contact_box_message' => $organiser->contact_box_message,
             'contact_box_design_message' => $organiser->contact_box_design_message,
-            'image_url' => $organiser->image_path ? MediaHelper::url($organiser->image_path) : null,
+            'image_path' => V2ProfileCoverImage::effectiveStoredPathForProfile($organiser, $organiser->user),
+            'profile_image' => V2ProfileCoverImage::coverImageUrl($organiser, $organiser->user),
+            'image_url' => V2ProfileCoverImage::coverImageUrl($organiser, $organiser->user),
         ];
 
         return response()->json([

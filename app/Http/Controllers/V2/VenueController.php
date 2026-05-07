@@ -13,6 +13,7 @@ use App\Models\VenueV2;
 use App\Services\V2\VenueService;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
+use App\Support\V2ProfileCoverImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -100,24 +101,10 @@ class VenueController extends Controller
             'opening_hours' => $venue->opening_hours ?? [],
             'show_upcoming_events' => (bool) ($venue->show_upcoming_events ?? false),
             'show_past_events' => (bool) ($venue->show_past_events ?? false),
-            'image_path' => $venue->image_path,
+            'image_path' => V2ProfileCoverImage::effectiveStoredPathForProfile($venue, $venue->user),
+            'profile_image' => V2ProfileCoverImage::coverImageUrl($venue, $venue->user),
+            'image_url' => V2ProfileCoverImage::coverImageUrl($venue, $venue->user),
         ];
-
-        // Handle main image URL
-        if ($venue->image_path) {
-            if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $venue->image_path)) {
-                $galleryImage = \App\Models\GalleryImage::where('image_id', $venue->image_path)
-                    ->where('user_id', $venue->user_id)
-                    ->where('is_deleted', false)
-                    ->first();
-
-                $data['image_url'] = $galleryImage ? MediaHelper::url($galleryImage->file_path) : null;
-            } else {
-                $data['image_url'] = MediaHelper::url($venue->image_path);
-            }
-        } else {
-            $data['image_url'] = null;
-        }
 
         // Handle additional images
         $additionalImages = $venue->additional_images ?? [];
@@ -173,6 +160,7 @@ class VenueController extends Controller
         $venue = $this->venueService->update($venue, $data, $request);
 
         $venue->refresh();
+        $venue->load('user');
 
         $data = [
             'id' => $venue->id,
@@ -193,7 +181,9 @@ class VenueController extends Controller
             'contact_box_design_message' => $venue->contact_box_design_message,
             'allowance_of_dogs' => $venue->allowance_of_dogs,
             'accessibility_description' => $venue->accessibility_description,
-            'image_url' => $venue->image_path ? MediaHelper::url($venue->image_path) : null,
+            'image_path' => V2ProfileCoverImage::effectiveStoredPathForProfile($venue, $venue->user),
+            'profile_image' => V2ProfileCoverImage::coverImageUrl($venue, $venue->user),
+            'image_url' => V2ProfileCoverImage::coverImageUrl($venue, $venue->user),
         ];
 
         return response()->json([

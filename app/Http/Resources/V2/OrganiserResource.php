@@ -5,6 +5,7 @@ namespace App\Http\Resources\V2;
 use App\Helpers\MediaHelper;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
+use App\Support\V2ProfileCoverImage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,18 +25,9 @@ class OrganiserResource extends JsonResource
                 ?? ($this->publish_status ?? PublishStatus::DRAFT),
             'event_type' => $this->event_type,
 
-            'cover_image' => $this->when($this->image_path, function () {
-                if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $this->image_path)) {
-                    $galleryImage = \App\Models\GalleryImage::where('image_id', $this->image_path)
-                        ->where('user_id', $this->user_id)
-                        ->where('is_deleted', false)
-                        ->first();
-
-                    return $galleryImage ? MediaHelper::url($galleryImage->file_path) : null;
-                } else {
-                    return MediaHelper::resolveUrl($this->image_path);
-                }
-            }),
+            'image_path' => V2ProfileCoverImage::effectiveStoredPathForProfile($this->resource, null),
+            'profile_image' => V2ProfileCoverImage::coverImageUrl($this->resource, null),
+            'cover_image' => V2ProfileCoverImage::coverImageUrl($this->resource, null),
 
             // Category
             'category' => $this->whenLoaded('category', function () {

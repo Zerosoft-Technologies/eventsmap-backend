@@ -13,6 +13,7 @@ use App\Models\TalentV2;
 use App\Services\V2\TalentService;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
+use App\Support\V2ProfileCoverImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -101,24 +102,10 @@ class TalentController extends Controller
             'highlights' => $talent->highlights,
             'show_upcoming_events' => (bool) ($talent->show_upcoming_events ?? false),
             'show_past_events' => (bool) ($talent->show_past_events ?? false),
-            'image_path' => $talent->image_path,
+            'image_path' => V2ProfileCoverImage::effectiveStoredPathForProfile($talent, $talent->user),
+            'profile_image' => V2ProfileCoverImage::coverImageUrl($talent, $talent->user),
+            'image_url' => V2ProfileCoverImage::coverImageUrl($talent, $talent->user),
         ];
-
-        // Handle main image URL
-        if ($talent->image_path) {
-            if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $talent->image_path)) {
-                $galleryImage = \App\Models\GalleryImage::where('image_id', $talent->image_path)
-                    ->where('user_id', $talent->user_id)
-                    ->where('is_deleted', false)
-                    ->first();
-
-                $data['image_url'] = $galleryImage ? MediaHelper::url($galleryImage->file_path) : null;
-            } else {
-                $data['image_url'] = MediaHelper::url($talent->image_path);
-            }
-        } else {
-            $data['image_url'] = null;
-        }
 
         // Handle additional images
         $additionalImages = $talent->additional_images ?? [];
@@ -174,7 +161,7 @@ class TalentController extends Controller
         $talent = $this->talentService->update($talent, $data, $request);
 
         $talent->refresh();
-        $talent->load(['talentCategory', 'talentSubcategories']);
+        $talent->load(['talentCategory', 'talentSubcategories', 'user']);
 
         $data = [
             'id' => $talent->id,
@@ -195,7 +182,9 @@ class TalentController extends Controller
             'description' => $talent->description ?? null,
             'contact_box_message' => $talent->contact_box_message,
             'contact_box_design_message' => $talent->contact_box_design_message,
-            'image_url' => $talent->image_path ? MediaHelper::url($talent->image_path) : null,
+            'image_path' => V2ProfileCoverImage::effectiveStoredPathForProfile($talent, $talent->user),
+            'profile_image' => V2ProfileCoverImage::coverImageUrl($talent, $talent->user),
+            'image_url' => V2ProfileCoverImage::coverImageUrl($talent, $talent->user),
         ];
 
         return response()->json([

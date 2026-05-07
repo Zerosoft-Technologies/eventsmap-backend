@@ -7,6 +7,7 @@ use App\Models\OrganiserV2;
 use App\Models\TalentV2;
 use App\Models\User;
 use App\Models\Venue;
+use App\Support\V2ProfileCoverImage;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
@@ -122,7 +123,7 @@ class EventInvitedEntitiesService
 
         return TalentV2::query()
             ->whereIn('user_id', $userIds)
-            ->select(['id', 'user_id', 'contact_box_message', 'contact_box_design_message'])
+            ->select(['id', 'user_id', 'image_path', 'contact_box_message', 'contact_box_design_message'])
             ->get()
             ->keyBy('user_id');
     }
@@ -139,7 +140,7 @@ class EventInvitedEntitiesService
 
         return OrganiserV2::query()
             ->whereIn('user_id', $userIds)
-            ->select(['id', 'user_id', 'contact_box_message', 'contact_box_design_message'])
+            ->select(['id', 'user_id', 'image_path', 'contact_box_message', 'contact_box_design_message'])
             ->get()
             ->keyBy('user_id');
     }
@@ -179,6 +180,10 @@ class EventInvitedEntitiesService
             $profile = $profilesByUserId->get($id);
             $row['contact_box_message'] = $profile?->contact_box_message;
             $row['contact_box_design_message'] = $profile?->contact_box_design_message;
+            if ($profile instanceof TalentV2 || $profile instanceof OrganiserV2) {
+                $user = $usersById->get($id);
+                $row['profile_image'] = V2ProfileCoverImage::coverImageUrl($profile, $user);
+            }
             $out[] = $row;
         }
 
