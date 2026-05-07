@@ -78,6 +78,9 @@ class AccountInvitesService
     {
         $userTable = (new User)->getTable();
         $userColumns = ["{$userTable}.id", "{$userTable}.name", "{$userTable}.email", "{$userTable}.full_name"];
+        if (Schema::hasColumn($userTable, 'profile_image_path')) {
+            $userColumns[] = "{$userTable}.profile_image_path";
+        }
         if (Schema::hasColumn($userTable, 'profile_image')) {
             $userColumns[] = "{$userTable}.profile_image";
         }
@@ -320,7 +323,7 @@ class AccountInvitesService
             'profile_id' => $user->id,
             'name' => $name,
             'email' => (string) ($user->email ?? ''),
-            'image_path' => $this->resolveImagePath($profile?->image_path ?? ($user->profile_image ?? null)),
+            'image_path' => $this->resolveImagePath($profile?->image_path ?? $this->userAvatarStoragePath($user)),
             'slug' => (string) ($profile?->slug ?? ''),
         ];
     }
@@ -342,7 +345,7 @@ class AccountInvitesService
             'profile_id' => $user->id,
             'name' => $name,
             'email' => (string) ($user->email ?? ''),
-            'image_path' => $this->resolveImagePath($profile?->image_path ?? ($user->profile_image ?? null)),
+            'image_path' => $this->resolveImagePath($profile?->image_path ?? $this->userAvatarStoragePath($user)),
             'slug' => (string) ($profile?->slug ?? ''),
         ];
     }
@@ -374,12 +377,36 @@ class AccountInvitesService
     }
 
     /**
+     * Stored path or external URL for the user's avatar (matches {@see User} / {@see InvitedUserPayload}).
+     */
+    private function userAvatarStoragePath(User $user): ?string
+    {
+        if (Schema::hasColumn('users', 'profile_image_path')) {
+            $v = $user->profile_image_path ?? null;
+            if (is_string($v) && $v !== '') {
+                return $v;
+            }
+        }
+        if (Schema::hasColumn('users', 'profile_image')) {
+            $v = $user->profile_image ?? null;
+            if (is_string($v) && $v !== '') {
+                return $v;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @param  int[]  $userIds
      * @return EloquentCollection<int, User>
      */
     private function loadUsersForInvites(array $userIds): EloquentCollection
     {
         $columns = ['id', 'name', 'email', 'full_name'];
+        if (Schema::hasColumn('users', 'profile_image_path')) {
+            $columns[] = 'profile_image_path';
+        }
         if (Schema::hasColumn('users', 'profile_image')) {
             $columns[] = 'profile_image';
         }
