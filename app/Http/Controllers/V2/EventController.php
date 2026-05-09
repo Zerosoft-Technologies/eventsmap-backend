@@ -69,7 +69,7 @@ class EventController extends Controller
         ]);
 
         $query = EventV2::query()
-            ->with(['category', 'venue', 'organisers', 'talents'])
+            ->with(['category', 'subcategories', 'venue', 'organisers', 'talents'])
             ->where('publish_status', PublishStatus::PUBLISHED);
 
         // Search filter (ILIKE is PostgreSQL-only; MySQL uses LIKE + case-insensitive collation)
@@ -186,6 +186,7 @@ class EventController extends Controller
         $perPage = $request->input('per_page', 20);
         $events = $query->paginate($perPage);
 
+        $this->hydrateSubcategoriesForEventListing($events->items());
         $this->eventInvitedEntitiesService->hydrate($events->items());
 
         return response()->json([
@@ -201,6 +202,64 @@ class EventController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Attach SubCategory models from {@see EventV2::$subcategory_ids} when the pivot relation is empty (listing payloads).
+     *
+     * @param  array<int, EventV2>  $events
+     */
+    private function hydrateSubcategoriesForEventListing(array $events): void
+    {
+        if ($events === []) {
+            return;
+        }
+
+        $neededIds = [];
+        foreach ($events as $event) {
+            if (! $event instanceof EventV2) {
+                continue;
+            }
+            if ($event->relationLoaded('subcategories') && $event->subcategories->isNotEmpty()) {
+                continue;
+            }
+            $ids = $event->subcategory_ids;
+            if (! is_array($ids) || $ids === []) {
+                continue;
+            }
+            foreach ($ids as $id) {
+                $neededIds[(int) $id] = true;
+            }
+        }
+
+        if ($neededIds === []) {
+            return;
+        }
+
+        $subsById = SubCategory::query()
+            ->whereIn('id', array_keys($neededIds))
+            ->get()
+            ->keyBy('id');
+
+        foreach ($events as $event) {
+            if (! $event instanceof EventV2) {
+                continue;
+            }
+            if ($event->relationLoaded('subcategories') && $event->subcategories->isNotEmpty()) {
+                continue;
+            }
+            $ids = is_array($event->subcategory_ids) ? $event->subcategory_ids : [];
+            if ($ids === []) {
+                continue;
+            }
+            $collection = collect($ids)
+                ->map(fn ($id) => $subsById->get((int) $id))
+                ->filter()
+                ->values();
+            if ($collection->isNotEmpty()) {
+                $event->setRelation('subcategories', $collection);
+            }
+        }
     }
 
     /**

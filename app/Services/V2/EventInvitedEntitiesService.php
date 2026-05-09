@@ -2,11 +2,15 @@
 
 namespace App\Services\V2;
 
+use App\Http\Resources\V2\OrganiserResource;
+use App\Http\Resources\V2\TalentResource;
+use App\Http\Resources\V2\VenueResource;
 use App\Models\EventV2;
 use App\Models\OrganiserV2;
 use App\Models\TalentV2;
 use App\Models\User;
 use App\Models\Venue;
+use App\Models\VenueV2;
 use App\Support\V2ProfileCoverImage;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -14,8 +18,11 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Bulk-loads users and venues referenced by invited_* ID arrays on events.
  *
- * Invited talents / organisers resolve {@see TalentV2} / {@see OrganiserV2} by {@code user_id}
- * so contact box copy can be exposed on embedded objects.
+ * Invited talents / organisers resolve {@see TalentV2} / {@see OrganiserV2} by {@code user_id}. When several
+ * V2 rows exist per user, the lowest {@code id} is used. Each invite object includes nested {@code talent_v2} /
+ * {@code organiser_v2} (full API resource shape) when present.
+ *
+ * Invited venues use legacy {@see Venue}; {@see VenueV2} is resolved by the venue owner's {@code user_id} the same way.
  */
 class EventInvitedEntitiesService
 {
@@ -67,18 +74,21 @@ class EventInvitedEntitiesService
             ? collect()
             : Venue::query()->whereIn('id', $venueIds)->get()->keyBy('id');
 
+        $venueOwnerUserIds = $venuesById->pluck('user_id')->unique()->filter()->values()->all();
+        $venueV2ByUserId = $this->loadVenueV2FirstByUserId($venueOwnerUserIds);
+
         foreach ($events as $event) {
             $event->setAttribute(
                 'invited_talents_objects',
-                $this->mapOrderedInvitedUsersWithProfile($usersById, $talentsByUserId, $this->normalizeIdList($event->invited_talents ?? []))
+                $this->mapOrderedTalentInvites($usersById, $talentsByUserId, $this->normalizeIdList($event->invited_talents ?? []))
             );
             $event->setAttribute(
                 'invited_organisers_objects',
-                $this->mapOrderedInvitedUsersWithProfile($usersById, $organisersByUserId, $this->normalizeIdList($event->invited_organisers ?? []))
+                $this->mapOrderedOrganiserInvites($usersById, $organisersByUserId, $this->normalizeIdList($event->invited_organisers ?? []))
             );
             $event->setAttribute(
                 'invited_venues_objects',
-                $this->mapOrderedVenues($venuesById, $this->normalizeIdList($event->invited_venues ?? []))
+                $this->mapOrderedVenues($venuesById, $venueV2ByUserId, $this->normalizeIdList($event->invited_venues ?? []))
             );
         }
     }
@@ -112,37 +122,64 @@ class EventInvitedEntitiesService
     }
 
     /**
+     * First {@see TalentV2} per {@code user_id} (lowest id wins when duplicates exist).
+     *
      * @param  int[]  $userIds
-     * @return Collection<int, TalentV2>
+     * @return Collection<int|string, TalentV2>
      */
     private function loadTalentProfilesByUserId(array $userIds): Collection
     {
-        if (! Schema::hasTable('talents_v2')) {
+        if ($userIds === [] || ! Schema::hasTable('talents_v2')) {
             return collect();
         }
 
         return TalentV2::query()
             ->whereIn('user_id', $userIds)
-            ->select(['id', 'user_id', 'image_path', 'contact_box_message', 'contact_box_design_message'])
+            ->orderBy('id')
             ->get()
-            ->keyBy('user_id');
+            ->groupBy('user_id')
+            ->map(fn (Collection $group) => $group->first());
     }
 
     /**
+     * First {@see OrganiserV2} per {@code user_id} (lowest id wins when duplicates exist).
+     *
      * @param  int[]  $userIds
-     * @return Collection<int, OrganiserV2>
+     * @return Collection<int|string, OrganiserV2>
      */
     private function loadOrganiserProfilesByUserId(array $userIds): Collection
     {
-        if (! Schema::hasTable('organiser_v2')) {
+        if ($userIds === [] || ! Schema::hasTable('organiser_v2')) {
             return collect();
         }
 
         return OrganiserV2::query()
             ->whereIn('user_id', $userIds)
-            ->select(['id', 'user_id', 'image_path', 'contact_box_message', 'contact_box_design_message'])
+            ->orderBy('id')
             ->get()
-            ->keyBy('user_id');
+            ->groupBy('user_id')
+            ->map(fn (Collection $group) => $group->first());
+    }
+
+    /**
+     * First {@see VenueV2} per venue owner {@code user_id} (matches legacy invited {@see Venue} via owner).
+     *
+     * @param  int[]  $userIds
+     * @return Collection<int|string, VenueV2>
+     */
+    private function loadVenueV2FirstByUserId(array $userIds): Collection
+    {
+        if ($userIds === [] || ! Schema::hasTable('venue_v2')) {
+            return collect();
+        }
+
+        return VenueV2::query()
+            ->whereIn('user_id', $userIds)
+            ->with('user')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('user_id')
+            ->map(fn (Collection $group) => $group->first());
     }
 
     /**
@@ -166,23 +203,54 @@ class EventInvitedEntitiesService
     }
 
     /**
-     * @param  Collection<int, TalentV2|OrganiserV2|null>  $profilesByUserId  keyed by {@code user_id}
+     * @param  Collection<int|string, TalentV2>  $talentsByUserId
      * @return array<int, array<string, mixed>>
      */
-    private function mapOrderedInvitedUsersWithProfile(Collection $usersById, Collection $profilesByUserId, array $orderedIds): array
+    private function mapOrderedTalentInvites(Collection $usersById, Collection $talentsByUserId, array $orderedIds): array
     {
         $out = [];
         foreach ($orderedIds as $id) {
             if (! $usersById->has($id)) {
                 continue;
             }
-            $row = InvitedUserPayload::toArray($usersById->get($id));
-            $profile = $profilesByUserId->get($id);
+            $user = $usersById->get($id);
+            $row = InvitedUserPayload::toArray($user);
+            $profile = $talentsByUserId->get($id) ?? $talentsByUserId->get((string) $id);
             $row['contact_box_message'] = $profile?->contact_box_message;
             $row['contact_box_design_message'] = $profile?->contact_box_design_message;
-            if ($profile instanceof TalentV2 || $profile instanceof OrganiserV2) {
-                $user = $usersById->get($id);
+            $row['talent_v2'] = null;
+            if ($profile instanceof TalentV2) {
                 $row['profile_image'] = V2ProfileCoverImage::coverImageUrl($profile, $user);
+                $profile->loadMissing(['category', 'talentCategory', 'talentSubcategories', 'user']);
+                $row['talent_v2'] = (new TalentResource($profile))->toArray(request());
+            }
+            $out[] = $row;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  Collection<int|string, OrganiserV2>  $organisersByUserId
+     * @return array<int, array<string, mixed>>
+     */
+    private function mapOrderedOrganiserInvites(Collection $usersById, Collection $organisersByUserId, array $orderedIds): array
+    {
+        $out = [];
+        foreach ($orderedIds as $id) {
+            if (! $usersById->has($id)) {
+                continue;
+            }
+            $user = $usersById->get($id);
+            $row = InvitedUserPayload::toArray($user);
+            $profile = $organisersByUserId->get($id) ?? $organisersByUserId->get((string) $id);
+            $row['contact_box_message'] = $profile?->contact_box_message;
+            $row['contact_box_design_message'] = $profile?->contact_box_design_message;
+            $row['organiser_v2'] = null;
+            if ($profile instanceof OrganiserV2) {
+                $row['profile_image'] = V2ProfileCoverImage::coverImageUrl($profile, $user);
+                $profile->loadMissing(['category', 'organiserCategory', 'organiserSubcategories', 'user']);
+                $row['organiser_v2'] = (new OrganiserResource($profile))->toArray(request());
             }
             $out[] = $row;
         }
@@ -192,16 +260,29 @@ class EventInvitedEntitiesService
 
     /**
      * @param  Collection<int, Venue>  $venuesById
+     * @param  Collection<int|string, VenueV2>  $venueV2ByUserId
      * @return array<int, array<string, mixed>>
      */
-    private function mapOrderedVenues(Collection $venuesById, array $orderedIds): array
+    private function mapOrderedVenues(Collection $venuesById, Collection $venueV2ByUserId, array $orderedIds): array
     {
         $out = [];
         foreach ($orderedIds as $id) {
             if (! $venuesById->has($id)) {
                 continue;
             }
-            $out[] = InvitedVenuePayload::toArray($venuesById->get($id));
+            /** @var Venue $venue */
+            $venue = $venuesById->get($id);
+            $row = InvitedVenuePayload::toArray($venue);
+            $row['venue_v2'] = null;
+            $uid = $venue->user_id;
+            if ($uid !== null) {
+                $v2 = $venueV2ByUserId->get((int) $uid) ?? $venueV2ByUserId->get((string) (int) $uid);
+                if ($v2 instanceof VenueV2) {
+                    $v2->loadMissing(['category', 'user']);
+                    $row['venue_v2'] = (new VenueResource($v2))->toArray(request());
+                }
+            }
+            $out[] = $row;
         }
 
         return $out;

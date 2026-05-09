@@ -24,9 +24,12 @@ class EventResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $subcategories = $this->subcategoriesForResponse();
+
         return [
             'id' => $this->id,
             'title' => $this->title,
+            'description' => $this->description,
             'venue_name' => $this->resource->getAttribute('venue_name'),
             'slug' => $this->slug,
             'cover_image' => $this->when($this->image_path, function () {
@@ -118,23 +121,8 @@ class EventResource extends JsonResource
                 })->filter()->values();
             }),
 
-            'subcategories' => $this->whenLoaded('subcategories', function () {
-                // If subcategories relation is loaded, use it
-                if ($this->relationLoaded('subcategories') && $this->subcategories !== null) {
-                    return $this->subcategories->map(fn ($sc) => [
-                        'id' => $sc->id,
-                        'name' => $sc->name,
-                        'slug' => $sc->slug,
-                    ]);
-                }
-
-                // Otherwise, get from IDs
-                return $this->subcategories_from_ids->map(fn ($sc) => [
-                    'id' => $sc->id,
-                    'name' => $sc->name,
-                    'slug' => $sc->slug,
-                ]);
-            }),
+            'subcategories' => $subcategories,
+            'sub_category' => $subcategories[0] ?? null,
 
             // Date & Time
             'formatted_date' => $this->start_date?->format('Y-m-d') ?? $this->event_date?->format('Y-m-d'),
@@ -156,6 +144,8 @@ class EventResource extends JsonResource
             'dresscode' => $this->dress_code,
             'age_limit' => $this->age_limit,
             'entrance_status' => $this->entrance_status,
+            'event_type' => $this->event_type,
+            'booking_instructions' => $this->booking_instructions,
 
             // Status (stored + computed)
             'status' => $this->status,
@@ -223,5 +213,25 @@ class EventResource extends JsonResource
             'updated_at' => $this->updated_at?->toIso8601String(),
             'deleted_at' => $this->when($this->deleted_at, fn () => $this->deleted_at?->toIso8601String()),
         ];
+    }
+
+    /**
+     * @return list<array{id: int, name: string, slug: string}>
+     */
+    protected function subcategoriesForResponse(): array
+    {
+        if ($this->relationLoaded('subcategories') && $this->subcategories !== null && $this->subcategories->isNotEmpty()) {
+            return $this->subcategories->map(fn ($sc) => [
+                'id' => $sc->id,
+                'name' => $sc->name,
+                'slug' => $sc->slug,
+            ])->values()->all();
+        }
+
+        return $this->subcategories_from_ids->map(fn ($sc) => [
+            'id' => $sc->id,
+            'name' => $sc->name,
+            'slug' => $sc->slug,
+        ])->values()->all();
     }
 }
