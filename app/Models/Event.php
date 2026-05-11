@@ -242,8 +242,14 @@ class Event extends Model
      */
     public function getIsLiveNowAttribute(): bool
     {
-        $now = Carbon::now();
-        return $now->between($this->start_datetime, $this->end_datetime);
+        $start = $this->start_datetime;
+        $end = $this->end_datetime;
+
+        if ($start === null || $end === null) {
+            return false;
+        }
+
+        return Carbon::now()->between($start, $end);
     }
 
     /**
