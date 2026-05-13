@@ -2,6 +2,8 @@
 
 namespace App\Services\V2;
 
+use App\Models\EventInvitation;
+use App\Models\VenueCategory;
 use App\Models\VenueV2;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
@@ -15,17 +17,28 @@ use Illuminate\Support\Str;
 
 class VenueService
 {
+    public function __construct(
+        private readonly EventInvitationService $eventInvitationService
+    ) {}
+
     public function getUserVenues(User $user)
     {
-        return VenueV2::where('user_id', $user->id)
-            ->with(['category', 'user'])
+        $venues = VenueV2::where('user_id', $user->id)
+            ->with(['category', 'user', 'venueCategory', 'venueSubcategories'])
             ->orderBy('created_at', 'desc')
             ->get();
+
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles($venues, EventInvitation::TYPE_VENUE);
+
+        return $venues;
     }
 
     public function create(array $data, User $user): VenueV2
     {
-        return DB::transaction(function () use ($data, $user) {
+        $venue = DB::transaction(function () use ($data, $user) {
+            $defaultVenueCategoryId = $data['venue_category_id']
+                ?? VenueCategory::query()->where('slug', VenueCategory::MAIN_SLUG)->value('id');
+
             $venueData = [
                 'user_id' => $user->id,
                 'status' => ProfilePublicationStatus::DRAFT,
@@ -34,6 +47,7 @@ class VenueService
                 'slug' => $this->generateUniqueSlug($data['title']),
                 'event_type' => $data['event_type'] ?? 'free',
                 'category_id' => $data['category_id'] ?? null,
+                'venue_category_id' => $defaultVenueCategoryId,
                 'address' => $data['address'],
                 'latitude' => $data['latitude'] ?? null,
                 'longitude' => $data['longitude'] ?? null,
@@ -85,17 +99,26 @@ class VenueService
 
             $venue = VenueV2::create($venueData);
 
+            if (! empty($data['venue_subcategory_ids'])) {
+                $venue->venueSubcategories()->sync($data['venue_subcategory_ids']);
+            }
+
             Log::info('Venue created', ['venue_id' => $venue->id, 'user_id' => $user->id]);
 
-            return $venue->load(['category', 'user']);
+            return $venue->load(['category', 'user', 'venueCategory', 'venueSubcategories']);
         });
+
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$venue], EventInvitation::TYPE_VENUE);
+
+        return $venue;
     }
 
     public function update(VenueV2 $venue, array $data, ?Request $request = null): VenueV2
     {
-        return DB::transaction(function () use ($venue, $data, $request) {
+        $venue = DB::transaction(function () use ($venue, $data, $request) {
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids',
+                'venue_category_id',
                 'status', 'publish_status',
                 'address', 'latitude', 'longitude',
                 'description', 'description_items',
@@ -170,10 +193,18 @@ class VenueService
 
             $venue->update($updateData);
 
+            if (array_key_exists('venue_subcategory_ids', $data)) {
+                $venue->venueSubcategories()->sync($data['venue_subcategory_ids'] ?? []);
+            }
+
             Log::info('Venue updated', ['venue_id' => $venue->id]);
 
-            return $venue->load(['category', 'user']);
+            return $venue->load(['category', 'user', 'venueCategory', 'venueSubcategories']);
         });
+
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$venue], EventInvitation::TYPE_VENUE);
+
+        return $venue;
     }
 
     public function delete(VenueV2 $venue): void

@@ -12,6 +12,8 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\OrganizerEventController;
+use App\Http\Controllers\Admin\OrganizerEventDebugController;
+use App\Http\Controllers\Admin\OrganizerEventFixedController;
 use App\Http\Controllers\Admin\TalentController;
 use App\Http\Controllers\Admin\UserController;
 use Illuminate\Support\Facades\Route;

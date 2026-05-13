@@ -9,7 +9,9 @@ use App\Http\Requests\V2\UpdateProfilePublicationStatusRequest;
 use App\Http\Requests\V2\UpdatePublishStatusRequest;
 use App\Http\Requests\V2\UpdateVenueRequest;
 use App\Http\Resources\V2\VenueResource;
+use App\Models\EventInvitation;
 use App\Models\VenueV2;
+use App\Services\V2\EventInvitationService;
 use App\Services\V2\VenueService;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
@@ -20,7 +22,8 @@ use Illuminate\Http\Request;
 class VenueController extends Controller
 {
     public function __construct(
-        private readonly VenueService $venueService
+        private readonly VenueService $venueService,
+        private readonly EventInvitationService $eventInvitationService
     ) {}
 
     /**
@@ -55,7 +58,7 @@ class VenueController extends Controller
      */
     public function show(Request $request, int $id): JsonResponse
     {
-        $venue = VenueV2::with(['category', 'user'])->findOrFail($id);
+        $venue = VenueV2::with(['category', 'user', 'venueCategory', 'venueSubcategories'])->findOrFail($id);
 
         $user = $request->user();
         if (!$venue->isOwner($user) && !$user->isAdmin()) {
@@ -78,6 +81,18 @@ class VenueController extends Controller
             'event_type' => $venue->event_type ?? 'free',
             'category_id' => $venue->category_id,
             'subcategory_ids' => $venue->subcategory_ids ?? [],
+            'venue_category_id' => $venue->venue_category_id,
+            'venue_category' => $venue->venueCategory ? [
+                'id' => $venue->venueCategory->id,
+                'name' => $venue->venueCategory->name,
+                'slug' => $venue->venueCategory->slug,
+            ] : null,
+            'venue_subcategory_ids' => $venue->venueSubcategories->pluck('id')->values()->all(),
+            'venue_subcategories' => $venue->venueSubcategories->map(fn ($sc) => [
+                'id' => $sc->id,
+                'name' => $sc->name,
+                'slug' => $sc->slug,
+            ])->values()->all(),
             'address' => $venue->address,
             'latitude' => $venue->latitude !== null ? (float) $venue->latitude : null,
             'longitude' => $venue->longitude !== null ? (float) $venue->longitude : null,
@@ -127,6 +142,13 @@ class VenueController extends Controller
         $data['additional_images'] = $additionalImages;
         $data['additional_image_urls'] = $additionalImageUrls;
 
+        if ($venue->show_upcoming_events ?? false) {
+            $data['upcoming_events'] = $this->eventInvitationService->upcomingAcceptedEventsPayloadForProfileUser(
+                (int) $venue->user_id,
+                EventInvitation::TYPE_VENUE
+            );
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Venue fetched successfully',
@@ -160,7 +182,7 @@ class VenueController extends Controller
         $venue = $this->venueService->update($venue, $data, $request);
 
         $venue->refresh();
-        $venue->load('user');
+        $venue->load(['user', 'venueCategory', 'venueSubcategories']);
 
         $data = [
             'id' => $venue->id,
@@ -174,6 +196,18 @@ class VenueController extends Controller
             'event_type' => $venue->event_type ?? 'free',
             'category_id' => $venue->category_id,
             'subcategory_ids' => is_array($venue->subcategory_ids) ? $venue->subcategory_ids : [],
+            'venue_category_id' => $venue->venue_category_id,
+            'venue_category' => $venue->venueCategory ? [
+                'id' => $venue->venueCategory->id,
+                'name' => $venue->venueCategory->name,
+                'slug' => $venue->venueCategory->slug,
+            ] : null,
+            'venue_subcategory_ids' => $venue->venueSubcategories->pluck('id')->values()->all(),
+            'venue_subcategories' => $venue->venueSubcategories->map(fn ($sc) => [
+                'id' => $sc->id,
+                'name' => $sc->name,
+                'slug' => $sc->slug,
+            ])->values()->all(),
             'address' => $venue->address,
             'description' => $venue->description ?? null,
             'description_items' => $venue->description_items ?? [],
@@ -185,6 +219,13 @@ class VenueController extends Controller
             'profile_image' => V2ProfileCoverImage::coverImageUrl($venue, $venue->user),
             'image_url' => V2ProfileCoverImage::coverImageUrl($venue, $venue->user),
         ];
+
+        if ($venue->show_upcoming_events ?? false) {
+            $data['upcoming_events'] = $this->eventInvitationService->upcomingAcceptedEventsPayloadForProfileUser(
+                (int) $venue->user_id,
+                EventInvitation::TYPE_VENUE
+            );
+        }
 
         return response()->json([
             'success' => true,
@@ -212,6 +253,8 @@ class VenueController extends Controller
         $venue->refresh();
         $venue->load(['category', 'user']);
 
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$venue], EventInvitation::TYPE_VENUE);
+
         return response()->json([
             'success' => true,
             'message' => 'Publication status updated successfully',
@@ -237,6 +280,8 @@ class VenueController extends Controller
         $venue->update(['publish_status' => $request->validated('publish_status')]);
         $venue->refresh();
         $venue->load(['category', 'user']);
+
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$venue], EventInvitation::TYPE_VENUE);
 
         return response()->json([
             'success' => true,

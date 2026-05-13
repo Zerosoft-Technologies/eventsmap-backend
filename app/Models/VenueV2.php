@@ -2,14 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasV2GeoScopes;
+use App\Support\ProfilePublicationStatus;
+use App\Support\PublishStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class VenueV2 extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, HasV2GeoScopes, SoftDeletes;
 
     protected $table = 'venue_v2';
 
@@ -22,6 +27,7 @@ class VenueV2 extends Model
         'event_type',
         'category_id',
         'subcategory_ids',
+        'venue_category_id',
         'address',
         'latitude',
         'longitude',
@@ -80,6 +86,21 @@ class VenueV2 extends Model
         return $this->belongsTo(Category::class);
     }
 
+    public function venueCategory(): BelongsTo
+    {
+        return $this->belongsTo(VenueCategory::class, 'venue_category_id');
+    }
+
+    public function venueSubcategories(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            VenueSubcategory::class,
+            'venue_venue_subcategory',
+            'venue_id',
+            'subcategory_id'
+        );
+    }
+
     public function getSubcategoriesFromIdsAttribute()
     {
         if (empty($this->subcategory_ids)) {
@@ -92,5 +113,27 @@ class VenueV2 extends Model
     public function isOwner(?User $user): bool
     {
         return $user && $this->user_id === $user->id;
+    }
+
+    /**
+     * Scope: only {@see PublishStatus::PUBLISHED} rows (public listings / embedded API payloads).
+     */
+    public function scopePublishStatusPublished(Builder $query): Builder
+    {
+        return $query->where('publish_status', PublishStatus::PUBLISHED);
+    }
+
+    /**
+     * Scope for map / public directory: approved, published, not draft or blocked states.
+     */
+    public function scopePublicVisible(Builder $query): Builder
+    {
+        return $query->publishStatusPublished()
+            ->where('is_approved', true)
+            ->whereNotIn('status', [
+                ProfilePublicationStatus::DRAFT,
+                ProfilePublicationStatus::SUSPENDED,
+                ProfilePublicationStatus::CANCELLED,
+            ]);
     }
 }

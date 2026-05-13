@@ -42,7 +42,7 @@ class AdminVenueV2Controller extends Controller
         ]);
 
         $query = VenueV2::query()
-            ->with(['category', 'user']);
+            ->with(['category', 'user', 'venueCategory', 'venueSubcategories']);
 
         // Search filter
         $query->when($request->filled('search'), function ($q) use ($request) {
@@ -125,7 +125,7 @@ class AdminVenueV2Controller extends Controller
      */
     public function show($id): JsonResponse
     {
-        $venue = VenueV2::with(['category', 'user'])->findOrFail($id);
+        $venue = VenueV2::with(['category', 'user', 'venueCategory', 'venueSubcategories'])->findOrFail($id);
 
         return response()->json([
             'success' => true,
@@ -150,6 +150,7 @@ class AdminVenueV2Controller extends Controller
                 'slug' => $this->generateUniqueSlug($data['title']),
                 'event_type' => $data['event_type'] ?? 'free',
                 'category_id' => $data['category_id'] ?? null,
+                'venue_category_id' => $data['venue_category_id'] ?? null,
                 'address' => $data['address'],
                 'latitude' => $data['latitude'] ?? null,
                 'longitude' => $data['longitude'] ?? null,
@@ -198,9 +199,13 @@ class AdminVenueV2Controller extends Controller
 
             $venue = VenueV2::create($venueData);
 
+            if (array_key_exists('venue_subcategory_ids', $data) && is_array($data['venue_subcategory_ids'])) {
+                $venue->venueSubcategories()->sync($data['venue_subcategory_ids']);
+            }
+
             Log::info('Admin created venue', ['venue_id' => $venue->id, 'admin_id' => $request->user()->id]);
 
-            return $venue->load(['category', 'user']);
+            return $venue->load(['category', 'user', 'venueCategory', 'venueSubcategories']);
         });
 
         return response()->json([
@@ -223,6 +228,7 @@ class AdminVenueV2Controller extends Controller
         $venue = DB::transaction(function () use ($venue, $data, $request) {
             $allowedFields = [
                 'user_id', 'title', 'event_type', 'category_id', 'subcategory_ids',
+                'venue_category_id',
                 'address', 'latitude', 'longitude',
                 'description', 'description_items',
                 'allow_dogs', 'allowance_of_dogs', 'wheelchair_accessible', 'accessibility_description',
@@ -263,9 +269,13 @@ class AdminVenueV2Controller extends Controller
 
             $venue->update($updateData);
 
+            if (array_key_exists('venue_subcategory_ids', $data)) {
+                $venue->venueSubcategories()->sync($data['venue_subcategory_ids'] ?? []);
+            }
+
             Log::info('Admin updated venue', ['venue_id' => $venue->id, 'admin_id' => $request->user()->id]);
 
-            return $venue->load(['category', 'user']);
+            return $venue->load(['category', 'user', 'venueCategory', 'venueSubcategories']);
         });
 
         return response()->json([
@@ -308,7 +318,7 @@ class AdminVenueV2Controller extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Venue approved successfully',
-            'data' => new AdminVenueV2Resource($venue->load(['category', 'user'])),
+            'data' => new AdminVenueV2Resource($venue->load(['category', 'user', 'venueCategory', 'venueSubcategories'])),
         ]);
     }
 
@@ -327,7 +337,7 @@ class AdminVenueV2Controller extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Venue unapproved successfully',
-            'data' => new AdminVenueV2Resource($venue->load(['category', 'user'])),
+            'data' => new AdminVenueV2Resource($venue->load(['category', 'user', 'venueCategory', 'venueSubcategories'])),
         ]);
     }
 

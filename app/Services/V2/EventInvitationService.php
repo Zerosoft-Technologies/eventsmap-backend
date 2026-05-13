@@ -2,6 +2,7 @@
 
 namespace App\Services\V2;
 
+use App\Http\Resources\V2\EventResource;
 use App\Mail\EventInvitationMail;
 use App\Models\EventInvitation;
 use App\Models\EventInvitationLog;
@@ -10,6 +11,8 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -317,6 +320,143 @@ class EventInvitationService
         }
 
         return $invitation;
+    }
+
+    /**
+     * Upcoming {@see EventV2} rows from accepted invitations where {@see EventInvitation::$receiver_type}
+     * matches the profile role (talent / organiser / venue) and {@see EventInvitation::$receiver_id} is the profile owner's user id.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function upcomingAcceptedEventsPayloadForProfileUser(int $receiverUserId, string $receiverType): array
+    {
+        if (! in_array($receiverType, EventInvitation::TYPES, true)) {
+            return [];
+        }
+
+        $events = $this->queryUpcomingAcceptedInvitationEvents($receiverUserId, $receiverType)->all();
+
+        $this->prepareEventsForProfilePayload($events);
+
+        return EventResource::collection($events)->toArray(request());
+    }
+
+    /**
+     * Batch-attach {@see EventInvitation::$receiver_type}-matched upcoming events onto V2 profiles for API resources
+     * (uses attribute {@code _upcoming_events} — see {@see \App\Http\Resources\V2\TalentResource}).
+     *
+     * @param  iterable<int, Model>  $profiles  {@see TalentV2}|{@see \App\Models\OrganiserV2}|{@see \App\Models\VenueV2}
+     */
+    public function hydrateUpcomingAcceptedInvitationEventsOnProfiles(iterable $profiles, string $receiverType): void
+    {
+        if (! in_array($receiverType, EventInvitation::TYPES, true)) {
+            return;
+        }
+
+        $profiles = collect($profiles)->values();
+        if ($profiles->isEmpty()) {
+            return;
+        }
+
+        $withFlag = $profiles->filter(fn (Model $p) => (bool) ($p->getAttribute('show_upcoming_events') ?? false));
+        if ($withFlag->isEmpty()) {
+            return;
+        }
+
+        $userIds = $withFlag->pluck('user_id')->unique()->filter()->map(fn ($id) => (int) $id)->values()->all();
+        if ($userIds === []) {
+            return;
+        }
+
+        $invitations = $this->baseUpcomingAcceptedInvitationsQuery($receiverType)
+            ->whereIn('receiver_id', $userIds)
+            ->orderByDesc('created_at')
+            ->get();
+
+        $grouped = $invitations->groupBy(fn (EventInvitation $i) => (int) $i->receiver_id);
+
+        $eventsByUserId = [];
+        foreach ($userIds as $uid) {
+            $group = $grouped->get($uid, collect());
+            $eventsByUserId[$uid] = $this->uniqueSortedEventsFromInvitations($group)->all();
+        }
+
+        $flatUnique = collect($eventsByUserId)->flatten(1)->unique('id')->values()->all();
+        $this->prepareEventsForProfilePayload($flatUnique);
+
+        foreach ($withFlag as $profile) {
+            $uid = (int) $profile->getAttribute('user_id');
+            $profile->setAttribute('_upcoming_events', $eventsByUserId[$uid] ?? []);
+        }
+    }
+
+    /**
+     * @return Collection<int, EventV2>
+     */
+    private function queryUpcomingAcceptedInvitationEvents(int $receiverUserId, string $receiverType): Collection
+    {
+        $invitations = $this->baseUpcomingAcceptedInvitationsQuery($receiverType)
+            ->where('receiver_id', $receiverUserId)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return $this->uniqueSortedEventsFromInvitations($invitations);
+    }
+
+    /**
+     * @return Builder<\App\Models\EventInvitation>
+     */
+    private function baseUpcomingAcceptedInvitationsQuery(string $receiverType): Builder
+    {
+        $now = Carbon::now();
+
+        return EventInvitation::query()
+            ->with([
+                'event' => fn ($q) => $q->with(['category', 'venue', 'organisers', 'talents', 'user']),
+            ])
+            ->accepted()
+            ->where('receiver_type', $receiverType)
+            ->whereHas('event', function (Builder $q) use ($now) {
+                $this->whereEventEffectiveEndIsAfter($q, $now);
+            });
+    }
+
+    /**
+     * @param  Collection<int, EventInvitation>  $invitations
+     * @return Collection<int, EventV2>
+     */
+    private function uniqueSortedEventsFromInvitations(Collection $invitations): Collection
+    {
+        return $invitations->map->event
+            ->filter()
+            ->unique('id')
+            ->sortBy(function (?EventV2 $e) {
+                if (! $e instanceof EventV2) {
+                    return '';
+                }
+                $d = $e->event_date?->format('Y-m-d') ?? '0000-00-00';
+
+                return $d.' '.($e->start_time ?? '00:00:00');
+            })
+            ->values();
+    }
+
+    /**
+     * @param  array<int, EventV2>  $events
+     */
+    private function prepareEventsForProfilePayload(array $events): void
+    {
+        if ($events === []) {
+            return;
+        }
+
+        foreach ($events as $event) {
+            if ($event instanceof EventV2) {
+                $event->setRelation('subcategories', $event->subcategories_from_ids);
+            }
+        }
+
+        $this->eventInvitedEntitiesService->hydrate($events);
     }
 
     /**

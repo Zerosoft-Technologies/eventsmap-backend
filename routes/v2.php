@@ -2,7 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V2\EventController;
+use App\Http\Controllers\V2\ProfileListingController;
 use App\Http\Controllers\V2\PublicEventController;
+use App\Http\Controllers\V2\PublicProfileController;
 use App\Http\Controllers\V2\OrganiserController;
 use App\Http\Controllers\V2\TalentController;
 use App\Http\Controllers\V2\VenueController;
@@ -34,6 +36,10 @@ Route::prefix('public')->group(function () {
     Route::get('/events/map', [PublicEventController::class, 'map']);
     Route::get('/events/{id}', [PublicEventController::class, 'show'])->where('id', '[0-9]+');
     Route::get('/events/slug/{slug}', [PublicEventController::class, 'showBySlug']);
+
+    Route::get('/talents', [PublicProfileController::class, 'talents']);
+    Route::get('/organisers', [PublicProfileController::class, 'organisers']);
+    Route::get('/venues', [PublicProfileController::class, 'venues']);
 });
 
 // Respond to invitation (supports token-based from email link OR authenticated user)
@@ -44,6 +50,10 @@ Route::post('/event-invitations/{id}/respond', [EventInvitationController::class
 // ──────────────────────────────────────
 
 Route::get('/events', [EventController::class, 'index']);
+
+Route::get('/talents', [ProfileListingController::class, 'talents']);
+Route::get('/organisers', [ProfileListingController::class, 'organisers']);
+Route::get('/venues', [ProfileListingController::class, 'venues']);
 
 Route::middleware(['auth:sanctum'])->group(function () {
 

@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Schema;
  * Bulk-loads users and venues referenced by invited_* ID arrays on events.
  *
  * Invited talents / organisers resolve {@see TalentV2} / {@see OrganiserV2} by {@code user_id}. When several
- * V2 rows exist per user, the lowest {@code id} is used. Each invite object includes nested {@code talent_v2} /
+ * V2 rows exist per user, the lowest {@code id} is used among published ({@see \App\Support\PublishStatus::PUBLISHED}) profiles only. Each invite object includes nested {@code talent_v2} /
  * {@code organiser_v2} (full API resource shape) when present.
  *
  * Invited venues use legacy {@see Venue}; {@see VenueV2} is resolved by the venue owner's {@code user_id} the same way.
@@ -135,6 +135,7 @@ class EventInvitedEntitiesService
 
         return TalentV2::query()
             ->whereIn('user_id', $userIds)
+            ->publishStatusPublished()
             ->orderBy('id')
             ->get()
             ->groupBy('user_id')
@@ -155,6 +156,7 @@ class EventInvitedEntitiesService
 
         return OrganiserV2::query()
             ->whereIn('user_id', $userIds)
+            ->publishStatusPublished()
             ->orderBy('id')
             ->get()
             ->groupBy('user_id')
@@ -175,7 +177,8 @@ class EventInvitedEntitiesService
 
         return VenueV2::query()
             ->whereIn('user_id', $userIds)
-            ->with('user')
+            ->publishStatusPublished()
+            ->with(['user', 'venueCategory', 'venueSubcategories'])
             ->orderBy('id')
             ->get()
             ->groupBy('user_id')

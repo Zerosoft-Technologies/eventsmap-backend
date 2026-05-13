@@ -227,7 +227,7 @@ class SubcategoriesSeeder extends Seeder
                 'Singer',
                 'Other',
             ],
-            8 => [ // Venue
+            8 => [ // Venue (event taxonomy — subcategories also mirrored in venue_subcategories via VenueCategorySeeder)
                 'Bar',
                 'Casino',
                 'Cinema',

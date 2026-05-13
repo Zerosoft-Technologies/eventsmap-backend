@@ -35,6 +35,7 @@ class PrerequisiteSeeder extends Seeder
                     SubcategoriesSeeder::class,
                     TalentCategorySeeder::class,
                     OrganiserCategorySeeder2::class,
+                    VenueCategorySeeder::class,
                 ]);
 
                 $this->ensureMinimumUsers(10);

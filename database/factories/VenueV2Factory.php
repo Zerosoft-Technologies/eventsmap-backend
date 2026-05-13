@@ -4,9 +4,9 @@ namespace Database\Factories;
 
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
-use App\Models\Category;
-use App\Models\SubCategory;
 use App\Models\User;
+use App\Models\VenueCategory;
+use App\Models\VenueSubcategory;
 use App\Models\VenueV2;
 use Database\Factories\Support\CategoryImageProvider;
 use Database\Factories\Support\CityDataProvider;
@@ -19,6 +19,30 @@ use Illuminate\Support\Str;
 class VenueV2Factory extends Factory
 {
     protected $model = VenueV2::class;
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (VenueV2 $venue): void {
+            $catId = $venue->venue_category_id
+                ?? VenueCategory::query()->where('slug', VenueCategory::MAIN_SLUG)->value('id');
+            if ($catId !== null && $venue->venue_category_id === null) {
+                $venue->venue_category_id = (int) $catId;
+                $venue->saveQuietly();
+            }
+            if ($venue->venue_category_id === null) {
+                return;
+            }
+            $subIds = VenueSubcategory::query()
+                ->where('venue_category_id', $venue->venue_category_id)
+                ->inRandomOrder()
+                ->limit(fake()->numberBetween(1, 3))
+                ->pluck('id')
+                ->all();
+            if ($subIds !== []) {
+                $venue->venueSubcategories()->sync($subIds);
+            }
+        });
+    }
 
     /** @var list<string> */
     private const NAMES = [
@@ -43,6 +67,12 @@ class VenueV2Factory extends Factory
         $slug = Str::slug($title).'-'.Str::lower(Str::replace('-', '', (string) Str::uuid()));
         $city = CityDataProvider::getUniqueCoordinates(CityDataProvider::getWeightedCity());
 
+        $venueCategoryId = VenueCategory::query()->inRandomOrder()->value('id')
+            ?? VenueCategory::query()->where('slug', VenueCategory::MAIN_SLUG)->value('id');
+        $venueCategoryName = $venueCategoryId !== null
+            ? self::getVenueCategoryName((int) $venueCategoryId)
+            : 'Venue';
+
         $allowDogs = fake()->boolean(30);
         $wheelchair = fake()->boolean(60);
 
@@ -53,29 +83,16 @@ class VenueV2Factory extends Factory
             'title' => $title,
             'slug' => $slug,
             'event_type' => fake()->randomElement(['free', 'premium']),
-            'category_id' => Category::query()->inRandomOrder()->value('id'),
-            'subcategory_ids' => function (array $attributes): ?array {
-                $categoryId = $attributes['category_id'] ?? null;
-                if ($categoryId === null) {
-                    return null;
-                }
-
-                return SubCategory::query()
-                    ->where('category_id', $categoryId)
-                    ->inRandomOrder()
-                    ->limit(fake()->numberBetween(1, 3))
-                    ->pluck('id')
-                    ->map(fn (mixed $id): int => (int) $id)
-                    ->values()
-                    ->all();
-            },
+            'category_id' => null,
+            'subcategory_ids' => null,
+            'venue_category_id' => $venueCategoryId !== null ? (int) $venueCategoryId : null,
             'address' => CityDataProvider::randomFormattedAddress($city),
             'latitude' => $city['lat'],
             'longitude' => $city['lng'],
-            'image_path' => CategoryImageProvider::getImageUrl('Venue', 1200, 800),
+            'image_path' => CategoryImageProvider::getImageUrl($venueCategoryName, 1200, 800),
             'additional_images' => fake()->boolean(70)
                 ? CategoryImageProvider::getAdditionalImageUrls(
-                    'Venue',
+                    $venueCategoryName,
                     fake()->numberBetween(2, 5),
                     800,
                     600
@@ -141,12 +158,31 @@ class VenueV2Factory extends Factory
      */
     public function seedRichContactPresentation(): static
     {
-        return $this->state(fn (): array => [
-            'publish_status' => PublishStatus::PUBLISHED,
-            'contact_box_message' => 'Ask about availability, capacities, tech specs, and dry hire.',
-            'contact_box_design_message' => "Host your next night with us.\n\n".fake()->paragraph(2),
-            'image_path' => CategoryImageProvider::getImageUrl('Venue', 1200, 800),
-        ]);
+        return $this->state(function (array $attributes): array {
+            $venueCategoryId = $attributes['venue_category_id'] ?? null;
+            $venueCategoryName = $venueCategoryId !== null
+                ? self::getVenueCategoryName((int) $venueCategoryId)
+                : 'Venue';
+
+            return [
+                'publish_status' => PublishStatus::PUBLISHED,
+                'contact_box_message' => 'Ask about availability, capacities, tech specs, and dry hire.',
+                'contact_box_design_message' => "Host your next night with us.\n\n".fake()->paragraph(2),
+                'image_path' => CategoryImageProvider::getImageUrl($venueCategoryName, 1200, 800),
+            ];
+        });
+    }
+
+    /** @var array<int, string> */
+    private static array $venueCategoryCache = [];
+
+    private static function getVenueCategoryName(int $id): string
+    {
+        if (! isset(self::$venueCategoryCache[$id])) {
+            self::$venueCategoryCache[$id] = VenueCategory::find($id)?->name ?? 'Venue';
+        }
+
+        return self::$venueCategoryCache[$id];
     }
 
     /**

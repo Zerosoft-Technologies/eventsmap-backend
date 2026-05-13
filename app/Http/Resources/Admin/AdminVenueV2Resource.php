@@ -42,6 +42,28 @@ class AdminVenueV2Resource extends JsonResource
                 ]);
             }),
 
+            'venue_category_id' => $this->venue_category_id,
+
+            'venue_category' => $this->whenLoaded('venueCategory', function () {
+                return [
+                    'id' => $this->venueCategory->id,
+                    'name' => $this->venueCategory->name,
+                    'slug' => $this->venueCategory->slug,
+                ];
+            }),
+
+            'venue_subcategory_ids' => $this->whenLoaded('venueSubcategories', function () {
+                return $this->venueSubcategories->pluck('id')->values();
+            }),
+
+            'venue_subcategories' => $this->whenLoaded('venueSubcategories', function () {
+                return $this->venueSubcategories->map(fn ($sc) => [
+                    'id' => $sc->id,
+                    'name' => $sc->name,
+                    'slug' => $sc->slug,
+                ]);
+            }),
+
             // Additional images
             'additional_images' => $this->when(isset($this->additional_images), function () {
                 if (empty($this->additional_images)) {

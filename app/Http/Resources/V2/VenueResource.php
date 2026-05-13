@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V2;
 
 use App\Helpers\MediaHelper;
+use App\Http\Resources\V2\EventResource;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
 use App\Support\V2ProfileCoverImage;
@@ -66,8 +67,24 @@ class VenueResource extends JsonResource
                 })->filter()->values();
             }),
 
-            'subcategories' => $this->when(! empty($this->subcategory_ids), function () {
-                return $this->subcategories_from_ids->map(fn ($sc) => [
+            'subcategories' => $this->subcategoriesForListing(),
+
+            'venue_category_id' => $this->venue_category_id,
+
+            'venue_category' => $this->whenLoaded('venueCategory', function () {
+                return [
+                    'id' => $this->venueCategory->id,
+                    'name' => $this->venueCategory->name,
+                    'slug' => $this->venueCategory->slug,
+                ];
+            }),
+
+            'venue_subcategory_ids' => $this->whenLoaded('venueSubcategories', function () {
+                return $this->venueSubcategories->pluck('id')->values();
+            }),
+
+            'venue_subcategories' => $this->whenLoaded('venueSubcategories', function () {
+                return $this->venueSubcategories->map(fn ($sc) => [
                     'id' => $sc->id,
                     'name' => $sc->name,
                     'slug' => $sc->slug,
@@ -107,6 +124,15 @@ class VenueResource extends JsonResource
             'show_upcoming_events' => (bool) ($this->show_upcoming_events ?? false),
             'show_past_events' => (bool) ($this->show_past_events ?? false),
 
+            'upcoming_events' => $this->when(($this->show_upcoming_events ?? false), function () {
+                $raw = $this->resource->getAttribute('_upcoming_events');
+                if (! is_array($raw) || $raw === []) {
+                    return [];
+                }
+
+                return EventResource::collection($raw)->toArray(request());
+            }),
+
             // Owner
             'user' => $this->whenLoaded('user', function () {
                 return [
@@ -120,5 +146,29 @@ class VenueResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * @return list<array{id: int, name: string, slug: string}>
+     */
+    protected function subcategoriesForListing(): array
+    {
+        if ($this->relationLoaded('subcategories') && $this->subcategories !== null && $this->subcategories->isNotEmpty()) {
+            return $this->subcategories->map(fn ($sc) => [
+                'id' => $sc->id,
+                'name' => $sc->name,
+                'slug' => $sc->slug,
+            ])->values()->all();
+        }
+
+        if (empty($this->subcategory_ids)) {
+            return [];
+        }
+
+        return $this->subcategories_from_ids->map(fn ($sc) => [
+            'id' => $sc->id,
+            'name' => $sc->name,
+            'slug' => $sc->slug,
+        ])->values()->all();
     }
 }

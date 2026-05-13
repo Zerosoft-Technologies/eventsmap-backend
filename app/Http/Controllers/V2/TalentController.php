@@ -9,7 +9,9 @@ use App\Http\Requests\V2\UpdateProfilePublicationStatusRequest;
 use App\Http\Requests\V2\UpdatePublishStatusRequest;
 use App\Http\Requests\V2\UpdateTalentRequest;
 use App\Http\Resources\V2\TalentResource;
+use App\Models\EventInvitation;
 use App\Models\TalentV2;
+use App\Services\V2\EventInvitationService;
 use App\Services\V2\TalentService;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
@@ -20,7 +22,8 @@ use Illuminate\Http\Request;
 class TalentController extends Controller
 {
     public function __construct(
-        private readonly TalentService $talentService
+        private readonly TalentService $talentService,
+        private readonly EventInvitationService $eventInvitationService
     ) {}
 
     /**
@@ -128,6 +131,13 @@ class TalentController extends Controller
         $data['additional_images'] = $additionalImages;
         $data['additional_image_urls'] = $additionalImageUrls;
 
+        if ($talent->show_upcoming_events ?? false) {
+            $data['upcoming_events'] = $this->eventInvitationService->upcomingAcceptedEventsPayloadForProfileUser(
+                (int) $talent->user_id,
+                EventInvitation::TYPE_TALENT
+            );
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Talent fetched successfully',
@@ -187,6 +197,13 @@ class TalentController extends Controller
             'image_url' => V2ProfileCoverImage::coverImageUrl($talent, $talent->user),
         ];
 
+        if ($talent->show_upcoming_events ?? false) {
+            $data['upcoming_events'] = $this->eventInvitationService->upcomingAcceptedEventsPayloadForProfileUser(
+                (int) $talent->user_id,
+                EventInvitation::TYPE_TALENT
+            );
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Talent updated successfully',
@@ -213,6 +230,8 @@ class TalentController extends Controller
         $talent->refresh();
         $talent->load(['category', 'user', 'talentCategory', 'talentSubcategories']);
 
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$talent], EventInvitation::TYPE_TALENT);
+
         return response()->json([
             'success' => true,
             'message' => 'Publication status updated successfully',
@@ -238,6 +257,8 @@ class TalentController extends Controller
         $talent->update(['publish_status' => $request->validated('publish_status')]);
         $talent->refresh();
         $talent->load(['category', 'user', 'talentCategory', 'talentSubcategories']);
+
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$talent], EventInvitation::TYPE_TALENT);
 
         return response()->json([
             'success' => true,

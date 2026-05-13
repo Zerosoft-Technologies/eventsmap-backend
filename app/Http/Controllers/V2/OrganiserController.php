@@ -10,7 +10,9 @@ use App\Http\Requests\V2\UpdateProfilePublicationStatusRequest;
 use App\Http\Requests\V2\UpdatePublishStatusRequest;
 use App\Http\Resources\V2\OrganiserResource;
 use App\Http\Resources\V2\OrganiserSidebarResource;
+use App\Models\EventInvitation;
 use App\Models\OrganiserV2;
+use App\Services\V2\EventInvitationService;
 use App\Services\V2\OrganiserService;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
@@ -21,7 +23,8 @@ use Illuminate\Http\Request;
 class OrganiserController extends Controller
 {
     public function __construct(
-        private readonly OrganiserService $organiserService
+        private readonly OrganiserService $organiserService,
+        private readonly EventInvitationService $eventInvitationService
     ) {}
 
     /**
@@ -133,6 +136,13 @@ class OrganiserController extends Controller
         $data['additional_images'] = $additionalImages;
         $data['additional_image_urls'] = $additionalImageUrls;
 
+        if ($organiser->show_upcoming_events ?? false) {
+            $data['upcoming_events'] = $this->eventInvitationService->upcomingAcceptedEventsPayloadForProfileUser(
+                (int) $organiser->user_id,
+                EventInvitation::TYPE_ORGANISER
+            );
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Organiser fetched successfully',
@@ -195,6 +205,13 @@ class OrganiserController extends Controller
             'image_url' => V2ProfileCoverImage::coverImageUrl($organiser, $organiser->user),
         ];
 
+        if ($organiser->show_upcoming_events ?? false) {
+            $data['upcoming_events'] = $this->eventInvitationService->upcomingAcceptedEventsPayloadForProfileUser(
+                (int) $organiser->user_id,
+                EventInvitation::TYPE_ORGANISER
+            );
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Organiser updated successfully',
@@ -221,6 +238,8 @@ class OrganiserController extends Controller
         $organiser->refresh();
         $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
 
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
+
         return response()->json([
             'success' => true,
             'message' => 'Publication status updated successfully',
@@ -246,6 +265,8 @@ class OrganiserController extends Controller
         $organiser->update(['publish_status' => $request->validated('publish_status')]);
         $organiser->refresh();
         $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
+
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
 
         return response()->json([
             'success' => true,

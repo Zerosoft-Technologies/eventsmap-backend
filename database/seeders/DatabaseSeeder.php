@@ -43,6 +43,7 @@ class DatabaseSeeder extends Seeder
             OrganiserV2Seeder::class,
             TalentV2Seeder::class,
             EventV2Seeder::class,
+            EventInvitationSeeder::class,
             AccountsV2Seeder::class,
             EventsSeeder::class,
             TalentSeeder::class,

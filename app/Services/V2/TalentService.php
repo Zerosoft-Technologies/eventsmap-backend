@@ -2,6 +2,7 @@
 
 namespace App\Services\V2;
 
+use App\Models\EventInvitation;
 use App\Models\TalentV2;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
@@ -15,17 +16,25 @@ use Illuminate\Support\Str;
 
 class TalentService
 {
+    public function __construct(
+        private readonly EventInvitationService $eventInvitationService
+    ) {}
+
     public function getUserTalents(User $user)
     {
-        return TalentV2::where('user_id', $user->id)
+        $talents = TalentV2::where('user_id', $user->id)
             ->with(['category', 'user', 'talentCategory', 'talentSubcategories'])
             ->orderBy('created_at', 'desc')
             ->get();
+
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles($talents, EventInvitation::TYPE_TALENT);
+
+        return $talents;
     }
 
     public function create(array $data, User $user): TalentV2
     {
-        return DB::transaction(function () use ($data, $user) {
+        $talent = DB::transaction(function () use ($data, $user) {
             $talentData = [
                 'user_id' => $user->id,
                 'status' => ProfilePublicationStatus::DRAFT,
@@ -95,11 +104,15 @@ class TalentService
 
             return $talent->load(['category', 'user', 'talentCategory', 'talentSubcategories']);
         });
+
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$talent], EventInvitation::TYPE_TALENT);
+
+        return $talent;
     }
 
     public function update(TalentV2 $talent, array $data, ?Request $request = null): TalentV2
     {
-        return DB::transaction(function () use ($talent, $data, $request) {
+        $talent = DB::transaction(function () use ($talent, $data, $request) {
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids',
                 'status', 'publish_status',
@@ -184,6 +197,10 @@ class TalentService
 
             return $talent->load(['category', 'user', 'talentCategory', 'talentSubcategories']);
         });
+
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$talent], EventInvitation::TYPE_TALENT);
+
+        return $talent;
     }
 
     public function delete(TalentV2 $talent): void

@@ -4,8 +4,6 @@ namespace Database\Factories;
 
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
-use App\Models\Category;
-use App\Models\SubCategory;
 use App\Models\TalentCategory;
 use App\Models\TalentV2;
 use App\Models\User;
@@ -49,22 +47,8 @@ class TalentV2Factory extends Factory
             'title' => $title,
             'slug' => $slug,
             'event_type' => fake()->randomElement(['free', 'premium']),
-            'category_id' => Category::query()->inRandomOrder()->value('id'),
-            'subcategory_ids' => function (array $attributes): ?array {
-                $categoryId = $attributes['category_id'] ?? null;
-                if ($categoryId === null) {
-                    return null;
-                }
-
-                return SubCategory::query()
-                    ->where('category_id', $categoryId)
-                    ->inRandomOrder()
-                    ->limit(fake()->numberBetween(1, 2))
-                    ->pluck('id')
-                    ->map(fn (mixed $id): int => (int) $id)
-                    ->values()
-                    ->all();
-            },
+            'category_id' => null,
+            'subcategory_ids' => null,
             'talent_category_id' => $talentCategoryId,
             'city' => $city['city'],
             'address' => CityDataProvider::randomFormattedAddress($city),

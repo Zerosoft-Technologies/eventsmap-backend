@@ -4,10 +4,8 @@ namespace Database\Factories;
 
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
-use App\Models\Category;
 use App\Models\OrganiserCategory;
 use App\Models\OrganiserV2;
-use App\Models\SubCategory;
 use App\Models\User;
 use Database\Factories\Support\CategoryImageProvider;
 use Database\Factories\Support\CityDataProvider;
@@ -54,22 +52,8 @@ class OrganiserV2Factory extends Factory
             'title' => $title,
             'slug' => $slug,
             'event_type' => fake()->randomElement(['free', 'premium']),
-            'category_id' => Category::query()->inRandomOrder()->value('id'),
-            'subcategory_ids' => function (array $attributes): ?array {
-                $categoryId = $attributes['category_id'] ?? null;
-                if ($categoryId === null) {
-                    return null;
-                }
-
-                return SubCategory::query()
-                    ->where('category_id', $categoryId)
-                    ->inRandomOrder()
-                    ->limit(fake()->numberBetween(1, 3))
-                    ->pluck('id')
-                    ->map(fn (mixed $id): int => (int) $id)
-                    ->values()
-                    ->all();
-            },
+            'category_id' => null,
+            'subcategory_ids' => null,
             'organiser_category_id' => $organiserCategoryId,
             'address' => CityDataProvider::randomFormattedAddress($city),
             'latitude' => $city['lat'],

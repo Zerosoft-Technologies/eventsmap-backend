@@ -2,6 +2,7 @@
 
 namespace App\Services\V2;
 
+use App\Models\EventInvitation;
 use App\Models\OrganiserV2;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
@@ -15,6 +16,10 @@ use Illuminate\Support\Str;
 
 class OrganiserService
 {
+    public function __construct(
+        private readonly EventInvitationService $eventInvitationService
+    ) {}
+
     // ──────────────────────────────────────
     // CRUD
     // ──────────────────────────────────────
@@ -24,7 +29,7 @@ class OrganiserService
      */
     public function create(array $data, User $user): OrganiserV2
     {
-        return DB::transaction(function () use ($data, $user) {
+        $organiser = DB::transaction(function () use ($data, $user) {
             $organiserData = [
                 'user_id' => $user->id,
                 'status' => ProfilePublicationStatus::DRAFT,
@@ -92,6 +97,10 @@ class OrganiserService
 
             return $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
         });
+
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
+
+        return $organiser;
     }
 
     /**
@@ -99,7 +108,7 @@ class OrganiserService
      */
     public function update(OrganiserV2 $organiser, array $data, ?Request $request = null): OrganiserV2
     {
-        return DB::transaction(function () use ($organiser, $data, $request) {
+        $organiser = DB::transaction(function () use ($organiser, $data, $request) {
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids',
                 'status', 'publish_status',
@@ -186,6 +195,10 @@ class OrganiserService
 
             return $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
         });
+
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
+
+        return $organiser;
     }
 
     /**

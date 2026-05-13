@@ -8,8 +8,9 @@ use App\Http\Controllers\UpgradePlanController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\GalleryImageController;
 use App\Http\Controllers\MyAccountInvitesController;
-use App\Http\Controllers\V2\TalentCategoryController;
 use App\Http\Controllers\V2\OrganiserCategoryController;
+use App\Http\Controllers\V2\TalentCategoryController;
+use App\Http\Controllers\V2\VenueCategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -39,6 +40,10 @@ Route::prefix('v1')->group(function () {
 
     // Organiser Categories endpoints
     Route::get('/categories-organisers', [OrganiserCategoryController::class, 'index']);
+
+    // Venue Categories endpoints (alias + plural for clients)
+    Route::get('/categories-venue', [VenueCategoryController::class, 'index']);
+    Route::get('/categories-venues', [VenueCategoryController::class, 'index']);
 });
 
 // Payment verification (no auth required)
