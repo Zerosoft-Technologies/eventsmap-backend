@@ -24,6 +24,34 @@ use Illuminate\Http\Request;
 final class V2ProfileListingTaxonomy
 {
     /**
+     * Accepts repeated slugs from query strings such as {@code nightclub,concert-venue} or {@code night club , concert-venue }.
+     *
+     * @return list<string>
+     */
+    private static function parseSubcategorySlugsFromRequest(Request $request): array
+    {
+        if (! $request->filled('subcategory')) {
+            return [];
+        }
+
+        $raw = trim((string) $request->input('subcategory'));
+        if ($raw === '') {
+            return [];
+        }
+
+        $parts = preg_split('/\s*,\s*/', $raw, -1, PREG_SPLIT_NO_EMPTY);
+        $slugs = [];
+        foreach ($parts as $part) {
+            $s = trim($part);
+            if ($s !== '') {
+                $slugs[] = $s;
+            }
+        }
+
+        return array_values(array_unique($slugs));
+    }
+
+    /**
      * @param  class-string<TalentV2|OrganiserV2|VenueV2>  $modelClass
      */
     public static function applyCategoryAndSubcategoryFilters(
@@ -43,7 +71,7 @@ final class V2ProfileListingTaxonomy
     private static function applyForOrganiser(Builder $query, Request $request): void
     {
         $categorySlug = $request->filled('category') ? (string) $request->input('category') : null;
-        $subSlug = $request->filled('subcategory') ? (string) $request->input('subcategory') : null;
+        $subSlugs = self::parseSubcategorySlugsFromRequest($request);
 
         $organiserCategory = $categorySlug !== null
             ? OrganiserCategory::query()->where('slug', $categorySlug)->first()
@@ -66,14 +94,14 @@ final class V2ProfileListingTaxonomy
             $query->where('category_id', $request->input('category_id'));
         }
 
-        if ($subSlug === null) {
+        if ($subSlugs === []) {
             return;
         }
 
         if ($organiserCategory !== null) {
             $subIds = OrganiserSubcategory::query()
                 ->where('organiser_category_id', $organiserCategory->id)
-                ->where('slug', $subSlug)
+                ->whereIn('slug', $subSlugs)
                 ->pluck('id');
             if ($subIds->isEmpty()) {
                 $query->whereRaw('0 = 1');
@@ -88,7 +116,7 @@ final class V2ProfileListingTaxonomy
         if ($genericCategory !== null) {
             $subIds = SubCategory::query()
                 ->where('category_id', $genericCategory->id)
-                ->where('slug', $subSlug)
+                ->whereIn('slug', $subSlugs)
                 ->pluck('id');
             self::applyJsonSubcategoryIdsContains($query, $subIds->all());
 
@@ -96,7 +124,7 @@ final class V2ProfileListingTaxonomy
         }
 
         // Subcategory only (any organiser_subcategories.slug match)
-        $subIds = OrganiserSubcategory::query()->where('slug', $subSlug)->pluck('id');
+        $subIds = OrganiserSubcategory::query()->whereIn('slug', $subSlugs)->pluck('id');
         if ($subIds->isEmpty()) {
             $query->whereRaw('0 = 1');
 
@@ -123,7 +151,7 @@ final class V2ProfileListingTaxonomy
     private static function applyForTalent(Builder $query, Request $request): void
     {
         $categorySlug = $request->filled('category') ? (string) $request->input('category') : null;
-        $subSlug = $request->filled('subcategory') ? (string) $request->input('subcategory') : null;
+        $subSlugs = self::parseSubcategorySlugsFromRequest($request);
 
         $talentCategory = $categorySlug !== null
             ? TalentCategory::query()->where('slug', $categorySlug)->first()
@@ -146,14 +174,14 @@ final class V2ProfileListingTaxonomy
             $query->where('category_id', $request->input('category_id'));
         }
 
-        if ($subSlug === null) {
+        if ($subSlugs === []) {
             return;
         }
 
         if ($talentCategory !== null) {
             $subIds = TalentSubcategory::query()
                 ->where('talent_category_id', $talentCategory->id)
-                ->where('slug', $subSlug)
+                ->whereIn('slug', $subSlugs)
                 ->pluck('id');
             if ($subIds->isEmpty()) {
                 $query->whereRaw('0 = 1');
@@ -168,14 +196,14 @@ final class V2ProfileListingTaxonomy
         if ($genericCategory !== null) {
             $subIds = SubCategory::query()
                 ->where('category_id', $genericCategory->id)
-                ->where('slug', $subSlug)
+                ->whereIn('slug', $subSlugs)
                 ->pluck('id');
             self::applyJsonSubcategoryIdsContains($query, $subIds->all());
 
             return;
         }
 
-        $subIds = TalentSubcategory::query()->where('slug', $subSlug)->pluck('id');
+        $subIds = TalentSubcategory::query()->whereIn('slug', $subSlugs)->pluck('id');
         if ($subIds->isEmpty()) {
             $query->whereRaw('0 = 1');
 
@@ -202,7 +230,7 @@ final class V2ProfileListingTaxonomy
     private static function applyForVenue(Builder $query, Request $request, bool $venueSubcategoriesUseVenueTaxonomy): void
     {
         $categorySlug = $request->filled('category') ? (string) $request->input('category') : null;
-        $subSlug = $request->filled('subcategory') ? (string) $request->input('subcategory') : null;
+        $subSlugs = self::parseSubcategorySlugsFromRequest($request);
 
         $venueCategory = $categorySlug !== null
             ? VenueCategory::query()->where('slug', $categorySlug)->first()
@@ -225,12 +253,12 @@ final class V2ProfileListingTaxonomy
             $query->where('category_id', $request->input('category_id'));
         }
 
-        if ($subSlug === null) {
+        if ($subSlugs === []) {
             return;
         }
 
         if ($venueSubcategoriesUseVenueTaxonomy) {
-            $subQ = VenueSubcategory::query()->where('slug', $subSlug);
+            $subQ = VenueSubcategory::query()->whereIn('slug', $subSlugs);
             if ($venueCategory !== null) {
                 $subQ->where('venue_category_id', $venueCategory->id);
             }
@@ -250,14 +278,14 @@ final class V2ProfileListingTaxonomy
         if ($genericCategory !== null) {
             $subIds = SubCategory::query()
                 ->where('category_id', $genericCategory->id)
-                ->where('slug', $subSlug)
+                ->whereIn('slug', $subSlugs)
                 ->pluck('id');
             self::applyJsonSubcategoryIdsContains($query, $subIds->all());
 
             return;
         }
 
-        $subIds = VenueSubcategory::query()->where('slug', $subSlug)->pluck('id');
+        $subIds = VenueSubcategory::query()->whereIn('slug', $subSlugs)->pluck('id');
         if ($subIds->isEmpty()) {
             $query->whereRaw('0 = 1');
 
@@ -291,8 +319,12 @@ final class V2ProfileListingTaxonomy
             return;
         }
 
-        $subSlug = (string) $request->input('subcategory');
-        $subQuery = SubCategory::query()->where('slug', $subSlug);
+        $subSlugs = self::parseSubcategorySlugsFromRequest($request);
+        if ($subSlugs === []) {
+            return;
+        }
+
+        $subQuery = SubCategory::query()->whereIn('slug', $subSlugs);
         if ($request->filled('category') && $categoryFromSlug !== null) {
             $subQuery->where('category_id', $categoryFromSlug->id);
         }
