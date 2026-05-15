@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminEventV2Controller;
 use App\Http\Controllers\Admin\AdminOrganiserV2Controller;
+use App\Http\Controllers\Admin\AdminProfileV2TaxonomyController;
 use App\Http\Controllers\Admin\AdminTalentV2Controller;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminVenueV2Controller;
@@ -133,6 +134,32 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::delete('/{id}', [CategoryController::class, 'destroySubcategory']);
     });
 
+    // V2 profile taxonomies (talent / organiser / venue categories & subcategories) — super-admin only
+    Route::middleware('super_admin')->prefix('v2/profile-taxonomies')->group(function () {
+        Route::get('/{profile}', [AdminProfileV2TaxonomyController::class, 'index'])
+            ->whereIn('profile', ['talent', 'organiser', 'venue']);
+        Route::post('/{profile}/categories', [AdminProfileV2TaxonomyController::class, 'storeCategory'])
+            ->whereIn('profile', ['talent', 'organiser', 'venue']);
+        Route::get('/{profile}/categories/{categoryId}', [AdminProfileV2TaxonomyController::class, 'showCategory'])
+            ->whereIn('profile', ['talent', 'organiser', 'venue'])
+            ->whereNumber('categoryId');
+        Route::put('/{profile}/categories/{categoryId}', [AdminProfileV2TaxonomyController::class, 'updateCategory'])
+            ->whereIn('profile', ['talent', 'organiser', 'venue'])
+            ->whereNumber('categoryId');
+        Route::delete('/{profile}/categories/{categoryId}', [AdminProfileV2TaxonomyController::class, 'destroyCategory'])
+            ->whereIn('profile', ['talent', 'organiser', 'venue'])
+            ->whereNumber('categoryId');
+        Route::post('/{profile}/categories/{categoryId}/subcategories', [AdminProfileV2TaxonomyController::class, 'storeSubcategory'])
+            ->whereIn('profile', ['talent', 'organiser', 'venue'])
+            ->whereNumber('categoryId');
+        Route::put('/{profile}/subcategories/{subcategoryId}', [AdminProfileV2TaxonomyController::class, 'updateSubcategory'])
+            ->whereIn('profile', ['talent', 'organiser', 'venue'])
+            ->whereNumber('subcategoryId');
+        Route::delete('/{profile}/subcategories/{subcategoryId}', [AdminProfileV2TaxonomyController::class, 'destroySubcategory'])
+            ->whereIn('profile', ['talent', 'organiser', 'venue'])
+            ->whereNumber('subcategoryId');
+    });
+
     // Admin Users Management
     Route::prefix('users')->group(function () {
         // Stats and listing (admin access)
@@ -142,16 +169,30 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         // Status update (Super Admin only)
         Route::middleware('super_admin')->patch('/{id}/status', [AdminUserController::class, 'updateStatus']);
 
-        // CRUD operations (Super Admin only)
+        // CRUD operations (Super Admin only) — legacy paths under /users; prefer /backoffice-users
         Route::middleware('super_admin')->group(function () {
             Route::post('/', [UserController::class, 'store']);
             Route::get('/{id}', [UserController::class, 'show']);
             Route::put('/{id}', [UserController::class, 'update']);
+            Route::patch('/{id}', [UserController::class, 'partialUpdate']);
             Route::delete('/{id}', [UserController::class, 'destroy']);
             Route::post('/{id}/activate', [UserController::class, 'activate']);
             Route::post('/{id}/deactivate', [UserController::class, 'deactivate']);
             Route::post('/{id}/reset-password', [UserController::class, 'resetPassword']);
         });
+    });
+
+    // Back-office accounts (admin + super_admin); super_admin only
+    Route::prefix('backoffice-users')->middleware('super_admin')->group(function () {
+        Route::get('/', [UserController::class, 'backofficeIndex']);
+        Route::post('/', [UserController::class, 'store']);
+        Route::get('/{id}', [UserController::class, 'show'])->whereNumber('id');
+        Route::put('/{id}', [UserController::class, 'update'])->whereNumber('id');
+        Route::patch('/{id}', [UserController::class, 'partialUpdate'])->whereNumber('id');
+        Route::delete('/{id}', [UserController::class, 'destroy'])->whereNumber('id');
+        Route::post('/{id}/activate', [UserController::class, 'activate'])->whereNumber('id');
+        Route::post('/{id}/deactivate', [UserController::class, 'deactivate'])->whereNumber('id');
+        Route::post('/{id}/reset-password', [UserController::class, 'resetPassword'])->whereNumber('id');
     });
 
     // Analytics

@@ -7,79 +7,51 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
 {
     /**
-     * GET /api/admin/users
+     * GET /api/admin/backoffice-users
      *
-     * List admin users with filters and pagination.
+     * Paginated list of admin and super_admin accounts (super-admin panel).
      */
-    public function index(Request $request): JsonResponse
+    public function backofficeIndex(Request $request): JsonResponse
     {
         $request->validate([
             'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:1|max:100',
             'sort' => 'nullable|string',
             'search' => 'nullable|string|max:255',
-            'role' => 'nullable|string|in:user,admin,super_admin',
+            'role' => 'nullable|string|in:admin,super_admin',
             'is_active' => 'nullable|boolean',
             'trashed' => 'nullable|boolean',
-            'account_type' => 'nullable|string|in:free,premium',
-            'status' => 'nullable|string|in:active,pending_payment,suspended',
-            'profile_type' => 'nullable|string|in:event,talent,organizer,venue',
-            'country' => 'nullable|string|max:255',
         ]);
 
-        $query = User::query();
+        $query = User::query()->admins();
 
-        // Include trashed if requested
         if ($request->boolean('trashed')) {
             $query->withTrashed();
         }
 
-        // Search filter
         if ($request->filled('search')) {
             $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'ILIKE', "%{$search}%")
-                  ->orWhere('email', 'ILIKE', "%{$search}%");
+            $op = $query->getConnection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'like';
+            $query->where(function ($q) use ($search, $op) {
+                $q->where('name', $op, "%{$search}%")
+                    ->orWhere('email', $op, "%{$search}%");
             });
         }
 
-        // Role filter
         if ($request->filled('role')) {
             $query->where('role', $request->input('role'));
         }
 
-        // Active filter
-        if ($request->has('is_active')) {
+        if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        // Account type filter
-        if ($request->filled('account_type')) {
-            $query->accountType($request->input('account_type'));
-        }
-
-        // Status filter
-        if ($request->filled('status')) {
-            $query->status($request->input('status'));
-        }
-
-        // Profile type filter
-        if ($request->filled('profile_type')) {
-            $query->profileType($request->input('profile_type'));
-        }
-
-        // Country filter
-        if ($request->filled('country')) {
-            $query->country($request->input('country'));
-        }
-
-        // Sorting
         $sortField = 'created_at';
         $sortDirection = 'desc';
         if ($request->filled('sort')) {
@@ -92,30 +64,24 @@ class UserController extends Controller
                 $sortField = $sort;
             }
         }
-        $allowedSorts = ['name', 'email', 'created_at', 'role', 'account_type', 'status', 'profile_type', 'country'];
-        if (in_array($sortField, $allowedSorts)) {
+        $allowedSorts = ['name', 'email', 'created_at', 'role', 'is_active'];
+        if (in_array($sortField, $allowedSorts, true)) {
             $query->orderBy($sortField, $sortDirection);
         }
 
-        // Pagination
-        $perPage = $request->input('per_page', 20);
+        $perPage = (int) $request->input('per_page', 20);
         $users = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data' => $users->map(function ($user) {
+            'data' => $users->map(function (User $user) {
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->role,
-                    'profile_type' => $user->profile_type,
-                    'account_type' => $user->account_type,
-                    'status' => $user->status,
-                    'country' => $user->country,
                     'is_active' => $user->is_active,
                     'email_verified' => $user->hasVerifiedEmail(),
-                    'registration_date' => $user->created_at?->toIso8601String(),
                     'created_at' => $user->created_at?->toIso8601String(),
                     'updated_at' => $user->updated_at?->toIso8601String(),
                     'deleted_at' => $user->deleted_at?->toIso8601String(),
@@ -132,13 +98,13 @@ class UserController extends Controller
     }
 
     /**
-     * GET /api/admin/users/{id}
+     * GET /api/admin/backoffice-users/{id} | GET /api/admin/users/{id} (super_admin)
      *
-     * Get single admin user.
+     * Admin / super_admin account detail only.
      */
     public function show(int $id): JsonResponse
     {
-        $user = User::withTrashed()->findOrFail($id);
+        $user = User::query()->admins()->withTrashed()->findOrFail($id);
 
         return response()->json([
             'success' => true,
@@ -147,16 +113,12 @@ class UserController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
-                'profile_type' => $user->profile_type,
-                'account_type' => $user->account_type,
-                'status' => $user->status,
-                'billing_type' => $user->billing_type,
-                'country' => $user->country,
-                'vat_number' => $user->vat_number,
                 'is_active' => $user->is_active,
                 'email_verified' => $user->hasVerifiedEmail(),
                 'email_verified_at' => $user->email_verified_at?->toIso8601String(),
-                'registration_date' => $user->created_at?->toIso8601String(),
+                'profile_type' => $user->profile_type,
+                'account_type' => $user->account_type,
+                'status' => $user->status,
                 'created_at' => $user->created_at?->toIso8601String(),
                 'updated_at' => $user->updated_at?->toIso8601String(),
                 'deleted_at' => $user->deleted_at?->toIso8601String(),
@@ -165,9 +127,9 @@ class UserController extends Controller
     }
 
     /**
-     * POST /api/admin/users
+     * POST /api/admin/backoffice-users | POST /api/admin/users (super_admin)
      *
-     * Create a new admin user.
+     * Create a new admin or super_admin user.
      */
     public function store(Request $request): JsonResponse
     {
@@ -207,13 +169,87 @@ class UserController extends Controller
         $user = User::admins()->findOrFail($id);
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $id,
-            'role' => 'required|string|in:admin,super_admin',
+            'name'      => 'required|string|max:255',
+            'email'     => 'required|email|unique:users,email,' . $id,
+            'role'      => 'required|string|in:admin,super_admin',
+            'password'  => ['nullable', Password::defaults()],
             'is_active' => 'nullable|boolean',
         ]);
 
+        if ($err = $this->guardRoleDemotion($user, $validated['role'])) {
+            return $err;
+        }
+
+        if (array_key_exists('is_active', $validated)
+            && $validated['is_active'] === false
+            && $user->id === $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code'    => 'SELF_DEACTIVATE',
+                    'message' => 'You cannot deactivate your own account.',
+                ],
+            ], 400);
+        }
+
+        // Only hash & keep password if it was actually provided
+        if (!empty($validated['password'])) {
+            $validated['password'] = bcrypt($validated['password']);
+        } else {
+            unset($validated['password']);
+        }
+
         $user->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id'         => $user->id,
+                'name'       => $user->name,
+                'email'      => $user->email,
+                'role'       => $user->role,
+                'is_active'  => $user->is_active,
+                'updated_at' => $user->updated_at?->toIso8601String(),
+            ],
+        ]);
+    }
+
+    /**
+     * PATCH /api/admin/backoffice-users/{id}
+     *
+     * Partial update (super-admin panel).
+     */
+    public function partialUpdate(Request $request, int $id): JsonResponse
+    {
+        $user = User::admins()->findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'email' => ['sometimes', 'required', 'email', Rule::unique('users', 'email')->ignore($id)],
+            'role' => 'sometimes|required|string|in:admin,super_admin',
+            'is_active' => 'sometimes|boolean',
+        ]);
+
+        if (isset($validated['role'])) {
+            if ($err = $this->guardRoleDemotion($user, $validated['role'])) {
+                return $err;
+            }
+        }
+
+        if (array_key_exists('is_active', $validated)
+            && $validated['is_active'] === false
+            && $user->id === $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'SELF_DEACTIVATE',
+                    'message' => 'You cannot deactivate your own account.',
+                ],
+            ], 400);
+        }
+
+        $user->fill($validated);
+        $user->save();
 
         return response()->json([
             'success' => true,
@@ -246,6 +282,17 @@ class UserController extends Controller
                     'message' => 'You cannot delete your own account.',
                 ],
             ], 400);
+        }
+
+        // Prevent deleting the last super admin
+        if ($user->isSuperAdmin() && ! $this->otherSuperAdminExistsExcluding($user->id)) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'LAST_SUPER_ADMIN',
+                    'message' => 'Cannot delete the last super admin account.',
+                ],
+            ], 422);
         }
 
         $user->delete();
@@ -335,5 +382,44 @@ class UserController extends Controller
                 'message' => 'Password reset successfully. User will need to login again.',
             ],
         ]);
+    }
+
+    /**
+     * Another super_admin row exists other than {@code $excludeUserId}.
+     */
+    private function otherSuperAdminExistsExcluding(int $excludeUserId): bool
+    {
+        return User::query()
+            ->where('role', User::ROLE_SUPER_ADMIN)
+            ->where('id', '!=', $excludeUserId)
+            ->exists();
+    }
+
+    /**
+     * Block demoting the last super admin to admin.
+     *
+     * @return JsonResponse|null
+     */
+    private function guardRoleDemotion(User $user, string $newRole): ?JsonResponse
+    {
+        if (! $user->isSuperAdmin()) {
+            return null;
+        }
+
+        if ($newRole !== User::ROLE_ADMIN) {
+            return null;
+        }
+
+        if (! $this->otherSuperAdminExistsExcluding($user->id)) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'LAST_SUPER_ADMIN',
+                    'message' => 'Cannot demote the last super admin to admin.',
+                ],
+            ], 422);
+        }
+
+        return null;
     }
 }
