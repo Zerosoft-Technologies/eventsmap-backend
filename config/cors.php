@@ -26,6 +26,17 @@ return [
         'http://185.133.88.194:3001',
         'https://admin.eventsmap.zerosoft.in',
         'http://admin.eventsmap.zerosoft.in',
+        
+        'http://test.eventsmap.projectenconnectc.nl',
+        'http://stage.eventsmap.projectenconnectc.nl',
+        'http://eventsmap.projectenconnectc.nl',
+
+        'https://test.eventsmap.projectenconnectc.nl',
+        'https://stage.eventsmap.projectenconnectc.nl',
+        'https://eventsmap.projectenconnectc.nl',
+
+        'http://admin.eventsmap.projectenconnectc.nl',
+        'https://admin.eventsmap.projectenconnectc.nl'
     ],
 
     'allowed_origins_patterns' => [],
