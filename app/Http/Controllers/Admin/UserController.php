@@ -98,9 +98,7 @@ class UserController extends Controller
     }
 
     /**
-     * GET /api/admin/backoffice-users/{id} | GET /api/admin/users/{id} (super_admin)
-     *
-     * Admin / super_admin account detail only.
+     * GET /api/admin/backoffice-users/{id} only (back-office accounts: admin + super_admin).
      */
     public function show(int $id): JsonResponse
     {

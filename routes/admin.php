@@ -165,20 +165,20 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         // Stats and listing (admin access)
         Route::get('/stats', [AdminUserController::class, 'stats']);
         Route::get('/', [AdminUserController::class, 'index']);
+        Route::get('/{id}', [AdminUserController::class, 'show'])->whereNumber('id');
 
         // Status update (Super Admin only)
         Route::middleware('super_admin')->patch('/{id}/status', [AdminUserController::class, 'updateStatus']);
 
-        // CRUD operations (Super Admin only) — legacy paths under /users; prefer /backoffice-users
+        // CRUD operations (Super Admin only) — back-office accounts; use GET /users/{id} for any user
         Route::middleware('super_admin')->group(function () {
             Route::post('/', [UserController::class, 'store']);
-            Route::get('/{id}', [UserController::class, 'show']);
-            Route::put('/{id}', [UserController::class, 'update']);
-            Route::patch('/{id}', [UserController::class, 'partialUpdate']);
-            Route::delete('/{id}', [UserController::class, 'destroy']);
-            Route::post('/{id}/activate', [UserController::class, 'activate']);
-            Route::post('/{id}/deactivate', [UserController::class, 'deactivate']);
-            Route::post('/{id}/reset-password', [UserController::class, 'resetPassword']);
+            Route::put('/{id}', [UserController::class, 'update'])->whereNumber('id');
+            Route::patch('/{id}', [UserController::class, 'partialUpdate'])->whereNumber('id');
+            Route::delete('/{id}', [UserController::class, 'destroy'])->whereNumber('id');
+            Route::post('/{id}/activate', [UserController::class, 'activate'])->whereNumber('id');
+            Route::post('/{id}/deactivate', [UserController::class, 'deactivate'])->whereNumber('id');
+            Route::post('/{id}/reset-password', [UserController::class, 'resetPassword'])->whereNumber('id');
         });
     });
 

@@ -95,6 +95,27 @@ class AdminUserController extends Controller
     }
 
     /**
+     * GET /api/admin/users/{id}
+     *
+     * Any app user (same universe as index). Back-office-only detail: GET /backoffice-users/{id}.
+     */
+    public function show(int $id): JsonResponse
+    {
+        $user = User::query()->findOrFail($id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User fetched successfully',
+            'data' => array_merge((new AdminUserResource($user))->resolve(), [
+                'role' => $user->role,
+                'is_active' => $user->is_active,
+                'updated_at' => $user->updated_at?->toIso8601String(),
+                'deleted_at' => $user->deleted_at?->toIso8601String(),
+            ]),
+        ]);
+    }
+
+    /**
      * PATCH /api/admin/users/{id}/status
      *
      * Update user status.
