@@ -47,7 +47,14 @@ php artisan storage:link
 
 Logo for PDF: set `INVOICE_LOGO_PATH=images/marker.png` (under `public/`) or a full URL. The resolver embeds the image as base64 so DomPDF renders it reliably.
 
-Emails use the same branded layout as verify/reset emails (`x-mail::layout`) and are queued on the `emails` queue after the PDF is saved. Run `php artisan queue:work --queue=emails,default` if `QUEUE_CONNECTION=database`.
+Emails use the same branded layout as verify/reset emails (`x-mail::layout`). By default they are sent **synchronously** immediately after the PDF is saved (`INVOICE_EMAIL_ASYNC=false`). Two emails are sent after a successful premium payment:
+
+1. **Premium welcome** (`PremiumWelcomeMail`) — once per user (`premium_welcome_sent_at`)
+2. **Invoice receipt** (`InvoiceReceiptMail`) — PDF attached, once per invoice (`emailed_at`)
+
+Premium **signup** (`POST /api/auth/register` with `account_type=premium`) does not send welcome mail until payment completes (user is `pending_payment`). After Stripe Checkout + `POST /api/payment/verify` (or webhook), both emails are triggered.
+
+If `INVOICE_EMAIL_ASYNC=true`, set `INVOICE_EMAIL_QUEUE=default` and run `php artisan queue:work`.
 
 Configure `.env`:
 

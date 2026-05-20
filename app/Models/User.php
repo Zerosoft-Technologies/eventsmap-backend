@@ -67,6 +67,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'stripe_subscription_id',
         'stripe_session_id',
         'premium_started_at',
+        'premium_welcome_sent_at',
     ];
 
     /**
@@ -92,6 +93,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'is_active' => 'boolean',
             'vat_validated' => 'boolean',
             'premium_started_at' => 'datetime',
+            'premium_welcome_sent_at' => 'datetime',
         ];
     }
 

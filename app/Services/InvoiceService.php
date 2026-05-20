@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Jobs\SendInvoiceEmailJob;
 use App\Models\Invoice;
 use App\Models\Subscription;
 use App\Models\SubscriptionInvoice;
@@ -204,15 +203,13 @@ class InvoiceService
      */
     public function createAndFinalize(array $attributes): Invoice
     {
-        return DB::transaction(function () use ($attributes) {
+        $invoice = DB::transaction(function () use ($attributes) {
             $attributes['invoice_number'] = $attributes['invoice_number'] ?? $this->generateInvoiceNumber();
 
             $invoice = Invoice::query()->create($attributes);
 
             $path = $this->generatePdf($invoice);
             $invoice->update(['invoice_pdf_path' => $path]);
-
-            $this->queueInvoiceEmail($invoice->fresh());
 
             Log::info('Invoice issued', [
                 'invoice_id' => $invoice->id,
@@ -222,6 +219,34 @@ class InvoiceService
 
             return $invoice->fresh();
         });
+
+        $this->deliverPostPaymentEmails($invoice);
+
+        return $invoice->fresh();
+    }
+
+    private function deliverPostPaymentEmails(Invoice $invoice): void
+    {
+        try {
+            $user = User::query()->find($invoice->user_id);
+            if (! $user) {
+                return;
+            }
+
+            $notifier = app(PremiumNotificationService::class);
+            if (config('invoice.email_async', false)) {
+                $notifier->sendPremiumWelcomeIfNeeded($user);
+                $notifier->queueInvoiceReceipt($invoice);
+            } else {
+                $notifier->sendPostPaymentEmails($user, $invoice);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Post-payment emails failed', [
+                'invoice_id' => $invoice->id,
+                'user_id' => $invoice->user_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function generateInvoiceNumber(): string
@@ -290,16 +315,10 @@ class InvoiceService
             $invoice->update(['invoice_pdf_path' => $path]);
         }
 
-        if ($invoice->emailed_at === null) {
-            $this->queueInvoiceEmail($invoice->fresh());
+        $user = User::query()->find($invoice->user_id);
+        if ($user) {
+            app(PremiumNotificationService::class)->sendPostPaymentEmails($user, $invoice->fresh());
         }
-    }
-
-    public function queueInvoiceEmail(Invoice $invoice): void
-    {
-        SendInvoiceEmailJob::dispatch($invoice->id)
-            ->onQueue(config('invoice.queue', 'emails'))
-            ->afterCommit();
     }
 
     private function paymentMethodLabel(Invoice $invoice): string

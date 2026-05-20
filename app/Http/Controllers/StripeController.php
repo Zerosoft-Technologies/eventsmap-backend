@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\InvoiceService;
+use App\Services\PremiumNotificationService;
 use App\Services\Stripe\PremiumCheckoutSessionFactory;
 use App\Services\Stripe\StripeWebhookProcessor;
 use App\Services\Stripe\SubscriptionPersistService;
@@ -21,6 +22,7 @@ class StripeController extends Controller
         private readonly StripeWebhookProcessor $webhookProcessor,
         private readonly PremiumCheckoutSessionFactory $premiumCheckout,
         private readonly InvoiceService $invoiceService,
+        private readonly PremiumNotificationService $premiumNotifications,
     ) {}
 
     /**
@@ -110,6 +112,7 @@ class StripeController extends Controller
                         'user_id' => $user->id,
                         'error' => $e->getMessage(),
                     ]);
+                    $this->premiumNotifications->sendPremiumWelcomeIfNeeded($user->fresh());
                 }
 
                 $token = $user->createToken('auth_token')->plainTextToken;
@@ -149,6 +152,7 @@ class StripeController extends Controller
                     'user_id' => $user->id,
                     'error' => $e->getMessage(),
                 ]);
+                $this->premiumNotifications->sendPremiumWelcomeIfNeeded($user->fresh());
             }
 
             $user->refresh();

@@ -25,6 +25,9 @@ return [
 
     'storage_directory' => 'invoices',
 
-    'queue' => env('INVOICE_EMAIL_QUEUE', 'emails'),
+    /** When true, invoice emails use the queue worker; false sends immediately (recommended). */
+    'email_async' => filter_var(env('INVOICE_EMAIL_ASYNC', false), FILTER_VALIDATE_BOOL),
+
+    'queue' => env('INVOICE_EMAIL_QUEUE', 'default'),
 
 ];

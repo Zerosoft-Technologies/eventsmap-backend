@@ -6,6 +6,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionEvent;
 use App\Models\User;
 use App\Services\InvoiceService;
+use App\Services\PremiumNotificationService;
 use Illuminate\Support\Facades\Log;
 use Stripe\Event;
 use Stripe\Webhook;
@@ -17,6 +18,7 @@ class StripeWebhookProcessor
         private readonly SubscriptionUserStateService $userState,
         private readonly StripeWebhookSecretResolver $webhookSecretResolver,
         private readonly InvoiceService $invoiceService,
+        private readonly PremiumNotificationService $premiumNotifications,
     ) {}
 
     public function verifyAndParseEvent(string $payload, ?string $signatureHeader): Event
@@ -118,6 +120,7 @@ class StripeWebhookProcessor
                     'user_id' => $user->id,
                     'error' => $e->getMessage(),
                 ]);
+                $this->premiumNotifications->sendPremiumWelcomeIfNeeded($user->fresh());
             }
         }
 
