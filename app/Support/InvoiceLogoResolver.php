@@ -16,8 +16,8 @@ final class InvoiceLogoResolver
             $configuredPath,
             config('invoice.company.logo_path'),
             config('mail.logo_url'),
+            'images/logo.png',
             'images/marker.png',
-            'images/invoice-logo.png',
         ], fn ($v) => is_string($v) && $v !== ''));
 
         foreach ($candidates as $candidate) {
