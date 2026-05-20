@@ -40,6 +40,10 @@ return [
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         'price_id' => env('STRIPE_PRICE_ID'),
+        /** auto | subscription | payment — auto picks mode from the Price object in Stripe */
+        'checkout_mode' => env('STRIPE_CHECKOUT_MODE', 'auto'),
+        'premium_amount' => (int) env('STRIPE_PREMIUM_AMOUNT', 100),
+        'premium_currency' => env('STRIPE_PREMIUM_CURRENCY', 'eur'),
     ],
 
     'firebase' => [

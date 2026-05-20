@@ -3,7 +3,10 @@
 namespace App\Services\Stripe;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 use Stripe\Checkout\Session;
+use Stripe\Exception\ApiErrorException;
+use Stripe\StripeClient;
 
 final class PremiumCheckoutSessionFactory
 {
@@ -28,7 +31,8 @@ final class PremiumCheckoutSessionFactory
         ];
 
         if (is_string($priceId) && $priceId !== '') {
-            $params['mode'] = 'subscription';
+            $mode = $this->resolveCheckoutMode($stripe, $priceId);
+            $params['mode'] = $mode;
             $params['line_items'] = [
                 ['price' => $priceId, 'quantity' => 1],
             ];
@@ -37,11 +41,11 @@ final class PremiumCheckoutSessionFactory
             $params['line_items'] = [
                 [
                     'price_data' => [
-                        'currency' => 'usd',
+                        'currency' => config('services.stripe.premium_currency', 'eur'),
                         'product_data' => [
                             'name' => $productTitle,
                         ],
-                        'unit_amount' => 100,
+                        'unit_amount' => (int) config('services.stripe.premium_amount', 100),
                     ],
                     'quantity' => 1,
                 ],
@@ -49,5 +53,29 @@ final class PremiumCheckoutSessionFactory
         }
 
         return $stripe->checkout->sessions->create($params);
+    }
+
+    /**
+     * Subscription mode requires a recurring Price; one-time Prices must use payment mode.
+     */
+    private function resolveCheckoutMode(StripeClient $stripe, string $priceId): string
+    {
+        $override = strtolower((string) config('services.stripe.checkout_mode', 'auto'));
+        if (in_array($override, ['subscription', 'payment'], true)) {
+            return $override;
+        }
+
+        try {
+            $price = $stripe->prices->retrieve($priceId);
+
+            return $price->recurring !== null ? 'subscription' : 'payment';
+        } catch (ApiErrorException $e) {
+            Log::warning('Could not retrieve Stripe price; defaulting checkout to payment mode', [
+                'price_id' => $priceId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 'payment';
+        }
     }
 }
