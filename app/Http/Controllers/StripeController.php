@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\InvoiceService;
 use App\Services\Stripe\PremiumCheckoutSessionFactory;
 use App\Services\Stripe\StripeWebhookProcessor;
 use App\Services\Stripe\SubscriptionPersistService;
@@ -19,6 +20,7 @@ class StripeController extends Controller
         private readonly SubscriptionPersistService $subscriptionPersist,
         private readonly StripeWebhookProcessor $webhookProcessor,
         private readonly PremiumCheckoutSessionFactory $premiumCheckout,
+        private readonly InvoiceService $invoiceService,
     ) {}
 
     /**
@@ -101,7 +103,8 @@ class StripeController extends Controller
                 }
 
                 try {
-                    $this->subscriptionPersist->syncFromCheckoutSession($session, $user);
+                    $subscription = $this->subscriptionPersist->syncFromCheckoutSession($session, $user);
+                    $this->invoiceService->issueFromCheckoutSession($session, $user, $subscription);
                 } catch (\Throwable $e) {
                     Log::error('Subscription persist failed after verify (active user)', [
                         'user_id' => $user->id,
@@ -139,7 +142,8 @@ class StripeController extends Controller
             $user->refresh();
 
             try {
-                $this->subscriptionPersist->syncFromCheckoutSession($session, $user);
+                $subscription = $this->subscriptionPersist->syncFromCheckoutSession($session, $user);
+                $this->invoiceService->issueFromCheckoutSession($session, $user, $subscription);
             } catch (\Throwable $e) {
                 Log::error('Subscription persist failed after verify', [
                     'user_id' => $user->id,

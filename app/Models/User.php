@@ -298,4 +298,12 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(SubscriptionInvoice::class);
     }
+
+    /**
+     * Generated PDF invoices / receipts (premium purchases).
+     */
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class);
+    }
 }

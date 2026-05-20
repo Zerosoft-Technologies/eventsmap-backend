@@ -2,8 +2,10 @@
 
 namespace App\Services\Stripe;
 
+use App\Models\Subscription;
 use App\Models\SubscriptionEvent;
 use App\Models\User;
+use App\Services\InvoiceService;
 use Illuminate\Support\Facades\Log;
 use Stripe\Event;
 use Stripe\Webhook;
@@ -14,6 +16,7 @@ class StripeWebhookProcessor
         private readonly SubscriptionPersistService $persistService,
         private readonly SubscriptionUserStateService $userState,
         private readonly StripeWebhookSecretResolver $webhookSecretResolver,
+        private readonly InvoiceService $invoiceService,
     ) {}
 
     public function verifyAndParseEvent(string $payload, ?string $signatureHeader): Event
@@ -102,9 +105,21 @@ class StripeWebhookProcessor
             return;
         }
 
-        $this->persistService->syncFromCheckoutSession($session, $user);
+        $subscription = $this->persistService->syncFromCheckoutSession($session, $user);
 
         $user->refresh();
+
+        if ($session->payment_status === 'paid') {
+            try {
+                $this->invoiceService->issueFromCheckoutSession($session, $user, $subscription);
+            } catch (\Throwable $e) {
+                Log::error('Invoice generation failed after checkout', [
+                    'session_id' => $session->id,
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         $patch = [
             'email_verified_at' => $user->email_verified_at ?? now(),
@@ -124,11 +139,26 @@ class StripeWebhookProcessor
     private function onInvoicePaid(Event $event): void
     {
         $invoice = $event->data->object;
-        $this->persistService->upsertInvoiceFromStripe($invoice);
+        $subscriptionInvoice = $this->persistService->upsertInvoiceFromStripe($invoice);
 
         $user = $this->findUserForStripeCustomer($this->normalizeStripeId($invoice->customer));
         if ($user) {
             $this->userState->applyPaymentSucceeded($user);
+
+            if ($invoice->status === 'paid' || (int) ($invoice->amount_paid ?? 0) > 0) {
+                try {
+                    $subscription = $subscriptionInvoice?->subscription_id
+                        ? Subscription::query()->find($subscriptionInvoice->subscription_id)
+                        : null;
+                    $this->invoiceService->issueFromStripeInvoice($invoice, $user, $subscriptionInvoice, $subscription);
+                } catch (\Throwable $e) {
+                    Log::error('Invoice generation failed after stripe invoice.paid', [
+                        'stripe_invoice_id' => $invoice->id,
+                        'user_id' => $user->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
         }
     }
 

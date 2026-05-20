@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\StripeController;
@@ -72,6 +73,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Account owner: all event invites (aggregated)
     Route::get('/my-account/invites', [MyAccountInvitesController::class, 'index']);
     Route::delete('/my-account/invites', [MyAccountInvitesController::class, 'destroy']);
+
+    // Premium purchase invoices (PDF receipts)
+    Route::get('/invoices', [InvoiceController::class, 'index']);
+    Route::get('/invoices/{id}', [InvoiceController::class, 'show'])->whereNumber('id');
+    Route::get('/invoices/{id}/download', [InvoiceController::class, 'download'])->whereNumber('id');
 });
 
 // Premium-only routes (requires auth + active premium status)
