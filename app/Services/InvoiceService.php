@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Subscription;
 use App\Models\SubscriptionInvoice;
 use App\Models\User;
+use App\Support\InvoiceLogoResolver;
 use App\Support\MoneyFormatter;
 use App\Support\TaxCalculator;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -267,12 +268,7 @@ class InvoiceService
     public function pdfViewData(Invoice $invoice): array
     {
         $company = config('invoice.company');
-        $logoPath = public_path($company['logo_path'] ?? '');
-        $logoDataUri = null;
-        if (is_string($logoPath) && $logoPath !== '' && is_file($logoPath)) {
-            $mime = mime_content_type($logoPath) ?: 'image/png';
-            $logoDataUri = 'data:'.$mime.';base64,'.base64_encode((string) file_get_contents($logoPath));
-        }
+        $logoDataUri = InvoiceLogoResolver::dataUri($company['logo_path'] ?? null);
 
         return [
             'invoice' => $invoice,
@@ -301,7 +297,9 @@ class InvoiceService
 
     public function queueInvoiceEmail(Invoice $invoice): void
     {
-        SendInvoiceEmailJob::dispatch($invoice->id)->onQueue(config('invoice.queue', 'emails'));
+        SendInvoiceEmailJob::dispatch($invoice->id)
+            ->onQueue(config('invoice.queue', 'emails'))
+            ->afterCommit();
     }
 
     private function paymentMethodLabel(Invoice $invoice): string

@@ -125,7 +125,7 @@
     <div class="header">
         <div class="header-left">
             @if($logoDataUri)
-                <img src="{{ $logoDataUri }}" alt="{{ $company['name'] }}" class="logo">
+                <img src="{{ $logoDataUri }}" alt="{{ $company['name'] }}" class="logo" width="160" height="48">
             @else
                 <div style="font-size: 18px; font-weight: bold; color: #0f172a;">{{ $company['name'] }}</div>
             @endif

@@ -16,9 +16,23 @@ class InvoiceReceiptMail extends Mailable
 {
     use Queueable, SerializesModels;
 
+    public string $userName;
+
+    public string $companyName;
+
+    public string $supportEmail;
+
+    public ?string $downloadUrl;
+
     public function __construct(
         public Invoice $invoice,
-    ) {}
+    ) {
+        $this->userName = VerifyEmailMail::displayNameForEmail($invoice->billing_name ?: 'there');
+        $this->companyName = (string) config('invoice.company.name', config('app.name'));
+        $this->supportEmail = (string) config('invoice.company.support_email', config('mail.from.address'));
+        $frontend = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+        $this->downloadUrl = $frontend !== '' ? $frontend.'/account/invoices' : null;
+    }
 
     public function envelope(): Envelope
     {
@@ -26,18 +40,23 @@ class InvoiceReceiptMail extends Mailable
 
         return new Envelope(
             from: new Address($from['address'], $from['name']),
-            subject: 'Your invoice '.$this->invoice->invoice_number.' — '.config('invoice.company.name'),
+            to: [
+                new Address($this->invoice->billing_email, $this->userName),
+            ],
+            subject: 'Your invoice '.$this->invoice->invoice_number.' — '.$this->companyName,
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            view: 'emails.invoice-receipt',
+            markdown: 'emails.invoice-receipt',
             with: [
                 'invoice' => $this->invoice,
-                'companyName' => config('invoice.company.name'),
-                'supportEmail' => config('invoice.company.support_email'),
+                'userName' => $this->userName,
+                'companyName' => $this->companyName,
+                'supportEmail' => $this->supportEmail,
+                'downloadUrl' => $this->downloadUrl,
             ],
         );
     }
@@ -47,11 +66,17 @@ class InvoiceReceiptMail extends Mailable
      */
     public function attachments(): array
     {
+        if (! $this->invoice->invoice_pdf_path) {
+            return [];
+        }
+
         $disk = config('invoice.storage_disk', 'public');
-        $path = Storage::disk($disk)->path($this->invoice->invoice_pdf_path);
+        if (! Storage::disk($disk)->exists($this->invoice->invoice_pdf_path)) {
+            return [];
+        }
 
         return [
-            Attachment::fromPath($path)
+            Attachment::fromStorageDisk($disk, $this->invoice->invoice_pdf_path)
                 ->as($this->invoice->invoice_number.'.pdf')
                 ->withMime('application/pdf'),
         ];

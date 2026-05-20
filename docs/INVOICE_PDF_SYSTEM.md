@@ -45,7 +45,9 @@ php artisan migrate
 php artisan storage:link
 ```
 
-Optional: place your logo at `public/images/invoice-logo.png`.
+Logo for PDF: set `INVOICE_LOGO_PATH=images/marker.png` (under `public/`) or a full URL. The resolver embeds the image as base64 so DomPDF renders it reliably.
+
+Emails use the same branded layout as verify/reset emails (`x-mail::layout`) and are queued on the `emails` queue after the PDF is saved. Run `php artisan queue:work --queue=emails,default` if `QUEUE_CONNECTION=database`.
 
 Configure `.env`:
 

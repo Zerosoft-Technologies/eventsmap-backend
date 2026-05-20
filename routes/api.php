@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\StripeController;
@@ -60,6 +61,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Upgrade plan (for free users to upgrade to premium)
     Route::post('/user/upgrade-plan', [UpgradePlanController::class, 'upgrade']);
+
+    // Premium subscription & billing overview
+    Route::get('/subscription', [SubscriptionController::class, 'show']);
 
     // User profile management
     Route::get('/user/profile', [UserProfileController::class, 'show']);
