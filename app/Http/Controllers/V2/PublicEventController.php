@@ -7,6 +7,7 @@ use App\Http\Resources\V2\EventResource;
 use App\Models\EventV2;
 use App\Services\V2\EventInvitedEntitiesService;
 use App\Services\V2\EventService;
+use App\Support\V2ListingEventFilters;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -52,23 +53,17 @@ class PublicEventController extends Controller
             // Radius filter
             'lat' => 'nullable|numeric|between:-90,90',
             'lng' => 'nullable|numeric|between:-180,180',
+            'radius' => 'nullable|numeric|min:0.1|max:500',
             'radius_km' => 'nullable|numeric|min:0.1|max:500',
 
             // Other filters
             'category_id' => 'nullable|integer|exists:categories,id',
             'entrance_status' => 'nullable|string|in:free,paid',
-            // Date range (support multiple param names used by frontend)
-            'date_from' => 'nullable|date',
-            'date_to' => 'nullable|date',
-            'from_date' => 'nullable|date',
-            'to_date' => 'nullable|date',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date',
 
             // Sorting
             'sort' => 'nullable|string|in:event_date,distance',
             'order' => 'nullable|string|in:asc,desc',
-        ]);
+        ] + V2ListingEventFilters::dateValidationRules() + V2ListingEventFilters::sessionValidationRules());
 
         // Build optimized query for public events
         $query = EventV2::query()
@@ -88,10 +83,10 @@ class PublicEventController extends Controller
         }
 
         // Radius filter (for "events near me")
-        if ($request->filled(['lat', 'lng', 'radius_km'])) {
-            $lat = $request->input('lat');
-            $lng = $request->input('lng');
-            $radius = $request->input('radius_km');
+        if ($request->filled(['lat', 'lng']) && ($request->filled('radius_km') || $request->filled('radius'))) {
+            $lat = (float) $request->input('lat');
+            $lng = (float) $request->input('lng');
+            $radius = (float) ($request->input('radius_km') ?? $request->input('radius'));
 
             $query->withinRadius($lat, $lng, $radius)
                 ->withDistance($lat, $lng);
@@ -107,15 +102,7 @@ class PublicEventController extends Controller
             $q->where('entrance_status', $request->input('entrance_status'));
         });
 
-        // Date range filter
-        $dateFrom = $request->input('date_from')
-            ?? $request->input('from_date')
-            ?? $request->input('start_date');
-        $dateTo = $request->input('date_to')
-            ?? $request->input('to_date')
-            ?? $request->input('end_date');
-
-        $query->dateOverlap($dateFrom, $dateTo);
+        V2ListingEventFilters::applyToEventQuery($query, $request);
 
         // Sorting
         $sort = $request->input('sort', 'event_date');
@@ -235,15 +222,12 @@ class PublicEventController extends Controller
             'to_date' => 'nullable|date',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
-        ]);
+        ] + V2ListingEventFilters::dateValidationRules() + V2ListingEventFilters::sessionValidationRules());
 
         $limit = $request->input('limit', 100);
-        $dateFrom = $request->input('date_from')
-            ?? $request->input('from_date')
-            ?? $request->input('start_date');
-        $dateTo = $request->input('date_to')
-            ?? $request->input('to_date')
-            ?? $request->input('end_date');
+        $dateFrom = V2ListingEventFilters::dateFrom($request);
+        $dateTo = V2ListingEventFilters::dateTo($request);
+        $sessionsKey = implode(',', V2ListingEventFilters::selectedSessions($request));
         $zoom = $request->input('zoom');
 
         $cacheKey = implode(':', array_filter([
@@ -254,13 +238,14 @@ class PublicEventController extends Controller
             $request->input('max_lng'),
             $dateFrom ?? '',
             $dateTo ?? '',
+            $sessionsKey,
             $request->input('category_id') ?? '',
             $zoom !== null ? (string) round((float) $zoom) : '',
             (string) $limit,
         ], fn ($v) => $v !== null));
 
-        $events = Cache::remember($cacheKey, now()->addMinutes(2), function () use ($request, $dateFrom, $dateTo, $limit) {
-            return EventV2::query()
+        $events = Cache::remember($cacheKey, now()->addMinutes(2), function () use ($request, $limit) {
+            $query = EventV2::query()
                 ->select(['id', 'title', 'slug', 'latitude', 'longitude', 'venue_name', 'event_date', 'start_time', 'category_id', 'entrance_status'])
                 ->publicVisible()
                 ->whereIn('status', [EventV2::STATUS_UPCOMING, EventV2::STATUS_LIVE])
@@ -269,8 +254,11 @@ class PublicEventController extends Controller
                     $request->input('max_lat'),
                     $request->input('min_lng'),
                     $request->input('max_lng')
-                )
-                ->dateOverlap($dateFrom, $dateTo)
+                );
+
+            V2ListingEventFilters::applyToEventQuery($query, $request);
+
+            return $query
                 ->when($request->filled('category_id'), function ($q) use ($request) {
                     $q->where('category_id', $request->input('category_id'));
                 })

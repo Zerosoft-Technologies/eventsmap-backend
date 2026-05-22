@@ -15,6 +15,7 @@ use App\Models\SubCategory;
 use App\Services\V2\EventInvitedEntitiesService;
 use App\Services\V2\EventService;
 use App\Support\PublishStatus;
+use App\Support\V2ListingEventFilters;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,11 +51,6 @@ class EventController extends Controller
             'subcategory' => 'nullable|string|max:100',
             'status' => 'nullable|string|in:draft,upcoming,live,completed,cancelled',
             'entrance_status' => 'nullable|string|in:free,paid,sold_out,cancelled',
-            // Date range (support frontend param names)
-            'date_from' => 'nullable|date',
-            'date_to' => 'nullable|date',
-            'from_date' => 'nullable|date',
-            'to_date' => 'nullable|date',
             // Time-of-day window (matches events whose start_time falls in range, inclusive)
             'start_time' => ['nullable', 'string', 'regex:/^\d{1,2}:\d{2}(:\d{2})?$/'],
             'end_time' => ['nullable', 'string', 'regex:/^\d{1,2}:\d{2}(:\d{2})?$/'],
@@ -66,7 +62,7 @@ class EventController extends Controller
             'radius_km' => 'nullable|numeric|min:0.1|max:500', // km
             'sort' => 'nullable|string|in:event_date,created_at,title',
             'order' => 'nullable|string|in:asc,desc',
-        ]);
+        ] + V2ListingEventFilters::dateValidationRules() + V2ListingEventFilters::sessionValidationRules());
 
         $query = EventV2::query()
             ->with(['category', 'subcategories', 'venue', 'organisers', 'talents'])
@@ -134,17 +130,9 @@ class EventController extends Controller
             $q->where('entrance_status', $request->input('entrance_status'));
         });
 
-        // Date range filter
-        $dateFrom = $request->input('date_from') ?? $request->input('from_date');
-        $dateTo = $request->input('date_to') ?? $request->input('to_date');
-        if ($dateFrom) {
-            $query->where('event_date', '>=', $dateFrom);
-        }
-        if ($dateTo) {
-            $query->where('event_date', '<=', $dateTo);
-        }
+        V2ListingEventFilters::applyToEventQuery($query, $request);
 
-        // Time-of-day filter on stored TIME columns (start_time / end_time)
+        // Explicit start_time / end_time window (in addition to morning/afternoon/evening/night flags)
         if ($request->filled('start_time') || $request->filled('end_time')) {
             $start = $this->parseQueryTime($request->input('start_time'));
             $end = $this->parseQueryTime($request->input('end_time'));

@@ -6,6 +6,7 @@ use App\Helpers\MediaHelper;
 use App\Http\Resources\V2\EventResource;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
+use App\Support\TalentDateOfBirth;
 use App\Support\V2ProfileCoverImage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -35,6 +36,14 @@ class TalentResource extends JsonResource
                     'id' => $this->category->id,
                     'name' => $this->category->name,
                     'slug' => $this->category->slug,
+                ];
+            }),
+
+            'event_category' => $this->whenLoaded('eventCategory', function () {
+                return [
+                    'id' => $this->eventCategory->id,
+                    'name' => $this->eventCategory->name,
+                    'slug' => $this->eventCategory->slug,
                 ];
             }),
 
@@ -114,7 +123,8 @@ class TalentResource extends JsonResource
             'fan_club_url' => $this->fan_club_url,
             'nationality' => $this->nationality,
             'show_nationality' => $this->show_nationality,
-            'age' => $this->age,
+            'date_of_birth' => TalentDateOfBirth::toApiDate($this->date_of_birth),
+            'age' => TalentDateOfBirth::resolvedAge($this->age, $this->date_of_birth),
             'show_age' => $this->show_age,
             'languages' => $this->languages ?? [],
             'highlights' => $this->highlights,
@@ -152,16 +162,12 @@ class TalentResource extends JsonResource
      */
     protected function subcategoriesForListing(): array
     {
-        if ($this->relationLoaded('subcategories') && $this->subcategories !== null && $this->subcategories->isNotEmpty()) {
-            return $this->subcategories->map(fn ($sc) => [
+        if ($this->relationLoaded('talentSubcategories') && $this->talentSubcategories->isNotEmpty()) {
+            return $this->talentSubcategories->map(fn ($sc) => [
                 'id' => $sc->id,
                 'name' => $sc->name,
                 'slug' => $sc->slug,
             ])->values()->all();
-        }
-
-        if (empty($this->subcategory_ids)) {
-            return [];
         }
 
         return $this->subcategories_from_ids->map(fn ($sc) => [

@@ -47,6 +47,7 @@ class TalentV2 extends Model
         'nationality',
         'show_nationality',
         'age',
+        'date_of_birth',
         'show_age',
         'languages',
         'highlights',
@@ -62,6 +63,7 @@ class TalentV2 extends Model
             'longitude' => 'decimal:8',
             'subcategory_ids' => 'array',
             'additional_images' => 'array',
+            'date_of_birth' => 'date',
             'languages' => 'array',
             'show_upcoming_events' => 'boolean',
             'show_past_events' => 'boolean',
@@ -74,9 +76,29 @@ class TalentV2 extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Legacy event taxonomy FK (references {@see Category}).
+     */
+    public function eventCategory(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'category_id');
+    }
+
+    /**
+     * Preferred talent taxonomy (references {@see TalentCategory}); uses {@code talent_category_id}.
+     */
+    public function talentTaxonomyCategory(): BelongsTo
+    {
+        return $this->belongsTo(TalentCategory::class, 'talent_category_id');
+    }
+
+    /**
+     * @deprecated Use {@see talentTaxonomyCategory()} via {@see talentCategory()} alias.
+     * Kept because many eager-load calls use {@code category}; points to talent_categories.
+     */
     public function category(): BelongsTo
     {
-        return $this->belongsTo(Category::class);
+        return $this->talentTaxonomyCategory();
     }
 
     public function getSubcategoriesFromIdsAttribute()
@@ -85,12 +107,12 @@ class TalentV2 extends Model
             return collect([]);
         }
 
-        return SubCategory::whereIn('id', $this->subcategory_ids)->get();
+        return TalentSubcategory::whereIn('id', $this->subcategory_ids)->get();
     }
 
     public function talentCategory(): BelongsTo
     {
-        return $this->belongsTo(TalentCategory::class, 'talent_category_id');
+        return $this->talentTaxonomyCategory();
     }
 
     public function talentSubcategories(): BelongsToMany

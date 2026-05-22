@@ -661,6 +661,42 @@ class EventV2 extends Model
         return $query;
     }
 
+    /**
+     * Filter by event start_time falling in one or more dayparts (OR).
+     *
+     * @param  list<string>  $sessions  morning|afternoon|evening|night
+     */
+    public function scopeMatchingTimeOfDaySessions(Builder $query, array $sessions): Builder
+    {
+        $sessions = array_values(array_intersect($sessions, [
+            'morning', 'afternoon', 'evening', 'night',
+        ]));
+
+        if ($sessions === []) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $wrapper) use ($sessions) {
+            foreach ($sessions as $session) {
+                $wrapper->orWhere(function (Builder $slot) use ($session) {
+                    match ($session) {
+                        'morning' => $slot->whereTime('start_time', '>=', '05:00:00')
+                            ->whereTime('start_time', '<', '12:00:00'),
+                        'afternoon' => $slot->whereTime('start_time', '>=', '12:00:00')
+                            ->whereTime('start_time', '<', '18:00:00'),
+                        'evening' => $slot->whereTime('start_time', '>=', '18:00:00')
+                            ->whereTime('start_time', '<', '22:00:00'),
+                        'night' => $slot->where(function (Builder $night) {
+                            $night->whereTime('start_time', '>=', '22:00:00')
+                                ->orWhereTime('start_time', '<', '05:00:00');
+                        }),
+                        default => null,
+                    };
+                });
+            }
+        });
+    }
+
     // ──────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────

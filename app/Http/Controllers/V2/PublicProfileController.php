@@ -11,6 +11,7 @@ use App\Models\OrganiserV2;
 use App\Models\SubCategory;
 use App\Models\TalentV2;
 use App\Models\VenueV2;
+use App\Support\V2ListingEventFilters;
 use App\Support\V2ProfileListingTaxonomy;
 use App\Services\V2\EventInvitationService;
 use Illuminate\Database\Eloquent\Builder;
@@ -37,6 +38,7 @@ class PublicProfileController extends Controller
             'talents',
             'Talents fetched successfully',
             true,
+            false,
         );
     }
 
@@ -49,6 +51,7 @@ class PublicProfileController extends Controller
             OrganiserResource::class,
             'organisers',
             'Organisers fetched successfully',
+            false,
             false,
         );
     }
@@ -63,6 +66,7 @@ class PublicProfileController extends Controller
             'venues',
             'Venues fetched successfully',
             false,
+            true,
             true,
         );
     }
@@ -81,6 +85,7 @@ class PublicProfileController extends Controller
         string $message,
         bool $includeCityInSearch,
         bool $filterSubcategoriesViaVenueTaxonomy = false,
+        bool $applyEventSessionFilters = false,
     ): JsonResponse {
         $request->validate([
             'page' => 'nullable|integer|min:1',
@@ -93,6 +98,7 @@ class PublicProfileController extends Controller
 
             'lat' => 'nullable|numeric|between:-90,90',
             'lng' => 'nullable|numeric|between:-180,180',
+            'radius' => 'nullable|numeric|min:0.1|max:500',
             'radius_km' => 'nullable|numeric|min:0.1|max:500',
 
             'category_id' => 'nullable|integer|exists:categories,id',
@@ -103,7 +109,9 @@ class PublicProfileController extends Controller
 
             'sort' => 'nullable|string|in:created_at,title,distance',
             'order' => 'nullable|string|in:asc,desc',
-        ]);
+        ] + V2ListingEventFilters::dateValidationRules() + (
+            $applyEventSessionFilters ? V2ListingEventFilters::sessionValidationRules() : []
+        ));
 
         /** @var Builder $query */
         $query = $modelClass::query()
@@ -120,10 +128,10 @@ class PublicProfileController extends Controller
             );
         }
 
-        if ($request->filled(['lat', 'lng', 'radius_km'])) {
+        if ($request->filled(['lat', 'lng']) && ($request->filled('radius_km') || $request->filled('radius'))) {
             $lat = (float) $request->input('lat');
             $lng = (float) $request->input('lng');
-            $radius = (float) $request->input('radius_km');
+            $radius = (float) ($request->input('radius_km') ?? $request->input('radius'));
 
             $query->withinRadius($lat, $lng, $radius)
                 ->withDistance($lat, $lng);
@@ -152,10 +160,17 @@ class PublicProfileController extends Controller
             $q->where('event_type', $request->input('event_type'));
         });
 
+        V2ListingEventFilters::applyMatchingEventsToProfileQuery(
+            $query,
+            $request,
+            $modelClass,
+            $applyEventSessionFilters,
+        );
+
         $sort = $request->input('sort', 'created_at');
         $order = $request->input('order', 'asc');
 
-        if ($sort === 'distance' && $request->filled(['lat', 'lng', 'radius_km'])) {
+        if ($sort === 'distance' && $request->filled(['lat', 'lng']) && ($request->filled('radius_km') || $request->filled('radius'))) {
             $query->orderBy('distance_km', $order);
         } else {
             if ($sort === 'distance') {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\TalentV2;
 
+use App\Support\TalentDateOfBirth;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -15,7 +16,8 @@ class StoreTalentV2Request extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
+        $payload = TalentDateOfBirth::mergeAliases([
+            ...$this->all(),
             'title' => $this->title ?? $this->name,
             'show_nationality' => filter_var($this->show_nationality, FILTER_VALIDATE_BOOLEAN),
             'show_age' => filter_var($this->show_age, FILTER_VALIDATE_BOOLEAN),
@@ -23,6 +25,11 @@ class StoreTalentV2Request extends FormRequest
             'show_past_events' => filter_var($this->show_past_events, FILTER_VALIDATE_BOOLEAN),
             'is_approved' => filter_var($this->is_approved, FILTER_VALIDATE_BOOLEAN),
         ]);
+        TalentDateOfBirth::applyAgeFromDateOfBirth($payload);
+        if (isset($payload['age']) && is_numeric($payload['age'])) {
+            $payload['age'] = (int) $payload['age'];
+        }
+        $this->replace($payload);
     }
 
     public function rules(): array
@@ -33,7 +40,7 @@ class StoreTalentV2Request extends FormRequest
             'event_type' => 'nullable|string|max:50',
             'category_id' => 'nullable|integer|exists:categories,id',
             'subcategory_ids' => 'nullable|array',
-            'subcategory_ids.*' => 'integer|exists:subcategories,id',
+            'subcategory_ids.*' => 'integer|exists:talent_subcategories,id',
             'talent_category_id' => 'nullable|integer|exists:talent_categories,id',
             'talent_subcategory_ids' => 'nullable|array',
             'talent_subcategory_ids.*' => 'integer|exists:talent_subcategories,id',
@@ -53,6 +60,9 @@ class StoreTalentV2Request extends FormRequest
             'fan_club_url' => 'nullable|url|max:500',
             'nationality' => 'nullable|string|max:100',
             'show_nationality' => 'nullable|boolean',
+            'date_of_birth' => 'nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
+            'birth_date' => 'nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
+            'birthdate' => 'nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
             'age' => 'nullable|integer|min:0|max:200',
             'show_age' => 'nullable|boolean',
             'languages' => 'nullable|array',

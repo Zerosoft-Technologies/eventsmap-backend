@@ -7,6 +7,8 @@ use App\Http\Requests\Admin\TalentV2\StoreTalentV2Request;
 use App\Http\Requests\Admin\TalentV2\UpdateTalentV2Request;
 use App\Http\Resources\Admin\AdminTalentV2Resource;
 use App\Models\TalentV2;
+use App\Services\V2\TalentService;
+use App\Support\TalentDateOfBirth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -23,6 +25,10 @@ use Illuminate\Support\Str;
  */
 class AdminTalentV2Controller extends Controller
 {
+    public function __construct(
+        private readonly TalentService $talentService
+    ) {}
+
     /**
      * GET /api/admin/talents-v2
      *
@@ -42,7 +48,7 @@ class AdminTalentV2Controller extends Controller
         ]);
 
         $query = TalentV2::query()
-            ->with(['category', 'user', 'talentCategory', 'talentSubcategories']);
+            ->with(['category', 'eventCategory', 'user', 'talentCategory', 'talentSubcategories']);
 
         // Search filter
         $query->when($request->filled('search'), function ($q) use ($request) {
@@ -125,7 +131,7 @@ class AdminTalentV2Controller extends Controller
      */
     public function show($id): JsonResponse
     {
-        $talent = TalentV2::with(['category', 'user', 'talentCategory', 'talentSubcategories'])
+        $talent = TalentV2::with(['category', 'eventCategory', 'user', 'talentCategory', 'talentSubcategories'])
             ->findOrFail($id);
 
         return response()->json([
@@ -143,6 +149,7 @@ class AdminTalentV2Controller extends Controller
     public function store(StoreTalentV2Request $request): JsonResponse
     {
         $data = $request->validated();
+        TalentDateOfBirth::applyAgeFromDateOfBirth($data);
 
         $talent = DB::transaction(function () use ($data, $request) {
             $talentData = [
@@ -163,7 +170,7 @@ class AdminTalentV2Controller extends Controller
                 'contact_phone', 'contact_email', 'contact_website',
                 'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url', 'fan_club_url',
-                'nationality', 'show_nationality', 'age', 'show_age',
+                'nationality', 'show_nationality', 'age', 'date_of_birth', 'show_age',
                 'languages', 'highlights',
                 'show_upcoming_events', 'show_past_events',
             ];
@@ -200,14 +207,16 @@ class AdminTalentV2Controller extends Controller
 
             $talent = TalentV2::create($talentData);
 
-            if (! empty($data['talent_subcategory_ids'])) {
-                $talent->talentSubcategories()->sync($data['talent_subcategory_ids']);
-            }
+            $this->talentService->syncTalentTaxonomyRelations($talent, $data);
 
             Log::info('Admin created talent', ['talent_id' => $talent->id, 'admin_id' => $request->user()->id]);
 
-            return $talent->load(['category', 'user', 'talentCategory', 'talentSubcategories']);
+            return $talent->load(['category', 'eventCategory', 'user', 'talentCategory', 'talentSubcategories']);
         });
+
+        $this->talentService->inferTalentTaxonomyCategoryIfMissingFromPivot($talent);
+
+        $talent = $talent->fresh()->load(['category', 'eventCategory', 'user', 'talentCategory', 'talentSubcategories']);
 
         return response()->json([
             'success' => true,
@@ -225,6 +234,7 @@ class AdminTalentV2Controller extends Controller
     {
         $talent = TalentV2::findOrFail($id);
         $data = $request->validated();
+        TalentDateOfBirth::applyAgeFromDateOfBirth($data);
 
         $talent = DB::transaction(function () use ($talent, $data, $request) {
             $allowedFields = [
@@ -233,7 +243,7 @@ class AdminTalentV2Controller extends Controller
                 'description', 'contact_phone', 'contact_email', 'contact_website',
                 'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url', 'fan_club_url',
-                'nationality', 'show_nationality', 'age', 'show_age',
+                'nationality', 'show_nationality', 'age', 'date_of_birth', 'show_age',
                 'languages', 'highlights',
                 'show_upcoming_events', 'show_past_events', 'is_approved',
             ];
@@ -268,13 +278,13 @@ class AdminTalentV2Controller extends Controller
 
             $talent->update($updateData);
 
-            if (array_key_exists('talent_subcategory_ids', $data)) {
-                $talent->talentSubcategories()->sync($data['talent_subcategory_ids'] ?? []);
-            }
+            $this->talentService->syncTalentTaxonomyRelations($talent, $data);
+
+            $this->talentService->inferTalentTaxonomyCategoryIfMissingFromPivot($talent);
 
             Log::info('Admin updated talent', ['talent_id' => $talent->id, 'admin_id' => $request->user()->id]);
 
-            return $talent->load(['category', 'user', 'talentCategory', 'talentSubcategories']);
+            return $talent->fresh()->load(['category', 'eventCategory', 'user', 'talentCategory', 'talentSubcategories']);
         });
 
         return response()->json([

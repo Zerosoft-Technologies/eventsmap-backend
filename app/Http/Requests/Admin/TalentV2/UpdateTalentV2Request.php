@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\TalentV2;
 
+use App\Support\TalentDateOfBirth;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -30,6 +31,13 @@ class UpdateTalentV2Request extends FormRequest
         if ($this->has('is_approved')) {
             $this->merge(['is_approved' => filter_var($this->is_approved, FILTER_VALIDATE_BOOLEAN)]);
         }
+
+        $payload = TalentDateOfBirth::mergeAliases($this->all());
+        TalentDateOfBirth::applyAgeFromDateOfBirth($payload);
+        if (isset($payload['age']) && is_numeric($payload['age'])) {
+            $payload['age'] = (int) $payload['age'];
+        }
+        $this->replace($payload);
     }
 
     public function rules(): array
@@ -40,7 +48,7 @@ class UpdateTalentV2Request extends FormRequest
             'event_type' => 'nullable|string|max:50',
             'category_id' => 'sometimes|nullable|integer|exists:categories,id',
             'subcategory_ids' => 'sometimes|nullable|array',
-            'subcategory_ids.*' => 'integer|exists:subcategories,id',
+            'subcategory_ids.*' => 'integer|exists:talent_subcategories,id',
             'talent_category_id' => 'sometimes|nullable|integer|exists:talent_categories,id',
             'talent_subcategory_ids' => 'sometimes|nullable|array',
             'talent_subcategory_ids.*' => 'integer|exists:talent_subcategories,id',
@@ -60,6 +68,9 @@ class UpdateTalentV2Request extends FormRequest
             'fan_club_url' => 'sometimes|nullable|url|max:500',
             'nationality' => 'sometimes|nullable|string|max:100',
             'show_nationality' => 'sometimes|nullable|boolean',
+            'date_of_birth' => 'sometimes|nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
+            'birth_date' => 'sometimes|nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
+            'birthdate' => 'sometimes|nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
             'age' => 'sometimes|nullable|integer|min:0|max:200',
             'show_age' => 'sometimes|nullable|boolean',
             'languages' => 'sometimes|nullable|array',

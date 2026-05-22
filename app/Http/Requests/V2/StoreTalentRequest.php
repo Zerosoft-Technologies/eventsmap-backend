@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\V2;
 
+use App\Http\Requests\Concerns\NormalizesTalentDateOfBirth;
+use App\Support\TalentDateOfBirth;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -9,19 +11,16 @@ use Illuminate\Validation\Rule;
 
 class StoreTalentRequest extends FormRequest
 {
+    use NormalizesTalentDateOfBirth;
+
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * JSON clients often send age as a number; validation expects a string.
-     */
     protected function prepareForValidation(): void
     {
-        if ($this->has('age') && is_numeric($this->input('age'))) {
-            $this->merge(['age' => (string) $this->input('age')]);
-        }
+        $this->normalizeTalentDateOfBirthInput();
     }
 
     public function rules(): array
@@ -31,7 +30,7 @@ class StoreTalentRequest extends FormRequest
             'event_type' => ['required', 'string', Rule::in(['free', 'premium'])],
             'category_id' => 'nullable|integer|exists:categories,id',
             'subcategory_ids' => 'nullable|array',
-            'subcategory_ids.*' => 'integer|exists:subcategories,id',
+            'subcategory_ids.*' => 'integer|exists:talent_subcategories,id',
             'talent_category_id' => 'nullable|integer|exists:talent_categories,id',
             'talent_subcategory_ids' => 'nullable|array',
             'talent_subcategory_ids.*' => 'integer|exists:talent_subcategories,id',
@@ -51,6 +50,9 @@ class StoreTalentRequest extends FormRequest
             'fan_club_url' => 'nullable|url|max:500',
             'nationality' => 'nullable|string|max:255',
             'show_nationality' => 'nullable|string|max:32',
+            'date_of_birth' => 'nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
+            'birth_date' => 'nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
+            'birthdate' => 'nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
             'age' => 'nullable|string|max:10',
             'show_age' => 'nullable|string|max:32',
             'languages' => 'nullable|array',

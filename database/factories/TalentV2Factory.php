@@ -40,6 +40,8 @@ class TalentV2Factory extends Factory
             ? self::getTalentCategoryName((int) $talentCategoryId)
             : 'Musician';
 
+        $dateOfBirth = fake()->dateTimeBetween('-65 years', '-18 years');
+
         return [
             'user_id' => User::query()->inRandomOrder()->value('id') ?? User::factory(),
             'status' => ProfilePublicationStatus::DRAFT,
@@ -76,7 +78,8 @@ class TalentV2Factory extends Factory
             'fan_club_url' => fake()->boolean(30) ? fake()->url() : null,
             'nationality' => $city['country'],
             'show_nationality' => fake()->boolean(70) ? '1' : '0',
-            'age' => (string) fake()->numberBetween(18, 65),
+            'date_of_birth' => $dateOfBirth->format('Y-m-d'),
+            'age' => (string) now()->diffInYears($dateOfBirth),
             'show_age' => fake()->boolean(40) ? '1' : '0',
             'languages' => fake()->randomElements(self::LANGUAGES, fake()->numberBetween(1, 3)),
             'show_upcoming_events' => fake()->boolean(80),

@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Admin;
 
 use App\Helpers\MediaHelper;
+use App\Support\TalentDateOfBirth;
 use App\Support\V2ProfileCoverImage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -30,6 +31,14 @@ class AdminTalentV2Resource extends JsonResource
                     'id' => $this->category->id,
                     'name' => $this->category->name,
                     'slug' => $this->category->slug,
+                ];
+            }),
+
+            'event_category' => $this->whenLoaded('eventCategory', function () {
+                return [
+                    'id' => $this->eventCategory->id,
+                    'name' => $this->eventCategory->name,
+                    'slug' => $this->eventCategory->slug,
                 ];
             }),
 
@@ -110,7 +119,8 @@ class AdminTalentV2Resource extends JsonResource
             'fan_club_url' => $this->fan_club_url,
             'nationality' => $this->nationality,
             'show_nationality' => $this->show_nationality,
-            'age' => $this->age,
+            'date_of_birth' => TalentDateOfBirth::toApiDate($this->date_of_birth),
+            'age' => TalentDateOfBirth::resolvedAge($this->age, $this->date_of_birth),
             'show_age' => $this->show_age,
             'languages' => $this->languages ?? [],
             'highlights' => $this->highlights,
