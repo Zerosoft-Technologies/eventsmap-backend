@@ -73,7 +73,20 @@ Run queue worker (required for email):
 php artisan queue:work --queue=emails,default
 ```
 
-## API (auth: Sanctum)
+## API — Super Admin (auth: Sanctum + `super_admin`)
+
+Base: `/api/admin/invoices` (requires admin login token; user role must be `super_admin`).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/admin/invoices/stats` | Dashboard totals / revenue summary |
+| GET | `/api/admin/invoices` | Paginated list of **all** invoices (filters below) |
+| GET | `/api/admin/invoices/{id}` | Single invoice with customer + subscription |
+| GET | `/api/admin/invoices/{id}/download` | PDF file download |
+
+List query params: `page`, `per_page` (max 100), `search`, `user_id`, `payment_status`, `status`, `currency`, `paid_from`, `paid_to`, `created_from`, `created_to`, `sort` (`created_at`, `paid_at`, `total_amount`, `invoice_number`), `order` (`asc`, `desc`).
+
+## API (auth: Sanctum) — customer
 
 | Method | Path | Description |
 |--------|------|-------------|

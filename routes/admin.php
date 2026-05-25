@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminInvoiceController;
 use App\Http\Controllers\Admin\AdminEventV2Controller;
 use App\Http\Controllers\Admin\AdminOrganiserV2Controller;
 use App\Http\Controllers\Admin\AdminProfileV2TaxonomyController;
@@ -193,6 +194,14 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::post('/{id}/activate', [UserController::class, 'activate'])->whereNumber('id');
         Route::post('/{id}/deactivate', [UserController::class, 'deactivate'])->whereNumber('id');
         Route::post('/{id}/reset-password', [UserController::class, 'resetPassword'])->whereNumber('id');
+    });
+
+    // Premium invoices (super-admin only)
+    Route::prefix('invoices')->middleware('super_admin')->group(function () {
+        Route::get('/stats', [AdminInvoiceController::class, 'stats']);
+        Route::get('/', [AdminInvoiceController::class, 'index']);
+        Route::get('/{id}', [AdminInvoiceController::class, 'show'])->whereNumber('id');
+        Route::get('/{id}/download', [AdminInvoiceController::class, 'download'])->whereNumber('id');
     });
 
     // Analytics
