@@ -120,10 +120,15 @@ class EventController extends Controller
             }
         }
 
-        // Status filter
-        $query->when($request->filled('status'), function ($q) use ($request) {
-            $q->where('status', $request->input('status'));
-        });
+        // Status filter: default browse feed to live + upcoming unless explicitly requested.
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        } else {
+            $query->whereIn('status', [
+                EventV2::STATUS_LIVE,
+                EventV2::STATUS_UPCOMING,
+            ]);
+        }
 
         // Entrance status filter
         $query->when($request->filled('entrance_status'), function ($q) use ($request) {

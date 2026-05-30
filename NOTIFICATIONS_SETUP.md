@@ -4,16 +4,14 @@ Real-time invitation notifications are stored in Firestore. When an invitation i
 
 ## 1. Backend: Firebase Admin SDK
 
-Install the Firebase PHP SDK so Laravel can write to Firestore:
-
-```bash
-composer require kreait/firebase-php
-```
+`kreait/firebase-php` is already required for custom auth tokens. Firestore invitation writes use the Firestore REST API (no gRPC extension).
 
 Ensure `config/services.php` has Firebase credentials and your `.env` has:
 
-- `FIREBASE_CREDENTIALS` – path to your service account JSON (e.g. `storage/app/firebase-credentials.json`)
-- `FIREBASE_PROJECT_ID` – your Firebase project ID (same as chat)
+- `FIREBASE_CREDENTIALS` – path to your service account JSON (absolute, or relative such as `storage/app/your-firebase-adminsdk.json`)
+- `FIREBASE_PROJECT_ID` – your Firebase project ID (same as chat; optional if present in the JSON)
+
+The backend upserts `invitation_notifications/invitation_{id}` when invitations are created or resent, and sets `status: completed` when the user accepts, rejects, or the organiser cancels the invite.
 
 ## 2. Firestore security rules
 

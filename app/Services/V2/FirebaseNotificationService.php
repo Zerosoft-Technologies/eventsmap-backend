@@ -11,17 +11,12 @@ use Illuminate\Support\Facades\Log;
  * Writes invitation notifications to Firestore via REST API so invited users
  * see real-time in-app notifications. No gRPC extension required.
  *
- * Firestore structure:
+ * Firestore structure (matches frontend {@code invitation_notifications} listener):
  *   Collection: invitation_notifications
  *   Document ID: invitation_{invitation_id}
  *   Fields: receiver_id (string), invitation_id, event_id, event_title,
- *           sender_id, sender_name, message, status ('pending'|'completed'),
- *           created_at, completed_at (optional)
- *
- * Security rules (set in Firebase Console): allow read if
- * request.auth.uid == resource.data.receiver_id; allow write: if false.
- *
- * Requires: composer require kreait/firebase-php (uses google/auth for tokens)
+ *           sender_id, sender_name, receiver_type, message,
+ *           status ('pending'|'completed'), created_at, completed_at (optional)
  */
 class FirebaseNotificationService
 {
@@ -36,79 +31,25 @@ class FirebaseNotificationService
     ) {}
 
     /**
-     * Create a Firestore notification when an invitation is sent.
+     * Create or refresh a pending Firestore notification when an invitation is sent.
      */
     public function createInvitationNotification(EventInvitation $invitation): void
     {
-        if (!$this->firebaseService->isConfigured()) {
-            Log::debug('Firebase not configured, skipping Firestore invitation notification');
-            return;
-        }
+        $invitation->loadMissing([
+            'event:id,title',
+            'sender:id,name',
+            'receiver:id',
+        ]);
 
-        try {
-            $token = $this->getAccessToken();
-            $projectId = $this->getProjectId();
-        } catch (\Throwable $e) {
-            Log::debug('Firestore not available for invitation notification', ['error' => $e->getMessage()]);
-            return;
-        }
-
-        $docId = $this->documentId($invitation->id);
-        $receiverId = (string) $invitation->receiver_id;
-        $senderName = $invitation->sender?->name ?? 'Someone';
-        // $message = "You have a pending invitation from {$senderName}. Please log in to The Events Map to accept or decline the invitation.";
-        $message = "You have a pending invitation from {$senderName}. Please log in to The Events Map to accept the invitation.";
-
-        $fields = [
-            'receiver_id' => ['stringValue' => $receiverId],
-            'invitation_id' => ['integerValue' => (string) $invitation->id],
-            'event_id' => ['integerValue' => (string) $invitation->event_id],
-            'event_title' => ['stringValue' => $invitation->event?->title ?? ''],
-            'sender_id' => ['integerValue' => (string) $invitation->sender_id],
-            'sender_name' => ['stringValue' => $senderName],
-            'message' => ['stringValue' => $message],
-            'status' => ['stringValue' => 'pending'],
-            'created_at' => ['timestampValue' => $this->timestampRfc3339()],
-        ];
-
-        $url = sprintf(
-            '%s/%s?documentId=%s',
-            $this->baseUrl($projectId),
-            self::COLLECTION,
-            $docId
-        );
-
-        try {
-            $response = Http::withToken($token)
-                ->withHeaders(['Content-Type' => 'application/json'])
-                ->post($url, ['fields' => $fields]);
-
-            if ($response->successful()) {
-                Log::info('Firestore invitation notification created', [
-                    'invitation_id' => $invitation->id,
-                    'receiver_id' => $receiverId,
-                ]);
-            } else {
-                Log::error('Firestore invitation notification failed', [
-                    'invitation_id' => $invitation->id,
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
-            }
-        } catch (\Throwable $e) {
-            Log::error('Failed to create Firestore invitation notification', [
-                'invitation_id' => $invitation->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        $this->upsertPendingNotification($invitation);
     }
 
     /**
-     * Mark the invitation notification as completed (accepted or rejected).
+     * Mark the invitation notification as completed (accepted, rejected, or cancelled).
      */
     public function markInvitationNotificationCompleted(int $invitationId, string $receiverId): void
     {
-        if (!$this->firebaseService->isConfigured()) {
+        if (! $this->firebaseService->isConfigured()) {
             return;
         }
 
@@ -116,6 +57,10 @@ class FirebaseNotificationService
             $token = $this->getAccessToken();
             $projectId = $this->getProjectId();
         } catch (\Throwable $e) {
+            Log::warning('Firestore credentials unavailable for invitation completion', [
+                'error' => $e->getMessage(),
+            ]);
+
             return;
         }
 
@@ -142,12 +87,23 @@ class FirebaseNotificationService
                     'invitation_id' => $invitationId,
                     'receiver_id' => $receiverId,
                 ]);
-            } else {
-                Log::warning('Firestore invitation notification update failed', [
-                    'invitation_id' => $invitationId,
-                    'status' => $response->status(),
-                ]);
+
+                return;
             }
+
+            if ($response->status() === 404) {
+                Log::debug('Firestore invitation notification not found on complete', [
+                    'invitation_id' => $invitationId,
+                ]);
+
+                return;
+            }
+
+            Log::warning('Firestore invitation notification update failed', [
+                'invitation_id' => $invitationId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
         } catch (\Throwable $e) {
             Log::warning('Failed to update Firestore invitation notification', [
                 'invitation_id' => $invitationId,
@@ -156,14 +112,132 @@ class FirebaseNotificationService
         }
     }
 
-    private function documentId(int $invitationId): string
+    private function upsertPendingNotification(EventInvitation $invitation): void
     {
-        return 'invitation_' . $invitationId;
+        if (! $this->firebaseService->isConfigured()) {
+            Log::debug('Firebase not configured, skipping Firestore invitation notification');
+
+            return;
+        }
+
+        try {
+            $token = $this->getAccessToken();
+            $projectId = $this->getProjectId();
+        } catch (\Throwable $e) {
+            Log::warning('Firestore not available for invitation notification', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
+        $docId = $this->documentId($invitation->id);
+        $fields = $this->pendingNotificationFields($invitation);
+
+        $documentUrl = sprintf(
+            '%s/%s/%s',
+            $this->baseUrl($projectId),
+            self::COLLECTION,
+            $docId
+        );
+
+        $fieldPaths = array_keys($fields);
+        $updateMask = implode('&', array_map(
+            static fn (string $path) => 'updateMask.fieldPaths='.urlencode($path),
+            $fieldPaths
+        ));
+
+        try {
+            $patchResponse = Http::withToken($token)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->patch($documentUrl.'?'.$updateMask, ['fields' => $fields]);
+
+            if ($patchResponse->successful()) {
+                Log::info('Firestore invitation notification updated', [
+                    'invitation_id' => $invitation->id,
+                    'receiver_id' => $invitation->receiver_id,
+                ]);
+
+                return;
+            }
+
+            if ($patchResponse->status() !== 404) {
+                Log::error('Firestore invitation notification patch failed', [
+                    'invitation_id' => $invitation->id,
+                    'status' => $patchResponse->status(),
+                    'body' => $patchResponse->body(),
+                ]);
+
+                return;
+            }
+
+            $createUrl = sprintf(
+                '%s/%s?documentId=%s',
+                $this->baseUrl($projectId),
+                self::COLLECTION,
+                $docId
+            );
+
+            $createResponse = Http::withToken($token)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->post($createUrl, ['fields' => $fields]);
+
+            if ($createResponse->successful()) {
+                Log::info('Firestore invitation notification created', [
+                    'invitation_id' => $invitation->id,
+                    'receiver_id' => $invitation->receiver_id,
+                ]);
+
+                return;
+            }
+
+            Log::error('Firestore invitation notification create failed', [
+                'invitation_id' => $invitation->id,
+                'status' => $createResponse->status(),
+                'body' => $createResponse->body(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to upsert Firestore invitation notification', [
+                'invitation_id' => $invitation->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
-    private function timestampRfc3339(): string
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function pendingNotificationFields(EventInvitation $invitation): array
     {
-        return (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s.u\Z');
+        $senderName = $invitation->sender?->name ?? 'Someone';
+        $message = "You have a pending invitation from {$senderName}. Please log in to The Events Map to accept the invitation.";
+
+        return [
+            'receiver_id' => ['stringValue' => (string) $invitation->receiver_id],
+            'invitation_id' => ['integerValue' => (string) $invitation->id],
+            'event_id' => ['integerValue' => (string) $invitation->event_id],
+            'event_title' => ['stringValue' => $invitation->event?->title ?? ''],
+            'sender_id' => ['integerValue' => (string) $invitation->sender_id],
+            'sender_name' => ['stringValue' => $senderName],
+            'receiver_type' => ['stringValue' => (string) ($invitation->receiver_type ?? '')],
+            'message' => ['stringValue' => $message],
+            'status' => ['stringValue' => 'pending'],
+            'created_at' => ['timestampValue' => $this->timestampRfc3339($invitation->created_at)],
+        ];
+    }
+
+    private function documentId(int $invitationId): string
+    {
+        return 'invitation_'.$invitationId;
+    }
+
+    private function timestampRfc3339(?\DateTimeInterface $at = null): string
+    {
+        $dt = $at
+            ? \DateTimeImmutable::createFromInterface($at)->setTimezone(new \DateTimeZone('UTC'))
+            : new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+
+        return $dt->format('Y-m-d\TH:i:s.u\Z');
     }
 
     private function baseUrl(string $projectId): string
@@ -173,8 +247,8 @@ class FirebaseNotificationService
 
     private function getAccessToken(): string
     {
-        $path = $this->resolveCredentialsPath(config('services.firebase.credentials'));
-        if (!$path || !is_readable($path)) {
+        $path = $this->firebaseService->getCredentialsPath();
+        if (! $path) {
             throw new \RuntimeException('Firebase credentials file not found or not readable');
         }
 
@@ -195,37 +269,11 @@ class FirebaseNotificationService
 
     private function getProjectId(): string
     {
-        $projectId = config('services.firebase.project_id');
-        if (!empty($projectId)) {
+        $projectId = $this->firebaseService->getProjectId();
+        if (! empty($projectId)) {
             return $projectId;
         }
 
-        $path = $this->resolveCredentialsPath(config('services.firebase.credentials'));
-        if (!$path || !is_readable($path)) {
-            throw new \RuntimeException('Firebase credentials not found');
-        }
-
-        $data = json_decode((string) file_get_contents($path), true);
-        $projectId = $data['project_id'] ?? null;
-
-        if (empty($projectId)) {
-            throw new \RuntimeException('Firebase project_id not found in credentials or config');
-        }
-
-        return $projectId;
-    }
-
-    private function resolveCredentialsPath(?string $path): ?string
-    {
-        if (empty($path)) {
-            return null;
-        }
-        $path = trim($path);
-        if (file_exists($path)) {
-            return realpath($path);
-        }
-        $fromBase = base_path($path);
-
-        return file_exists($fromBase) ? realpath($fromBase) : null;
+        throw new \RuntimeException('Firebase project_id not found in credentials or config');
     }
 }

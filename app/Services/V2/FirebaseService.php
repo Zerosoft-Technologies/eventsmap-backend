@@ -23,30 +23,35 @@ class FirebaseService
     }
 
     /**
-     * Resolve credentials path: support absolute paths or paths relative to project root.
+     * Resolve credentials path: absolute, project-relative, or storage/app.
      */
-    private function resolveCredentialsPath(?string $path): ?string
+    public function resolveCredentialsPath(?string $path): ?string
     {
         if (empty($path)) {
             return null;
         }
 
-        $path = trim($path);
+        $path = trim($path, " \t\n\r\0\x0B\"'");
 
-        if (empty($path)) {
+        if ($path === '') {
             return null;
         }
 
-        if (file_exists($path)) {
-            return realpath($path);
+        $basename = basename($path);
+
+        foreach (array_unique(array_filter([
+            $path,
+            base_path($path),
+            storage_path($path),
+            storage_path('app/'.$basename),
+            base_path('storage/app/'.$basename),
+        ])) as $candidate) {
+            if (is_file($candidate)) {
+                return realpath($candidate) ?: $candidate;
+            }
         }
 
-        $absoluteFromBase = base_path($path);
-        if (file_exists($absoluteFromBase)) {
-            return realpath($absoluteFromBase);
-        }
-
-        return $path;
+        return null;
     }
 
     /**
@@ -205,10 +210,23 @@ class FirebaseService
     }
 
     /**
-     * Get the Firebase project ID.
+     * Get the Firebase project ID (config override, then service account JSON).
      */
     public function getProjectId(): ?string
     {
+        $fromConfig = config('services.firebase.project_id');
+
+        if (is_string($fromConfig) && $fromConfig !== '') {
+            return $fromConfig;
+        }
+
         return $this->serviceAccount['project_id'] ?? null;
+    }
+
+    public function getCredentialsPath(): ?string
+    {
+        return $this->serviceAccountPath && is_readable($this->serviceAccountPath)
+            ? $this->serviceAccountPath
+            : null;
     }
 }

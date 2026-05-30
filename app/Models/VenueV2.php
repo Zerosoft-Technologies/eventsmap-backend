@@ -136,4 +136,26 @@ class VenueV2 extends Model
                 ProfilePublicationStatus::CANCELLED,
             ]);
     }
+
+    /**
+     * Profiles selectable in the premium event invitation picker (matches browse listings).
+     */
+    public function scopeInvitableForEvent(Builder $query): Builder
+    {
+        return $query
+            ->where(function (Builder $visibility) {
+                $visibility->where('publish_status', PublishStatus::PUBLISHED)
+                    ->orWhereIn('status', [
+                        ProfilePublicationStatus::UPCOMING,
+                        ProfilePublicationStatus::COMPLETED,
+                    ]);
+            })
+            ->where(function (Builder $statusQuery) {
+                $statusQuery->whereNull('status')
+                    ->orWhereNotIn('status', [
+                        ProfilePublicationStatus::SUSPENDED,
+                        ProfilePublicationStatus::CANCELLED,
+                    ]);
+            });
+    }
 }

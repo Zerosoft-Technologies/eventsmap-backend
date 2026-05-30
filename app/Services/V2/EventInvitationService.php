@@ -229,7 +229,10 @@ class EventInvitationService
         ]);
 
         $receiver = $invitation->receiver;
-        $this->markInvitationNotificationCompleted($invitation->id, (string) $receiver->id);
+        $this->markInvitationNotificationCompleted(
+            $invitation->id,
+            (string) ($receiver?->id ?? $invitation->receiver_id)
+        );
         $action = $status === EventInvitation::STATUS_ACCEPTED
             ? EventInvitationLog::ACTION_ACCEPTED
             : EventInvitationLog::ACTION_REJECTED;
@@ -562,10 +565,15 @@ class EventInvitationService
             throw new \InvalidArgumentException('You are not authorized to cancel this invitation.');
         }
 
+        $receiverId = (string) $invitation->receiver_id;
+        $invitationId = $invitation->id;
+
         $invitation->delete();
 
+        $this->markInvitationNotificationCompleted($invitationId, $receiverId);
+
         Log::info('Invitation cancelled', [
-            'invitation_id' => $invitation->id,
+            'invitation_id' => $invitationId,
             'cancelled_by' => $user->id,
         ]);
     }
@@ -588,14 +596,17 @@ class EventInvitationService
             'token_expires_at' => now()->addHours(EventInvitation::TOKEN_EXPIRY_HOURS),
         ]);
 
-        $this->sendInvitationEmail($invitation->fresh());
+        $invitation = $invitation->fresh(['event:id,title', 'sender:id,name', 'receiver:id']);
+
+        $this->sendInvitationEmail($invitation);
+        $this->pushInvitationNotification($invitation);
 
         Log::info('Invitation resent', [
             'invitation_id' => $invitation->id,
             'resent_by' => $user->id,
         ]);
 
-        return $invitation->fresh();
+        return $invitation;
     }
 
     /**
@@ -604,6 +615,7 @@ class EventInvitationService
     private function pushInvitationNotification(EventInvitation $invitation): void
     {
         try {
+            $invitation->loadMissing(['event:id,title', 'sender:id,name', 'receiver:id']);
             $this->firebaseNotificationService->createInvitationNotification($invitation);
         } catch (\Throwable $e) {
             Log::warning('Failed to push invitation notification to Firestore', [

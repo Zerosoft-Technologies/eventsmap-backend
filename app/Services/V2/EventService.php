@@ -5,6 +5,7 @@ namespace App\Services\V2;
 use App\Models\EventV2;
 use App\Models\EventV2View;
 use App\Models\User;
+use App\Support\EventInvitationProfileIdResolver;
 use App\Support\PublishStatus;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -60,6 +61,8 @@ class EventService
     public function create(array $data, User $user): EventV2
     {
         return DB::transaction(function () use ($data, $user) {
+            $data = $this->normalizeInvitationProfileIds($data);
+
             $eventType = $data['event_type'] ?? 'free';
             $isFreePackage = $eventType === 'free';
 
@@ -168,7 +171,7 @@ class EventService
 
                 Log::info('Event created', ['event_id' => $event->id, 'user_id' => $user->id]);
 
-                if (!$isFreePackage) {
+                if ($this->eventHasInvitedUsers($event)) {
                     $this->createInvitationsForEvent($event, $user);
                 }
 
@@ -215,6 +218,8 @@ class EventService
     public function update(EventV2 $event, array $data, ?Request $request = null): EventV2
     {
         return DB::transaction(function () use ($event, $data, $request) {
+            $data = $this->normalizeInvitationProfileIds($data);
+
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids', 'event_date', 'start_time', 'end_time',
                 'start_date', 'end_date', 'start_datetime', 'end_datetime',
@@ -326,19 +331,9 @@ class EventService
                 $event->talents()->sync($this->formatTalentSync($talentIds));
             }
 
-            $isFreePackage = array_key_exists('event_type', $data)
-                ? $data['event_type'] === 'free'
-                : $event->is_free_package;
-            
-            // Check if any invited IDs are present for premium events
-            $hasInvitedIds = !$isFreePackage && (
-                (!empty($data['invited_talents'] ?? [])) ||
-                (!empty($data['invited_organisers'] ?? [])) ||
-                (!empty($data['invited_venues'] ?? []))
-            );
-            
-            if ($hasInvitedIds) {
-                $event = $event->fresh();
+            $event = $event->fresh();
+
+            if ($this->eventHasInvitedUsers($event)) {
                 $this->createInvitationsForEvent($event, $event->user);
             }
 
@@ -648,6 +643,36 @@ class EventService
         if ($imagePath && Storage::disk('public')->exists($imagePath)) {
             Storage::disk('public')->delete($imagePath);
         }
+    }
+
+    private function eventHasInvitedUsers(EventV2 $event): bool
+    {
+        return ! empty($event->invited_talents ?? [])
+            || ! empty($event->invited_organisers ?? [])
+            || ! empty($event->invited_venues ?? []);
+    }
+
+    /**
+     * Accept profile ids from the invitation picker and persist user ids on the event.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizeInvitationProfileIds(array $data): array
+    {
+        if (array_key_exists('invited_talents', $data) && is_array($data['invited_talents'])) {
+            $data['invited_talents'] = EventInvitationProfileIdResolver::talentIdsToUserIds($data['invited_talents']);
+        }
+
+        if (array_key_exists('invited_organisers', $data) && is_array($data['invited_organisers'])) {
+            $data['invited_organisers'] = EventInvitationProfileIdResolver::organiserIdsToUserIds($data['invited_organisers']);
+        }
+
+        if (array_key_exists('invited_venues', $data) && is_array($data['invited_venues'])) {
+            $data['invited_venues'] = EventInvitationProfileIdResolver::venueIdsToUserIds($data['invited_venues']);
+        }
+
+        return $data;
     }
 
     /**

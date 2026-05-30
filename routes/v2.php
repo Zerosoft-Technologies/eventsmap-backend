@@ -11,6 +11,7 @@ use App\Http\Controllers\V2\VenueController;
 use App\Http\Controllers\V2\UserController;
 use App\Http\Controllers\V2\WishlistController;
 use App\Http\Controllers\V2\EventInvitationController;
+use App\Http\Controllers\V2\EventInvitationProfileController;
 use App\Http\Controllers\V2\ChatController;
 use App\Http\Controllers\V2\ChatPermissionController;
 use App\Http\Controllers\V2\FirebaseTokenController;
@@ -71,6 +72,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // My Wishlist
     Route::get('/my-wishlist', [WishlistController::class, 'index']);
+
+    // Invitation picker (published talent / organiser / venue profiles)
+    Route::get('/invitation-profiles', [EventInvitationProfileController::class, 'index']);
+    Route::get('/events/{eventId}/invitation-profiles', [EventInvitationProfileController::class, 'forEvent'])
+        ->whereNumber('eventId');
 
     // Events CRUD (owner's events)
     Route::post('/events', [EventController::class, 'store']);
