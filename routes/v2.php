@@ -11,6 +11,7 @@ use App\Http\Controllers\V2\VenueController;
 use App\Http\Controllers\V2\UserController;
 use App\Http\Controllers\V2\WishlistController;
 use App\Http\Controllers\V2\EventInvitationController;
+use App\Http\Controllers\V2\EventGuestInvitationController;
 use App\Http\Controllers\V2\EventInvitationProfileController;
 use App\Http\Controllers\V2\ChatController;
 use App\Http\Controllers\V2\ChatPermissionController;
@@ -45,6 +46,10 @@ Route::prefix('public')->group(function () {
 
 // Respond to invitation (supports token-based from email link OR authenticated user)
 Route::post('/event-invitations/{id}/respond', [EventInvitationController::class, 'respond']);
+
+// Guest invitation token (registration prefill; no auth)
+Route::get('/guest-invitations/token/{token}', [EventGuestInvitationController::class, 'showByToken'])
+    ->where('token', '[A-Za-z0-9]+');
 
 // ──────────────────────────────────────
 // Protected Routes (Authentication Required)
@@ -158,6 +163,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Manually trigger sending invitations for an event
     Route::post('/events/{event_id}/invitations/send', [EventInvitationController::class, 'sendInvitations']);
+
+    // Guest (unregistered) email invitations
+    Route::post('/events/{event}/guest-invitations/validate-email', [EventGuestInvitationController::class, 'validateEmail'])
+        ->whereNumber('event');
+    Route::post('/events/{event}/guest-invitations', [EventGuestInvitationController::class, 'store'])
+        ->whereNumber('event');
 
     // ──────────────────────────────────────
     // Global Chat (Premium Users)

@@ -71,14 +71,17 @@ class EventInvitationController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Event invitations fetched successfully',
-            'data' => $invitations->map(fn($invitation) => [
+            'data' => $invitations->map(fn ($invitation) => [
                 'id' => $invitation->id,
-                'receiver' => [
+                'receiver' => $invitation->receiver ? [
                     'id' => $invitation->receiver->id,
                     'name' => $invitation->receiver->name,
                     'email' => $invitation->receiver->email,
                     'profile_type' => $invitation->receiver->profile_type,
-                ],
+                ] : null,
+                'invitee_email' => $invitation->invitee_email,
+                'invitee_name' => $invitation->invitee_name,
+                'is_guest' => $invitation->isGuestInvitation(),
                 'receiver_type' => $invitation->receiver_type,
                 'status' => $invitation->status,
                 'created_at' => $invitation->created_at->toIso8601String(),

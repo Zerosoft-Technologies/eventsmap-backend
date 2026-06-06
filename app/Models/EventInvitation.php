@@ -32,10 +32,15 @@ class EventInvitation extends Model
 
     const TOKEN_EXPIRY_HOURS = 48;
 
+    /** Guest (unregistered) invitations expire after 7 days. */
+    const GUEST_TOKEN_EXPIRY_DAYS = 7;
+
     protected $fillable = [
         'event_id',
         'sender_id',
         'receiver_id',
+        'invitee_email',
+        'invitee_name',
         'receiver_type',
         'status',
         'invitation_token',
@@ -86,6 +91,33 @@ class EventInvitation extends Model
     public function receiver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'receiver_id');
+    }
+
+    public function isGuestInvitation(): bool
+    {
+        return $this->receiver_id === null && ! empty($this->invitee_email);
+    }
+
+    public function inviteeDisplayName(): string
+    {
+        if ($this->invitee_name) {
+            return $this->invitee_name;
+        }
+
+        if ($this->receiver) {
+            return $this->receiver->name;
+        }
+
+        return $this->invitee_email ?? 'Guest';
+    }
+
+    public function resolvedInviteeEmail(): ?string
+    {
+        if ($this->invitee_email) {
+            return strtolower(trim($this->invitee_email));
+        }
+
+        return $this->receiver?->email ? strtolower(trim($this->receiver->email)) : null;
     }
 
     public function isPending(): bool

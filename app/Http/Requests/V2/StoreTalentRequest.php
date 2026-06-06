@@ -3,6 +3,8 @@
 namespace App\Http\Requests\V2;
 
 use App\Http\Requests\Concerns\NormalizesTalentDateOfBirth;
+use App\Data\TalentLanguages;
+use App\Support\Iso3166CountryRepository;
 use App\Support\TalentDateOfBirth;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -21,6 +23,11 @@ class StoreTalentRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->normalizeTalentDateOfBirthInput();
+
+        if ($this->has('nationality')) {
+            $code = Iso3166CountryRepository::resolveCode($this->input('nationality'));
+            $this->merge(['nationality' => $code]);
+        }
     }
 
     public function rules(): array
@@ -48,7 +55,7 @@ class StoreTalentRequest extends FormRequest
             'instagram_url' => 'nullable|url|max:500',
             'tiktok_url' => 'nullable|url|max:500',
             'fan_club_url' => 'nullable|url|max:500',
-            'nationality' => 'nullable|string|max:255',
+            'nationality' => ['nullable', 'string', Rule::in(Iso3166CountryRepository::codes())],
             'show_nationality' => 'nullable|string|max:32',
             'date_of_birth' => 'nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
             'birth_date' => 'nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
@@ -56,7 +63,7 @@ class StoreTalentRequest extends FormRequest
             'age' => 'nullable|string|max:10',
             'show_age' => 'nullable|string|max:32',
             'languages' => 'nullable|array',
-            'languages.*' => 'nullable|string|max:100',
+            'languages.*' => ['nullable', 'string', Rule::in(TalentLanguages::all())],
             'highlights' => 'nullable|string|max:10000',
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',

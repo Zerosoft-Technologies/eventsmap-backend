@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Stripe\PremiumCheckoutSessionFactory;
+use App\Services\V2\GuestInvitationService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ class RegisterController extends Controller
 {
     public function __construct(
         private readonly PremiumCheckoutSessionFactory $premiumCheckout,
+        private readonly GuestInvitationService $guestInvitationService,
     ) {}
 
     /**
@@ -31,7 +33,22 @@ class RegisterController extends Controller
             'password' => ['required', 'confirmed', PasswordRule::min(8)],
             'profile_type' => 'required|string|in:event,talent,organizer,venue',
             'account_type' => 'required|string|in:free,premium',
+            'invitation_token' => 'nullable|string|size:64',
         ]);
+
+        if (! empty($validated['invitation_token'])) {
+            $tokenData = $this->guestInvitationService->resolveTokenForRegistration($validated['invitation_token']);
+            if (! ($tokenData['valid'] ?? false)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $tokenData['message'] ?? 'Invalid invitation.',
+                ], 410);
+            }
+            $validated['email'] = $tokenData['email'] ?? $validated['email'];
+            $validated['profile_type'] = $this->guestInvitationService->registrationProfileTypeForRole(
+                (string) ($tokenData['receiver_type'] ?? $validated['profile_type'])
+            );
+        }
 
         if ($validated['account_type'] === 'free') {
             return $this->registerFree($request, $validated);
@@ -57,6 +74,13 @@ class RegisterController extends Controller
         ]);
 
         event(new Registered($user));
+
+        if ($request->filled('invitation_token')) {
+            $this->guestInvitationService->acceptInvitationAfterRegistration(
+                $user,
+                (string) $request->input('invitation_token')
+            );
+        }
 
         return response()->json([
             'success' => true,
@@ -129,6 +153,13 @@ class RegisterController extends Controller
         }
 
         $user = User::create($userData);
+
+        if ($request->filled('invitation_token')) {
+            $this->guestInvitationService->acceptInvitationAfterRegistration(
+                $user,
+                (string) $request->input('invitation_token')
+            );
+        }
 
         try {
             $stripeSecret = config('services.stripe.secret');
