@@ -25,7 +25,7 @@ class UploadGalleryImageRequest extends FormRequest
             'image' => [
                 'required',
                 'file',
-                'max:5120', // 5MB in kilobytes
+                'max:10240', // 10MB in kilobytes
                 'mimes:jpeg,png,gif,webp',
             ],
             'alt_text' => 'nullable|string|max:500',
@@ -47,7 +47,7 @@ class UploadGalleryImageRequest extends FormRequest
         return [
             'image.required'  => 'An image file is required.',
             'image.file'      => 'The uploaded item must be a valid file.',
-            'image.max'       => 'File size must not exceed 5MB.',
+            'image.max'       => 'File size must not exceed 10MB.',
             'image.mimes'     => 'Only JPEG, PNG, GIF, and WebP images are allowed.',
             'alt_text.max'    => 'Alt text must not exceed 500 characters.',
             'event_id.exists' => 'Event not found.',

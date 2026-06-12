@@ -133,6 +133,15 @@ class VenueResource extends JsonResource
                 return EventResource::collection($raw)->toArray(request());
             }),
 
+            'past_events' => $this->when(($this->show_past_events ?? false), function () {
+                $raw = $this->resource->getAttribute('_past_events');
+                if (! is_array($raw) || $raw === []) {
+                    return [];
+                }
+
+                return EventResource::collection($raw)->toArray(request());
+            }),
+
             // Owner
             'user' => $this->whenLoaded('user', function () {
                 return [

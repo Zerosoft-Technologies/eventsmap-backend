@@ -114,6 +114,7 @@ class TalentResource extends JsonResource
             'contact_website' => $this->contact_website,
             'contact_box_message' => $this->contact_box_message,
             'contact_box_design_message' => $this->contact_box_design_message,
+            'show_contact_box' => (bool) ($this->show_contact_box ?? false),
 
             // Social
             'facebook_url' => $this->facebook_url,
@@ -143,6 +144,17 @@ class TalentResource extends JsonResource
 
                 return EventResource::collection($raw)->toArray(request());
             }),
+
+            'past_events' => $this->when(($this->show_past_events ?? false), function () {
+                $raw = $this->resource->getAttribute('_past_events');
+                if (! is_array($raw) || $raw === []) {
+                    return [];
+                }
+
+                return EventResource::collection($raw)->toArray(request());
+            }),
+
+            'user_id' => $this->user_id,
 
             // Owner
             'user' => $this->whenLoaded('user', function () {

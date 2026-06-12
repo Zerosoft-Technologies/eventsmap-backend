@@ -59,6 +59,13 @@ class TalentCategorySeeder extends Seeder
                 'Television actor',
                 'Voice actor',
             ],
+            'Group' => [
+                'Music Band',
+                'Music Ensemble',
+                'Dance Company',
+                'Theatre Company',
+                'Film',
+            ],
         ];
 
         foreach ($categories as $categoryName => $subcategories) {

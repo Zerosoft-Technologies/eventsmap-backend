@@ -394,6 +394,69 @@ class EventInvitationService
     }
 
     /**
+     * Batch-attach past accepted invitation events (max 1 year) for premium profile discovery.
+     *
+     * @param  iterable<int, Model>  $profiles
+     */
+    public function hydratePastAcceptedInvitationEventsOnProfiles(iterable $profiles, string $receiverType): void
+    {
+        if (! in_array($receiverType, EventInvitation::TYPES, true)) {
+            return;
+        }
+
+        $profiles = collect($profiles)->values();
+        if ($profiles->isEmpty()) {
+            return;
+        }
+
+        $withFlag = $profiles->filter(fn (Model $p) => (bool) ($p->getAttribute('show_past_events') ?? false));
+        if ($withFlag->isEmpty()) {
+            return;
+        }
+
+        $userIds = $withFlag->pluck('user_id')->unique()->filter()->map(fn ($id) => (int) $id)->values()->all();
+        if ($userIds === []) {
+            return;
+        }
+
+        $invitations = $this->basePastAcceptedInvitationsQuery($receiverType)
+            ->whereIn('receiver_id', $userIds)
+            ->orderByDesc('created_at')
+            ->get();
+
+        $grouped = $invitations->groupBy(fn (EventInvitation $i) => (int) $i->receiver_id);
+
+        $eventsByUserId = [];
+        foreach ($userIds as $uid) {
+            $group = $grouped->get($uid, collect());
+            $eventsByUserId[$uid] = $this->uniqueSortedPastEventsFromInvitations($group)->all();
+        }
+
+        $flatUnique = collect($eventsByUserId)->flatten(1)->unique('id')->values()->all();
+        $this->prepareEventsForProfilePayload($flatUnique);
+
+        foreach ($withFlag as $profile) {
+            $uid = (int) $profile->getAttribute('user_id');
+            $profile->setAttribute('_past_events', $eventsByUserId[$uid] ?? []);
+        }
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function pastAcceptedEventsPayloadForProfileUser(int $receiverUserId, string $receiverType): array
+    {
+        if (! in_array($receiverType, EventInvitation::TYPES, true)) {
+            return [];
+        }
+
+        $events = $this->queryPastAcceptedInvitationEvents($receiverUserId, $receiverType)->all();
+        $this->prepareEventsForProfilePayload($events);
+
+        return EventResource::collection($events)->toArray(request());
+    }
+
+    /**
      * @return Collection<int, EventV2>
      */
     private function queryUpcomingAcceptedInvitationEvents(int $receiverUserId, string $receiverType): Collection
@@ -404,6 +467,19 @@ class EventInvitationService
             ->get();
 
         return $this->uniqueSortedEventsFromInvitations($invitations);
+    }
+
+    /**
+     * @return Collection<int, EventV2>
+     */
+    private function queryPastAcceptedInvitationEvents(int $receiverUserId, string $receiverType): Collection
+    {
+        $invitations = $this->basePastAcceptedInvitationsQuery($receiverType)
+            ->where('receiver_id', $receiverUserId)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return $this->uniqueSortedPastEventsFromInvitations($invitations);
     }
 
     /**
@@ -422,6 +498,47 @@ class EventInvitationService
             ->whereHas('event', function (Builder $q) use ($now) {
                 $this->whereEventEffectiveEndIsAfter($q, $now);
             });
+    }
+
+    /**
+     * @return Builder<\App\Models\EventInvitation>
+     */
+    private function basePastAcceptedInvitationsQuery(string $receiverType): Builder
+    {
+        $now = Carbon::now();
+        $oneYearAgo = $now->copy()->subYear();
+
+        return EventInvitation::query()
+            ->with([
+                'event' => fn ($q) => $q->with(['category', 'venue', 'organisers', 'talents', 'user']),
+            ])
+            ->accepted()
+            ->where('receiver_type', $receiverType)
+            ->whereHas('event', function (Builder $q) use ($now, $oneYearAgo) {
+                $this->whereEventEffectiveEndIsOnOrBefore($q, $now);
+                $table = $q->getModel()->getTable();
+                $q->where("{$table}.event_date", '>=', $oneYearAgo->format('Y-m-d'));
+            });
+    }
+
+    /**
+     * @param  Collection<int, EventInvitation>  $invitations
+     * @return Collection<int, EventV2>
+     */
+    private function uniqueSortedPastEventsFromInvitations(Collection $invitations): Collection
+    {
+        return $invitations->map->event
+            ->filter()
+            ->unique('id')
+            ->sortByDesc(function (?EventV2 $e) {
+                if (! $e instanceof EventV2) {
+                    return '';
+                }
+                $d = $e->event_date?->format('Y-m-d') ?? '0000-00-00';
+
+                return $d.' '.($e->start_time ?? '00:00:00');
+            })
+            ->values();
     }
 
     /**

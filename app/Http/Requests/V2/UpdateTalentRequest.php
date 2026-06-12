@@ -69,6 +69,7 @@ class UpdateTalentRequest extends FormRequest
             'highlights' => 'nullable|string|max:10000',
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',
+            'show_contact_box' => 'nullable|boolean',
             'remove_additional_images' => 'nullable|boolean',
             'status' => ['nullable', 'string', Rule::in(ProfilePublicationStatus::ALL)],
             'publish_status' => ['nullable', 'string', Rule::in(PublishStatus::ALL)],

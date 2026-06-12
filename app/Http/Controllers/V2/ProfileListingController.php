@@ -175,6 +175,7 @@ class ProfileListingController extends Controller
         $receiverType = $this->invitationReceiverTypeForProfileModel($modelClass);
         if ($receiverType !== null) {
             $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles($items, $receiverType);
+            $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles($items, $receiverType);
         }
 
         return response()->json([

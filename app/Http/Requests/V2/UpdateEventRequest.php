@@ -68,7 +68,7 @@ class UpdateEventRequest extends FormRequest
 
         // Image validation: accept either file upload (for free events) or UUID string (for premium events)
         if ($this->hasFile('image_path')) {
-            $rules['image_path'] = 'nullable|file|image|mimes:jpeg,jpg,png,webp|max:2048';
+            $rules['image_path'] = 'nullable|file|image|mimes:jpeg,jpg,png,webp|max:10240';
         } else {
             $rules['image_path'] = 'nullable|string';
         }
@@ -76,7 +76,7 @@ class UpdateEventRequest extends FormRequest
         // Additional images validation - accepts both file uploads and UUID strings
         if ($this->hasFile('additional_images')) {
             $rules['additional_images'] = 'nullable|array';
-            $rules['additional_images.*'] = 'nullable|file|image|mimes:jpeg,jpg,png,webp|max:2048';
+            $rules['additional_images.*'] = 'nullable|file|image|mimes:jpeg,jpg,png,webp|max:10240';
         } else {
             $rules['additional_images'] = 'nullable|array';
             $rules['additional_images.*'] = 'nullable|string';
@@ -208,7 +208,7 @@ class UpdateEventRequest extends FormRequest
             'latitude.between' => 'Latitude must be between -90 and 90',
             'longitude.between' => 'Longitude must be between -180 and 180',
             'image.image' => 'File must be an image',
-            'image.max' => 'Image must not exceed 2MB',
+            'image.max' => 'Image must not exceed 10MB',
             'image.mimes' => 'Image must be jpg, jpeg, png, or webp format',
         ];
 

@@ -40,6 +40,7 @@ class TalentV2 extends Model
         'contact_website',
         'contact_box_message',
         'contact_box_design_message',
+        'show_contact_box',
         'facebook_url',
         'instagram_url',
         'tiktok_url',
@@ -67,6 +68,7 @@ class TalentV2 extends Model
             'languages' => 'array',
             'show_upcoming_events' => 'boolean',
             'show_past_events' => 'boolean',
+            'show_contact_box' => 'boolean',
             'is_approved' => 'boolean',
         ];
     }

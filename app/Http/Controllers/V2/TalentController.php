@@ -211,6 +211,15 @@ class TalentController extends Controller
             );
         }
 
+        if ($talent->show_past_events ?? false) {
+            $data['past_events'] = $this->eventInvitationService->pastAcceptedEventsPayloadForProfileUser(
+                (int) $talent->user_id,
+                EventInvitation::TYPE_TALENT
+            );
+        }
+
+        $data['show_contact_box'] = (bool) ($talent->show_contact_box ?? false);
+
         return $data;
     }
 

@@ -142,13 +142,20 @@ class EventController extends Controller
             $start = $this->parseQueryTime($request->input('start_time'));
             $end = $this->parseQueryTime($request->input('end_time'));
             if ($start !== null && $end !== null) {
+                // Support overnight ranges like "23:00" → "06:00".
+                // If start > end, it means the window crosses midnight:
+                //   start_time >= start OR start_time <= end
                 if ($start->greaterThan($end)) {
-                    [$start, $end] = [$end, $start];
+                    $query->where(function ($q) use ($start, $end) {
+                        $q->whereTime('start_time', '>=', $start->format('H:i:s'))
+                            ->orWhereTime('start_time', '<=', $end->format('H:i:s'));
+                    });
+                } else {
+                    $query->whereBetween('start_time', [
+                        $start->format('H:i:s'),
+                        $end->format('H:i:s'),
+                    ]);
                 }
-                $query->whereBetween('start_time', [
-                    $start->format('H:i:s'),
-                    $end->format('H:i:s'),
-                ]);
             } elseif ($start !== null) {
                 $query->where('start_time', '>=', $start->format('H:i:s'));
             } elseif ($end !== null) {

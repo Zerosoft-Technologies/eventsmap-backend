@@ -30,6 +30,7 @@ class TalentService
             ->get();
 
         $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles($talents, EventInvitation::TYPE_TALENT);
+        $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles($talents, EventInvitation::TYPE_TALENT);
 
         return $talents;
     }
@@ -61,7 +62,7 @@ class TalentService
                 'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'fan_club_url', 'nationality', 'show_nationality', 'age', 'date_of_birth', 'show_age', 'languages', 'highlights',
-                'show_upcoming_events', 'show_past_events',
+                'show_upcoming_events', 'show_past_events', 'show_contact_box',
             ];
 
             foreach ($optionalFields as $field) {
@@ -113,6 +114,7 @@ class TalentService
         $talent = $talent->fresh()->load(['category', 'eventCategory', 'user', 'talentCategory', 'talentSubcategories']);
 
         $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$talent], EventInvitation::TYPE_TALENT);
+        $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles([$talent], EventInvitation::TYPE_TALENT);
 
         return $talent;
     }
@@ -131,7 +133,7 @@ class TalentService
                 'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'fan_club_url', 'nationality', 'show_nationality', 'age', 'date_of_birth', 'show_age', 'languages', 'highlights',
-                'show_upcoming_events', 'show_past_events',
+                'show_upcoming_events', 'show_past_events', 'show_contact_box',
             ];
 
             $updateData = [];
@@ -209,6 +211,7 @@ class TalentService
         });
 
         $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$talent], EventInvitation::TYPE_TALENT);
+        $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles([$talent], EventInvitation::TYPE_TALENT);
 
         return $talent;
     }
