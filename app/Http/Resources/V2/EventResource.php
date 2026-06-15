@@ -67,6 +67,7 @@ class EventResource extends JsonResource
             'contact_website' => $this->contact_website,
             'contact_box_message' => $this->contact_box_message,
             'contact_box_design_message' => $this->contact_box_design_message,
+            'show_contact_box' => (bool) ($this->show_contact_box ?? false),
             'contact_info' => [
                 'box_message' => $this->contact_box_message,
                 'design_message' => $this->contact_box_design_message,
@@ -145,6 +146,7 @@ class EventResource extends JsonResource
             'age_limit' => $this->age_limit,
             'entrance_status' => $this->entrance_status,
             'event_type' => $this->event_type,
+            'show_photo_map_marker' => (bool) ($this->show_photo_map_marker ?? false),
             'booking_instructions' => $this->booking_instructions,
 
             // Status (stored + computed)

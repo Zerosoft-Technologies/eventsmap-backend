@@ -175,6 +175,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // ──────────────────────────────────────
 
     Route::get('/chat/users', [ChatController::class, 'getChatUsers']);
+    Route::get('/chat/blocks', [ChatController::class, 'listBlocks']);
+    Route::get('/chat/can-message/{user_id}', [ChatController::class, 'canMessage'])->whereNumber('user_id');
+    Route::post('/chat/block/{user_id}', [ChatController::class, 'blockUser'])->whereNumber('user_id');
+    Route::delete('/chat/block/{user_id}', [ChatController::class, 'unblockUser'])->whereNumber('user_id');
     Route::post('/chat/validate-message', [ChatController::class, 'validateMessage'])
         ->middleware('global.chat.ratelimit');
 

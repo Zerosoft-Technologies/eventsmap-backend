@@ -38,6 +38,9 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip \
     pdo_pgsql pgsql
 
+RUN echo "upload_max_filesize=12M" > /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "post_max_size=14M" >> /usr/local/etc/php/conf.d/uploads.ini
+
 WORKDIR /var/www
 
 # Copy app from builder
@@ -60,4 +63,4 @@ RUN php artisan config:clear && php artisan clear-compiled
 
 EXPOSE 8000
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+CMD ["php", "-d", "upload_max_filesize=12M", "-d", "post_max_size=14M", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

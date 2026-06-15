@@ -105,6 +105,7 @@ class OrganiserResource extends JsonResource
             'contact_website' => $this->contact_website,
             'contact_box_message' => $this->contact_box_message,
             'contact_box_design_message' => $this->contact_box_design_message,
+            'show_contact_box' => (bool) ($this->show_contact_box ?? false),
 
             // Social
             'facebook_url' => $this->facebook_url,
@@ -114,6 +115,7 @@ class OrganiserResource extends JsonResource
             // Settings
             'show_upcoming_events' => (bool) ($this->show_upcoming_events ?? false),
             'show_past_events' => (bool) ($this->show_past_events ?? false),
+            'show_photo_map_marker' => (bool) ($this->show_photo_map_marker ?? false),
 
             'upcoming_events' => $this->when(($this->show_upcoming_events ?? false), function () {
                 $raw = $this->resource->getAttribute('_upcoming_events');

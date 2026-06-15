@@ -5,12 +5,18 @@ namespace App\Http\Controllers\V2;
 use App\Http\Controllers\Controller;
 use App\Models\EventInvitation;
 use App\Models\User;
+use App\Services\V2\ChatBlockService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 class ChatController extends Controller
 {
+    public function __construct(
+        private readonly ChatBlockService $chatBlockService,
+    ) {}
+
     /**
      * GET /api/v2/chat/users
      *
@@ -74,6 +80,76 @@ class ChatController extends Controller
         return response()->json([
             'success' => true,
             'can_send' => true,
+        ]);
+    }
+
+    /**
+     * GET /api/v2/chat/blocks
+     */
+    public function listBlocks(Request $request): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $this->chatBlockService->listForUser($request->user()),
+        ]);
+    }
+
+    /**
+     * POST /api/v2/chat/block/{user_id}
+     */
+    public function blockUser(Request $request, int $user_id): JsonResponse
+    {
+        try {
+            $this->chatBlockService->block($request->user(), $user_id);
+        } catch (ValidationException $e) {
+            throw $e;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile blocked successfully.',
+        ]);
+    }
+
+    /**
+     * DELETE /api/v2/chat/block/{user_id}
+     */
+    public function unblockUser(Request $request, int $user_id): JsonResponse
+    {
+        $this->chatBlockService->unblock($request->user(), $user_id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile unblocked successfully.',
+        ]);
+    }
+
+    /**
+     * GET /api/v2/chat/can-message/{user_id}
+     */
+    public function canMessage(Request $request, int $user_id): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user_id === $user->id) {
+            return response()->json([
+                'success' => true,
+                'can_message' => false,
+                'reason' => 'self',
+            ]);
+        }
+
+        if ($this->chatBlockService->isMessagingBlocked($user->id, $user_id)) {
+            return response()->json([
+                'success' => true,
+                'can_message' => false,
+                'reason' => 'blocked',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'can_message' => true,
         ]);
     }
 }

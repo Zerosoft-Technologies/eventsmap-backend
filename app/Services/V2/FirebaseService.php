@@ -229,4 +229,37 @@ class FirebaseService
             ? $this->serviceAccountPath
             : null;
     }
+
+    /**
+     * Mirror chat block state to Firestore for security rules enforcement.
+     */
+    public function syncChatBlock(int $blockerId, int $blockedId, bool $blocked): void
+    {
+        if (! $this->serviceAccount) {
+            return;
+        }
+
+        try {
+            $factory = (new Factory)->withServiceAccount($this->serviceAccount);
+            $firestore = $factory->createFirestore();
+            $docRef = $firestore->database()
+                ->collection('chat_blocks')
+                ->document((string) $blockerId)
+                ->collection('users')
+                ->document((string) $blockedId);
+
+            if ($blocked) {
+                $docRef->set(['blocked_at' => new \DateTimeImmutable()]);
+            } else {
+                $docRef->delete();
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Firestore chat block sync failed', [
+                'blocker_id' => $blockerId,
+                'blocked_id' => $blockedId,
+                'blocked' => $blocked,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
 }

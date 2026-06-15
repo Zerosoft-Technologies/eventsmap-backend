@@ -58,10 +58,10 @@ class VenueService
                 'subcategory_ids', 'description', 'description_items',
                 'allow_dogs', 'allowance_of_dogs', 'wheelchair_accessible', 'accessibility_description', 'parking', 'valet', 'play_area',
                 'contact_phone', 'contact_email', 'contact_website',
-                'contact_box_message', 'contact_box_design_message',
+                'contact_box_message', 'contact_box_design_message', 'show_contact_box',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'opening_hours',
-                'show_upcoming_events', 'show_past_events',
+                'show_upcoming_events', 'show_past_events', 'show_photo_map_marker',
             ];
 
             foreach ($optionalFields as $field) {
@@ -124,10 +124,10 @@ class VenueService
                 'description', 'description_items',
                 'allow_dogs', 'allowance_of_dogs', 'wheelchair_accessible', 'accessibility_description', 'parking', 'valet', 'play_area',
                 'contact_phone', 'contact_email', 'contact_website',
-                'contact_box_message', 'contact_box_design_message',
+                'contact_box_message', 'contact_box_design_message', 'show_contact_box',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'opening_hours',
-                'show_upcoming_events', 'show_past_events',
+                'show_upcoming_events', 'show_past_events', 'show_photo_map_marker',
             ];
 
             $updateData = [];

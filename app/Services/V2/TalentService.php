@@ -62,7 +62,7 @@ class TalentService
                 'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'fan_club_url', 'nationality', 'show_nationality', 'age', 'date_of_birth', 'show_age', 'languages', 'highlights',
-                'show_upcoming_events', 'show_past_events', 'show_contact_box',
+                'show_upcoming_events', 'show_past_events', 'show_contact_box', 'show_photo_map_marker',
             ];
 
             foreach ($optionalFields as $field) {
@@ -133,7 +133,7 @@ class TalentService
                 'contact_box_message', 'contact_box_design_message',
                 'facebook_url', 'instagram_url', 'tiktok_url',
                 'fan_club_url', 'nationality', 'show_nationality', 'age', 'date_of_birth', 'show_age', 'languages', 'highlights',
-                'show_upcoming_events', 'show_past_events', 'show_contact_box',
+                'show_upcoming_events', 'show_past_events', 'show_contact_box', 'show_photo_map_marker',
             ];
 
             $updateData = [];

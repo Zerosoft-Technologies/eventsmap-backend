@@ -54,6 +54,7 @@ class TalentV2 extends Model
         'highlights',
         'show_upcoming_events',
         'show_past_events',
+        'show_photo_map_marker',
         'is_approved',
     ];
 
@@ -68,6 +69,7 @@ class TalentV2 extends Model
             'languages' => 'array',
             'show_upcoming_events' => 'boolean',
             'show_past_events' => 'boolean',
+            'show_photo_map_marker' => 'boolean',
             'show_contact_box' => 'boolean',
             'is_approved' => 'boolean',
         ];

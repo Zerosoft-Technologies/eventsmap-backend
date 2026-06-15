@@ -67,6 +67,7 @@ class StoreTalentRequest extends FormRequest
             'highlights' => 'nullable|string|max:10000',
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',
+            'show_photo_map_marker' => 'nullable|boolean',
             'show_contact_box' => 'nullable|boolean',
             'status' => 'prohibited',
             'publish_status' => 'prohibited',

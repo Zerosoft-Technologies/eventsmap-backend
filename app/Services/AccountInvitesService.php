@@ -140,7 +140,8 @@ class AccountInvitesService
 
         return TalentV2::query()
             ->whereIn('user_id', $userIds)
-            ->select(['id', 'user_id', 'title', 'slug', 'image_path'])
+            ->with(['talentCategory', 'category'])
+            ->select(['id', 'user_id', 'title', 'slug', 'image_path', 'talent_category_id', 'category_id'])
             ->get()
             ->unique('user_id')
             ->keyBy('user_id');
@@ -158,7 +159,8 @@ class AccountInvitesService
 
         return OrganiserV2::query()
             ->whereIn('user_id', $userIds)
-            ->select(['id', 'user_id', 'title', 'slug', 'image_path'])
+            ->with(['organiserCategory', 'category'])
+            ->select(['id', 'user_id', 'title', 'slug', 'image_path', 'organiser_category_id', 'category_id'])
             ->get()
             ->unique('user_id')
             ->keyBy('user_id');
@@ -278,10 +280,10 @@ class AccountInvitesService
             $needle = Str::lower($search);
             $invites = $invites
                 ->filter(static function (array $row) use ($needle): bool {
-                    $email = Str::lower((string) ($row['email'] ?? ''));
-
                     return str_contains(Str::lower((string) $row['name']), $needle)
-                        || ($email !== '' && str_contains($email, $needle));
+                        || str_contains(Str::lower((string) ($row['genre'] ?? '')), $needle)
+                        || str_contains(Str::lower((string) ($row['category'] ?? '')), $needle)
+                        || str_contains(Str::lower((string) ($row['event_title'] ?? '')), $needle);
                 })
                 ->values();
         }
@@ -322,7 +324,8 @@ class AccountInvitesService
             'type' => 'talent',
             'profile_id' => $user->id,
             'name' => $name,
-            'email' => (string) ($user->email ?? ''),
+            'genre' => (string) ($profile?->talentCategory?->name ?? $profile?->category?->name ?? ''),
+            'category' => (string) ($profile?->category?->name ?? ''),
             'image_path' => $this->resolveImagePath($profile?->image_path ?? $this->userAvatarStoragePath($user)),
             'slug' => (string) ($profile?->slug ?? ''),
         ];
@@ -344,7 +347,8 @@ class AccountInvitesService
             'type' => 'organiser',
             'profile_id' => $user->id,
             'name' => $name,
-            'email' => (string) ($user->email ?? ''),
+            'genre' => (string) ($profile?->organiserCategory?->name ?? $profile?->category?->name ?? ''),
+            'category' => (string) ($profile?->category?->name ?? ''),
             'image_path' => $this->resolveImagePath($profile?->image_path ?? $this->userAvatarStoragePath($user)),
             'slug' => (string) ($profile?->slug ?? ''),
         ];
@@ -361,7 +365,8 @@ class AccountInvitesService
             'type' => 'venue',
             'profile_id' => $venue->id,
             'name' => $venue->name,
-            'email' => (string) ($venue->email ?? ''),
+            'genre' => '',
+            'category' => '',
             'image_path' => $this->resolveImagePath($venue->image_path),
             'slug' => (string) $venue->slug,
         ];

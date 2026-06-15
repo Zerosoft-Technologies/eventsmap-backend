@@ -29,7 +29,6 @@ final class InvitedUserPayload
         return [
             'id' => $user->id,
             'name' => $user->name,
-            'email' => $user->email,
             'role' => $user->role,
             'is_active' => (bool) $user->is_active,
             'email_verified_at' => $user->email_verified_at?->toIso8601String(),

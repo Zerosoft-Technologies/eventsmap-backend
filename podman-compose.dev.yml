@@ -32,6 +32,7 @@ services:
       STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}
     volumes:
       - ./:/var/www
+    command: ["php", "-d", "upload_max_filesize=12M", "-d", "post_max_size=14M", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
     depends_on:
       - db
 

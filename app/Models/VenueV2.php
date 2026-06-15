@@ -47,12 +47,14 @@ class VenueV2 extends Model
         'contact_website',
         'contact_box_message',
         'contact_box_design_message',
+        'show_contact_box',
         'facebook_url',
         'instagram_url',
         'tiktok_url',
         'opening_hours',
         'show_upcoming_events',
         'show_past_events',
+        'show_photo_map_marker',
         'is_approved',
     ];
 
@@ -72,6 +74,8 @@ class VenueV2 extends Model
             'play_area' => 'boolean',
             'show_upcoming_events' => 'boolean',
             'show_past_events' => 'boolean',
+            'show_contact_box' => 'boolean',
+            'show_photo_map_marker' => 'boolean',
             'is_approved' => 'boolean',
         ];
     }

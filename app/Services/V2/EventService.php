@@ -93,10 +93,10 @@ class EventService
 
             $optionalFields = [
                 'venue_id', 'entrance_fee', 'contact_phone', 'contact_email', 'contact_website',
-                'description', 'contact_box_message', 'contact_box_design_message', 'venue_details', 'facebook_url', 'instagram_url',
+                'description', 'contact_box_message', 'contact_box_design_message', 'show_contact_box', 'venue_details', 'facebook_url', 'instagram_url',
                 'tiktok_url', 'ticket_url', 'booking_instructions', 'event_option',
                 'condition_entrance_fee', 'condition_dress_code', 'condition_age_limit',
-                'is_recurring', 'is_copy_event', 'show_upcoming_events', 'show_past_events',
+                'is_recurring', 'is_copy_event', 'show_upcoming_events', 'show_past_events', 'show_photo_map_marker',
                 'subcategory_ids', 'invited_talents', 'invited_organisers', 'invited_venues',
             ];
 
@@ -226,11 +226,11 @@ class EventService
                 'address', 'venue_name', 'latitude', 'longitude', 'dress_code', 'age_limit',
                 'entrance_status', 'entrance_fee', 'venue_id', 'image_path',
                 'contact_phone', 'contact_email', 'contact_website', 'description',
-                'contact_box_message', 'contact_box_design_message', 'venue_details', 'facebook_url', 'instagram_url',
+                'contact_box_message', 'contact_box_design_message', 'show_contact_box', 'venue_details', 'facebook_url', 'instagram_url',
                 'tiktok_url', 'ticket_url', 'booking_instructions', 'event_option',
                 'condition_entrance_fee', 'condition_dress_code', 'condition_age_limit',
                 'invited_talents', 'invited_organisers', 'invited_venues',
-                'is_recurring', 'is_copy_event', 'show_upcoming_events', 'show_past_events',
+                'is_recurring', 'is_copy_event', 'show_upcoming_events', 'show_past_events', 'show_photo_map_marker',
                 'publish_status',
             ];
 

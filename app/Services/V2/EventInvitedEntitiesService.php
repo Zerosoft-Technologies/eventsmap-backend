@@ -5,6 +5,7 @@ namespace App\Services\V2;
 use App\Http\Resources\V2\OrganiserResource;
 use App\Http\Resources\V2\TalentResource;
 use App\Http\Resources\V2\VenueResource;
+use App\Models\EventInvitation;
 use App\Models\EventV2;
 use App\Models\OrganiserV2;
 use App\Models\TalentV2;
@@ -77,20 +78,167 @@ class EventInvitedEntitiesService
         $venueOwnerUserIds = $venuesById->pluck('user_id')->unique()->filter()->values()->all();
         $venueV2ByUserId = $this->loadVenueV2FirstByUserId($venueOwnerUserIds);
 
+        $eventIds = $events->pluck('id')->all();
+        $acceptedByEvent = $this->loadAcceptedInvitesGrouped($eventIds);
+        $invitationsByEvent = $this->loadAllInvitesGrouped($eventIds);
+
         foreach ($events as $event) {
+            $accepted = $acceptedByEvent->get($event->id, collect());
+            $eventInvitations = $invitationsByEvent->get($event->id, collect());
+            $acceptedTalentUserIds = $this->acceptedReceiverIds($accepted, EventInvitation::TYPE_TALENT);
+            $acceptedOrganiserUserIds = $this->acceptedReceiverIds($accepted, EventInvitation::TYPE_ORGANISER);
+            $acceptedVenueUserIds = $this->acceptedReceiverIds($accepted, EventInvitation::TYPE_VENUE);
+
+            $talentIds = $this->filterIdsByAccepted(
+                $this->normalizeIdList($event->invited_talents ?? []),
+                $acceptedTalentUserIds,
+                $eventInvitations,
+                EventInvitation::TYPE_TALENT,
+            );
+            $organiserIds = $this->filterIdsByAccepted(
+                $this->normalizeIdList($event->invited_organisers ?? []),
+                $acceptedOrganiserUserIds,
+                $eventInvitations,
+                EventInvitation::TYPE_ORGANISER,
+            );
+            $venueIdList = $this->filterVenueIdsByAccepted(
+                $this->normalizeIdList($event->invited_venues ?? []),
+                $venuesById,
+                $acceptedVenueUserIds,
+                $eventInvitations,
+            );
+
             $event->setAttribute(
                 'invited_talents_objects',
-                $this->mapOrderedTalentInvites($usersById, $talentsByUserId, $this->normalizeIdList($event->invited_talents ?? []))
+                $this->mapOrderedTalentInvites($usersById, $talentsByUserId, $talentIds)
             );
             $event->setAttribute(
                 'invited_organisers_objects',
-                $this->mapOrderedOrganiserInvites($usersById, $organisersByUserId, $this->normalizeIdList($event->invited_organisers ?? []))
+                $this->mapOrderedOrganiserInvites($usersById, $organisersByUserId, $organiserIds)
             );
             $event->setAttribute(
                 'invited_venues_objects',
-                $this->mapOrderedVenues($venuesById, $venueV2ByUserId, $this->normalizeIdList($event->invited_venues ?? []))
+                $this->mapOrderedVenues($venuesById, $venueV2ByUserId, $venueIdList)
             );
         }
+    }
+
+    /**
+     * @param  int[]  $eventIds
+     * @return Collection<int, Collection<int, EventInvitation>>
+     */
+    private function loadAcceptedInvitesGrouped(array $eventIds): Collection
+    {
+        if ($eventIds === [] || ! Schema::hasTable('event_invitations')) {
+            return collect();
+        }
+
+        return EventInvitation::query()
+            ->whereIn('event_id', $eventIds)
+            ->where('status', EventInvitation::STATUS_ACCEPTED)
+            ->get()
+            ->groupBy('event_id');
+    }
+
+    /**
+     * @param  int[]  $eventIds
+     * @return Collection<int, Collection<int, EventInvitation>>
+     */
+    private function loadAllInvitesGrouped(array $eventIds): Collection
+    {
+        if ($eventIds === [] || ! Schema::hasTable('event_invitations')) {
+            return collect();
+        }
+
+        return EventInvitation::query()
+            ->whereIn('event_id', $eventIds)
+            ->get()
+            ->groupBy('event_id');
+    }
+
+    /**
+     * @param  Collection<int, EventInvitation>  $accepted
+     * @return int[]
+     */
+    private function acceptedReceiverIds(Collection $accepted, string $receiverType): array
+    {
+        return $accepted
+            ->where('receiver_type', $receiverType)
+            ->pluck('receiver_id')
+            ->filter()
+            ->map(static fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Only show invitees with an accepted invitation (pending/rejected stay hidden on public event view).
+     *
+     * @param  int[]  $orderedIds
+     * @param  int[]  $acceptedUserIds
+     * @param  Collection<int, EventInvitation>  $accepted
+     * @return int[]
+     */
+    private function filterIdsByAccepted(
+        array $orderedIds,
+        array $acceptedUserIds,
+        Collection $eventInvitations,
+        string $receiverType,
+    ): array {
+        if ($orderedIds === []) {
+            return [];
+        }
+
+        $hasInvitationsForType = $eventInvitations->contains(
+            static fn (EventInvitation $inv) => $inv->receiver_type === $receiverType
+        );
+
+        if (! $hasInvitationsForType) {
+            return $orderedIds;
+        }
+
+        $acceptedSet = array_fill_keys($acceptedUserIds, true);
+
+        return array_values(array_filter($orderedIds, static fn (int $id) => isset($acceptedSet[$id])));
+    }
+
+    /**
+     * @param  Collection<int, Venue>  $venuesById
+     * @param  int[]  $orderedVenueIds
+     * @param  int[]  $acceptedVenueOwnerUserIds
+     * @param  Collection<int, EventInvitation>  $eventInvitations
+     * @return int[]
+     */
+    private function filterVenueIdsByAccepted(
+        array $orderedVenueIds,
+        Collection $venuesById,
+        array $acceptedVenueOwnerUserIds,
+        Collection $eventInvitations,
+    ): array {
+        if ($orderedVenueIds === []) {
+            return [];
+        }
+
+        $hasInvitationsForType = $eventInvitations->contains(
+            static fn (EventInvitation $inv) => $inv->receiver_type === EventInvitation::TYPE_VENUE
+        );
+
+        if (! $hasInvitationsForType) {
+            return $orderedVenueIds;
+        }
+
+        $acceptedOwners = array_fill_keys($acceptedVenueOwnerUserIds, true);
+
+        return array_values(array_filter($orderedVenueIds, function (int $venueId) use ($venuesById, $acceptedOwners) {
+            $venue = $venuesById->get($venueId);
+            if (! $venue instanceof Venue) {
+                return false;
+            }
+            $uid = (int) ($venue->user_id ?? 0);
+
+            return $uid > 0 && isset($acceptedOwners[$uid]);
+        }));
     }
 
     /**
@@ -221,6 +369,7 @@ class EventInvitedEntitiesService
             $profile = $talentsByUserId->get($id) ?? $talentsByUserId->get((string) $id);
             $row['contact_box_message'] = $profile?->contact_box_message;
             $row['contact_box_design_message'] = $profile?->contact_box_design_message;
+            $row['show_contact_box'] = (bool) ($profile?->show_contact_box ?? false);
             $row['talent_v2'] = null;
             if ($profile instanceof TalentV2) {
                 $row['profile_image'] = V2ProfileCoverImage::coverImageUrl($profile, $user);
@@ -249,6 +398,7 @@ class EventInvitedEntitiesService
             $profile = $organisersByUserId->get($id) ?? $organisersByUserId->get((string) $id);
             $row['contact_box_message'] = $profile?->contact_box_message;
             $row['contact_box_design_message'] = $profile?->contact_box_design_message;
+            $row['show_contact_box'] = (bool) ($profile?->show_contact_box ?? false);
             $row['organiser_v2'] = null;
             if ($profile instanceof OrganiserV2) {
                 $row['profile_image'] = V2ProfileCoverImage::coverImageUrl($profile, $user);
@@ -282,6 +432,7 @@ class EventInvitedEntitiesService
                 $v2 = $venueV2ByUserId->get((int) $uid) ?? $venueV2ByUserId->get((string) (int) $uid);
                 if ($v2 instanceof VenueV2) {
                     $v2->loadMissing(['category', 'user']);
+                    $row['show_contact_box'] = (bool) ($v2->show_contact_box ?? false);
                     $row['venue_v2'] = (new VenueResource($v2))->toArray(request());
                 }
             }

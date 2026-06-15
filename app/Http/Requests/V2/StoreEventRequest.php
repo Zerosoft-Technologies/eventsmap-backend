@@ -60,6 +60,7 @@ class StoreEventRequest extends FormRequest
             'is_copy_event' => 'nullable|boolean',
             'show_upcoming_events' => 'nullable|boolean',
             'show_past_events' => 'nullable|boolean',
+            'show_photo_map_marker' => 'nullable|boolean',
             'publish_status' => 'prohibited',
         ];
 
@@ -81,6 +82,7 @@ class StoreEventRequest extends FormRequest
             $rules['description'] = 'nullable|string|max:10000';
             $rules['contact_box_message'] = 'nullable|string|max:1000';
             $rules['contact_box_design_message'] = 'nullable|string|max:10000';
+            $rules['show_contact_box'] = 'nullable|boolean';
             $rules['venue_details'] = 'nullable|string|max:2000';
             $rules['facebook_url'] = 'nullable|url|max:500';
             $rules['instagram_url'] = 'nullable|url|max:500';

@@ -135,6 +135,7 @@ class TalentResource extends JsonResource
             // Settings
             'show_upcoming_events' => (bool) ($this->show_upcoming_events ?? false),
             'show_past_events' => (bool) ($this->show_past_events ?? false),
+            'show_photo_map_marker' => (bool) ($this->show_photo_map_marker ?? false),
 
             'upcoming_events' => $this->when(($this->show_upcoming_events ?? false), function () {
                 $raw = $this->resource->getAttribute('_upcoming_events');
