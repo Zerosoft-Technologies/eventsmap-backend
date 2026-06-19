@@ -5,6 +5,7 @@ namespace App\Services\V2;
 use App\Http\Resources\V2\EventResource;
 use App\Mail\EventInvitationMail;
 use App\Models\EventInvitation;
+use App\Support\PublishStatus;
 use App\Models\EventInvitationLog;
 use App\Models\EventV2;
 use App\Models\User;
@@ -517,7 +518,9 @@ class EventInvitationService
             ->whereHas('event', function (Builder $q) use ($now, $oneYearAgo) {
                 $this->whereEventEffectiveEndIsOnOrBefore($q, $now);
                 $table = $q->getModel()->getTable();
-                $q->where("{$table}.event_date", '>=', $oneYearAgo->format('Y-m-d'));
+                $q->where("{$table}.event_date", '>=', $oneYearAgo->format('Y-m-d'))
+                    ->where("{$table}.publish_status", PublishStatus::PUBLISHED)
+                    ->whereNull("{$table}.deleted_at");
             });
     }
 

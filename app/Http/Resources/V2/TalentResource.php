@@ -3,7 +3,7 @@
 namespace App\Http\Resources\V2;
 
 use App\Helpers\MediaHelper;
-use App\Http\Resources\V2\EventResource;
+use App\Http\Resources\V2\Concerns\HydratesProfileEventLists;
 use App\Support\Iso3166CountryRepository;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
@@ -14,6 +14,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class TalentResource extends JsonResource
 {
+    use HydratesProfileEventLists;
+
     public function toArray(Request $request): array
     {
         return [
@@ -137,23 +139,9 @@ class TalentResource extends JsonResource
             'show_past_events' => (bool) ($this->show_past_events ?? false),
             'show_photo_map_marker' => (bool) ($this->show_photo_map_marker ?? false),
 
-            'upcoming_events' => $this->when(($this->show_upcoming_events ?? false), function () {
-                $raw = $this->resource->getAttribute('_upcoming_events');
-                if (! is_array($raw) || $raw === []) {
-                    return [];
-                }
+            'upcoming_events' => $this->when(($this->show_upcoming_events ?? false), fn () => $this->hydratedEventListAttribute('_upcoming_events')),
 
-                return EventResource::collection($raw)->toArray(request());
-            }),
-
-            'past_events' => $this->when(($this->show_past_events ?? false), function () {
-                $raw = $this->resource->getAttribute('_past_events');
-                if (! is_array($raw) || $raw === []) {
-                    return [];
-                }
-
-                return EventResource::collection($raw)->toArray(request());
-            }),
+            'past_events' => $this->when(($this->show_past_events ?? false), fn () => $this->hydratedEventListAttribute('_past_events')),
 
             'user_id' => $this->user_id,
 

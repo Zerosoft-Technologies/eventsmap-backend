@@ -37,7 +37,7 @@
                             </table>
                         @endif
                         <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#475569;">
-                            An event organiser has invited you to participate. To get started, create your profile using the button below.
+                            An event publisher has invited you to participate. To get started, create your profile using the button below.
                         </p>
                         <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto 24px;">
                             <tr>

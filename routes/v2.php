@@ -40,8 +40,11 @@ Route::prefix('public')->group(function () {
     Route::get('/events/slug/{slug}', [PublicEventController::class, 'showBySlug']);
 
     Route::get('/talents', [PublicProfileController::class, 'talents']);
+    Route::get('/talents/{id}', [PublicProfileController::class, 'showTalent'])->whereNumber('id');
     Route::get('/organisers', [PublicProfileController::class, 'organisers']);
+    Route::get('/organisers/{id}', [PublicProfileController::class, 'showOrganiser'])->whereNumber('id');
     Route::get('/venues', [PublicProfileController::class, 'venues']);
+    Route::get('/venues/{id}', [PublicProfileController::class, 'showVenue'])->whereNumber('id');
 });
 
 // Respond to invitation (supports token-based from email link OR authenticated user)

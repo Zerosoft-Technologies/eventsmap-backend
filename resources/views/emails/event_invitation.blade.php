@@ -103,7 +103,7 @@
         </div>
 
         <div class="footer">
-            <p>If you have any questions, please contact the event organizer.</p>
+            <p>If you have any questions, please contact the event publisher.</p>
             <p>— The Events Map Team</p>
         </div>
     </div>

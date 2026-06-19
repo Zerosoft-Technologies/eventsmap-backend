@@ -210,7 +210,7 @@ class FirebaseNotificationService
     private function pendingNotificationFields(EventInvitation $invitation): array
     {
         $senderName = $invitation->sender?->name ?? 'Someone';
-        $message = "You have a pending invitation from {$senderName}. Please log in to The Events Map to accept the invitation.";
+        $message = "You have a pending invitation from {$senderName}, Event Publisher. Please accept or decline your invitation.";
 
         return [
             'receiver_id' => ['stringValue' => (string) $invitation->receiver_id],

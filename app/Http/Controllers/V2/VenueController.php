@@ -149,6 +149,15 @@ class VenueController extends Controller
             );
         }
 
+        if ($venue->show_past_events ?? false) {
+            $data['past_events'] = $this->eventInvitationService->pastAcceptedEventsPayloadForProfileUser(
+                (int) $venue->user_id,
+                EventInvitation::TYPE_VENUE
+            );
+        }
+
+        $data['show_contact_box'] = (bool) ($venue->show_contact_box ?? false);
+
         return response()->json([
             'success' => true,
             'message' => 'Venue fetched successfully',

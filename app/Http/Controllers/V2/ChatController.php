@@ -62,19 +62,19 @@ class ChatController extends Controller
      * POST /api/v2/chat/validate-message
      *
      * Validate if user can send a message in global chat.
-     * Requires: authenticated, premium account.
+     * Requires: authenticated registered user.
      */
     public function validateMessage(Request $request): JsonResponse
     {
         $user = $request->user();
 
-        if (!$user->isPremiumAccount()) {
+        if (!$user) {
             return response()->json([
                 'success' => false,
                 'can_send' => false,
-                'message' => 'Premium account required to use global chat.',
-                'reason' => 'not_premium',
-            ], 403);
+                'message' => 'Authentication required to use chat.',
+                'reason' => 'not_authenticated',
+            ], 401);
         }
 
         return response()->json([

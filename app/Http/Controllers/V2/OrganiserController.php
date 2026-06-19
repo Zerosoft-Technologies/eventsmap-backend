@@ -53,6 +53,9 @@ class OrganiserController extends Controller
     public function store(StoreOrganiserRequest $request): JsonResponse
     {
         $organiser = $this->organiserService->create($request->validated(), $request->user());
+        $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
+        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
+        $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
 
         return response()->json([
             'success' => true,
@@ -143,6 +146,15 @@ class OrganiserController extends Controller
             );
         }
 
+        if ($organiser->show_past_events ?? false) {
+            $data['past_events'] = $this->eventInvitationService->pastAcceptedEventsPayloadForProfileUser(
+                (int) $organiser->user_id,
+                EventInvitation::TYPE_ORGANISER
+            );
+        }
+
+        $data['show_contact_box'] = (bool) ($organiser->show_contact_box ?? false);
+
         return response()->json([
             'success' => true,
             'message' => 'Organiser fetched successfully',
@@ -212,6 +224,13 @@ class OrganiserController extends Controller
             );
         }
 
+        if ($organiser->show_past_events ?? false) {
+            $data['past_events'] = $this->eventInvitationService->pastAcceptedEventsPayloadForProfileUser(
+                (int) $organiser->user_id,
+                EventInvitation::TYPE_ORGANISER
+            );
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Organiser updated successfully',
@@ -239,6 +258,7 @@ class OrganiserController extends Controller
         $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
 
         $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
+        $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
 
         return response()->json([
             'success' => true,
@@ -267,6 +287,7 @@ class OrganiserController extends Controller
         $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
 
         $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
+        $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
 
         return response()->json([
             'success' => true,

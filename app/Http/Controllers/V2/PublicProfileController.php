@@ -160,12 +160,14 @@ class PublicProfileController extends Controller
             $q->where('event_type', $request->input('event_type'));
         });
 
-        V2ListingEventFilters::applyMatchingEventsToProfileQuery(
-            $query,
-            $request,
-            $modelClass,
-            $applyEventSessionFilters,
-        );
+        if (! in_array($modelClass, [TalentV2::class, OrganiserV2::class], true)) {
+            V2ListingEventFilters::applyMatchingEventsToProfileQuery(
+                $query,
+                $request,
+                $modelClass,
+                $applyEventSessionFilters,
+            );
+        }
 
         $sort = $request->input('sort', 'created_at');
         $order = $request->input('order', 'asc');
@@ -188,6 +190,7 @@ class PublicProfileController extends Controller
         $receiverType = $this->invitationReceiverTypeForProfileModel($modelClass);
         if ($receiverType !== null) {
             $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles($items, $receiverType);
+            $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles($items, $receiverType);
         }
 
         return response()->json([
@@ -264,6 +267,70 @@ class PublicProfileController extends Controller
                 $profile->setRelation('subcategories', $collection);
             }
         }
+    }
+
+    /**
+     * GET /api/v2/public/talents/{id}
+     */
+    public function showTalent(int $id): JsonResponse
+    {
+        return $this->showProfile(TalentV2::class, TalentResource::class, $id, 'Talent fetched successfully');
+    }
+
+    /**
+     * GET /api/v2/public/organisers/{id}
+     */
+    public function showOrganiser(int $id): JsonResponse
+    {
+        return $this->showProfile(OrganiserV2::class, OrganiserResource::class, $id, 'Organiser fetched successfully');
+    }
+
+    /**
+     * GET /api/v2/public/venues/{id}
+     */
+    public function showVenue(int $id): JsonResponse
+    {
+        return $this->showProfile(VenueV2::class, VenueResource::class, $id, 'Venue fetched successfully');
+    }
+
+    /**
+     * @param  class-string<TalentV2|OrganiserV2|VenueV2>  $modelClass
+     * @param  class-string  $resourceClass
+     */
+    private function showProfile(string $modelClass, string $resourceClass, int $id, string $message): JsonResponse
+    {
+        /** @var TalentV2|OrganiserV2|VenueV2 $profile */
+        $profile = $modelClass::query()
+            ->publicVisible()
+            ->with($this->detailRelationsFor($modelClass))
+            ->findOrFail($id);
+
+        $this->hydrateSubcategoriesForListing([$profile]);
+        $receiverType = $this->invitationReceiverTypeForProfileModel($modelClass);
+        if ($receiverType !== null) {
+            $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$profile], $receiverType);
+            $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles([$profile], $receiverType);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'data' => new $resourceClass($profile),
+        ]);
+    }
+
+    /**
+     * @param  class-string<TalentV2|OrganiserV2|VenueV2>  $modelClass
+     * @return list<string>
+     */
+    private function detailRelationsFor(string $modelClass): array
+    {
+        return match ($modelClass) {
+            TalentV2::class => ['category', 'user', 'talentCategory', 'talentSubcategories'],
+            OrganiserV2::class => ['category', 'user', 'organiserCategory', 'organiserSubcategories'],
+            VenueV2::class => ['category', 'user', 'venueCategory', 'venueSubcategories'],
+            default => ['category', 'user'],
+        };
     }
 
     /**

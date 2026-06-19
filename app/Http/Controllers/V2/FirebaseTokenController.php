@@ -33,7 +33,7 @@ class FirebaseTokenController extends Controller
         $user = $request->user();
         $claims = [
             'chat_permissions' => [
-                'can_chat' => $user->isPremiumAccount(),
+                'can_chat' => (bool) $user,
             ],
         ];
 

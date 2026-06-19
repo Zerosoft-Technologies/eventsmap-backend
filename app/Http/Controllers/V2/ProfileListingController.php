@@ -137,12 +137,15 @@ class ProfileListingController extends Controller
             $q->where('event_type', $request->input('event_type'));
         });
 
-        V2ListingEventFilters::applyMatchingEventsToProfileQuery(
-            $query,
-            $request,
-            $modelClass,
-            $applyEventSessionFilters,
-        );
+        // Talents and organisers are browsed by profile location; date windows apply to venues only.
+        if (! in_array($modelClass, [TalentV2::class, OrganiserV2::class], true)) {
+            V2ListingEventFilters::applyMatchingEventsToProfileQuery(
+                $query,
+                $request,
+                $modelClass,
+                $applyEventSessionFilters,
+            );
+        }
 
         if ($request->filled(['lat', 'lng']) && ($request->filled('radius') || $request->filled('radius_km'))) {
             $lat = (float) $request->input('lat');
