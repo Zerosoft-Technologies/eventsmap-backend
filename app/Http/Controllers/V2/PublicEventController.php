@@ -102,7 +102,7 @@ class PublicEventController extends Controller
             $q->where('entrance_status', $request->input('entrance_status'));
         });
 
-        V2ListingEventFilters::applyToEventQuery($query, $request);
+        V2ListingEventFilters::applyToEventQuery($query, $request, true, true);
 
         // Sorting
         $sort = $request->input('sort', 'event_date');
@@ -256,7 +256,7 @@ class PublicEventController extends Controller
                     $request->input('max_lng')
                 );
 
-            V2ListingEventFilters::applyToEventQuery($query, $request);
+            V2ListingEventFilters::applyToEventQuery($query, $request, true, true);
 
             return $query
                 ->when($request->filled('category_id'), function ($q) use ($request) {

@@ -166,6 +166,7 @@ class PublicProfileController extends Controller
                 $request,
                 $modelClass,
                 $applyEventSessionFilters,
+                true,
             );
         }
 

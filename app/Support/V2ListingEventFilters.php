@@ -116,14 +116,26 @@ final class V2ListingEventFilters
 
     /**
      * Apply date (+ optional session) constraints to an {@see EventV2} query.
+     *
+     * When `$upcomingOnly` is true, `event_date` is never before today (discovery / TEM listings).
      */
-    public static function applyToEventQuery(Builder $query, Request $request, bool $includeSessions = true): Builder
-    {
+    public static function applyToEventQuery(
+        Builder $query,
+        Request $request,
+        bool $includeSessions = true,
+        bool $upcomingOnly = false,
+    ): Builder {
         $from = self::dateFrom($request);
         $to = self::dateTo($request);
 
+        if ($upcomingOnly) {
+            $from = self::clampFromToToday($from);
+        }
+
         if ($from !== null || $to !== null) {
             $query->dateOverlap($from, $to);
+        } elseif ($upcomingOnly) {
+            $query->where('event_date', '>=', now()->toDateString());
         }
 
         if ($includeSessions) {
@@ -147,6 +159,7 @@ final class V2ListingEventFilters
         Request $request,
         string $modelClass,
         bool $includeSessions = false,
+        bool $upcomingOnly = false,
     ): Builder {
         if (! self::hasDateFilter($request) && (! $includeSessions || ! self::hasSessionFilter($request))) {
             return $profileQuery;
@@ -154,11 +167,11 @@ final class V2ListingEventFilters
 
         $profileTable = (new $modelClass)->getTable();
 
-        return $profileQuery->where(function (Builder $profileQ) use ($request, $modelClass, $profileTable, $includeSessions) {
+        return $profileQuery->where(function (Builder $profileQ) use ($request, $modelClass, $profileTable, $includeSessions, $upcomingOnly) {
             match ($modelClass) {
-                TalentV2::class => self::applyTalentEventExists($profileQ, $request, $profileTable, $includeSessions),
-                OrganiserV2::class => self::applyOrganiserEventExists($profileQ, $request, $profileTable, $includeSessions),
-                VenueV2::class => self::applyVenueEventExists($profileQ, $request, $profileTable, $includeSessions),
+                TalentV2::class => self::applyTalentEventExists($profileQ, $request, $profileTable, $includeSessions, $upcomingOnly),
+                OrganiserV2::class => self::applyOrganiserEventExists($profileQ, $request, $profileTable, $includeSessions, $upcomingOnly),
+                VenueV2::class => self::applyVenueEventExists($profileQ, $request, $profileTable, $includeSessions, $upcomingOnly),
                 default => null,
             };
         });
@@ -172,8 +185,9 @@ final class V2ListingEventFilters
         Request $request,
         string $profileTable,
         bool $includeSessions,
+        bool $upcomingOnly = false,
     ): void {
-        $profileQ->whereExists(function ($exists) use ($request, $profileTable, $includeSessions) {
+        $profileQ->whereExists(function ($exists) use ($request, $profileTable, $includeSessions, $upcomingOnly) {
             $exists->selectRaw('1')
                 ->from('event_invitations')
                 ->join('events_v2', 'events_v2.id', '=', 'event_invitations.event_id')
@@ -181,15 +195,15 @@ final class V2ListingEventFilters
                 ->where('event_invitations.receiver_type', EventInvitation::TYPE_TALENT)
                 ->where('event_invitations.status', EventInvitation::STATUS_ACCEPTED)
                 ->whereNull('events_v2.deleted_at');
-            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions);
+            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions, $upcomingOnly);
         });
 
-        $profileQ->orWhereExists(function ($exists) use ($request, $profileTable, $includeSessions) {
+        $profileQ->orWhereExists(function ($exists) use ($request, $profileTable, $includeSessions, $upcomingOnly) {
             $exists->selectRaw('1')
                 ->from('events_v2')
                 ->whereNull('events_v2.deleted_at');
             self::wrapInvitedUserJsonExists($exists, 'events_v2.invited_talents', "{$profileTable}.user_id");
-            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions);
+            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions, $upcomingOnly);
         });
     }
 
@@ -201,8 +215,9 @@ final class V2ListingEventFilters
         Request $request,
         string $profileTable,
         bool $includeSessions,
+        bool $upcomingOnly = false,
     ): void {
-        $profileQ->whereExists(function ($exists) use ($request, $profileTable, $includeSessions) {
+        $profileQ->whereExists(function ($exists) use ($request, $profileTable, $includeSessions, $upcomingOnly) {
             $exists->selectRaw('1')
                 ->from('event_invitations')
                 ->join('events_v2', 'events_v2.id', '=', 'event_invitations.event_id')
@@ -210,15 +225,15 @@ final class V2ListingEventFilters
                 ->where('event_invitations.receiver_type', EventInvitation::TYPE_ORGANISER)
                 ->where('event_invitations.status', EventInvitation::STATUS_ACCEPTED)
                 ->whereNull('events_v2.deleted_at');
-            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions);
+            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions, $upcomingOnly);
         });
 
-        $profileQ->orWhereExists(function ($exists) use ($request, $profileTable, $includeSessions) {
+        $profileQ->orWhereExists(function ($exists) use ($request, $profileTable, $includeSessions, $upcomingOnly) {
             $exists->selectRaw('1')
                 ->from('events_v2')
                 ->whereNull('events_v2.deleted_at');
             self::wrapInvitedUserJsonExists($exists, 'events_v2.invited_organisers', "{$profileTable}.user_id");
-            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions);
+            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions, $upcomingOnly);
         });
     }
 
@@ -230,8 +245,9 @@ final class V2ListingEventFilters
         Request $request,
         string $profileTable,
         bool $includeSessions,
+        bool $upcomingOnly = false,
     ): void {
-        $profileQ->whereExists(function ($exists) use ($request, $profileTable, $includeSessions) {
+        $profileQ->whereExists(function ($exists) use ($request, $profileTable, $includeSessions, $upcomingOnly) {
             $exists->selectRaw('1')
                 ->from('event_invitations')
                 ->join('events_v2', 'events_v2.id', '=', 'event_invitations.event_id')
@@ -239,16 +255,16 @@ final class V2ListingEventFilters
                 ->where('event_invitations.receiver_type', EventInvitation::TYPE_VENUE)
                 ->where('event_invitations.status', EventInvitation::STATUS_ACCEPTED)
                 ->whereNull('events_v2.deleted_at');
-            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions);
+            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions, $upcomingOnly);
         });
 
-        $profileQ->orWhereExists(function ($exists) use ($request, $profileTable, $includeSessions) {
+        $profileQ->orWhereExists(function ($exists) use ($request, $profileTable, $includeSessions, $upcomingOnly) {
             $exists->selectRaw('1')
                 ->from('events_v2')
                 ->join('venues', 'venues.id', '=', 'events_v2.venue_id')
                 ->whereColumn('venues.user_id', "{$profileTable}.user_id")
                 ->whereNull('events_v2.deleted_at');
-            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions);
+            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions, $upcomingOnly);
         });
     }
 
@@ -283,8 +299,12 @@ final class V2ListingEventFilters
     /**
      * @param  \Illuminate\Database\Query\Builder  $query
      */
-    private static function applyPublishedBrowsableEventConstraints($query, Request $request, bool $includeSessions): void
-    {
+    private static function applyPublishedBrowsableEventConstraints(
+        $query,
+        Request $request,
+        bool $includeSessions,
+        bool $upcomingOnly = false,
+    ): void {
         $query->where('events_v2.publish_status', PublishStatus::PUBLISHED)
             ->whereNotIn('events_v2.status', [
                 EventV2::STATUS_DRAFT,
@@ -294,8 +314,13 @@ final class V2ListingEventFilters
 
         $from = self::dateFrom($request);
         $to = self::dateTo($request);
+        if ($upcomingOnly) {
+            $from = self::clampFromToToday($from);
+        }
         if ($from !== null) {
             $query->where('events_v2.event_date', '>=', $from);
+        } elseif ($upcomingOnly) {
+            $query->where('events_v2.event_date', '>=', now()->toDateString());
         }
         if ($to !== null) {
             $query->where('events_v2.event_date', '<=', $to);
@@ -307,6 +332,13 @@ final class V2ListingEventFilters
                 self::applySessionConstraintsToEventSubquery($query, $sessions);
             }
         }
+    }
+
+    private static function clampFromToToday(?string $from): string
+    {
+        $today = now()->toDateString();
+
+        return ($from === null || $from < $today) ? $today : $from;
     }
 
     /**

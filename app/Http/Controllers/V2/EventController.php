@@ -135,7 +135,7 @@ class EventController extends Controller
             $q->where('entrance_status', $request->input('entrance_status'));
         });
 
-        V2ListingEventFilters::applyToEventQuery($query, $request);
+        V2ListingEventFilters::applyToEventQuery($query, $request, true, true);
 
         // Explicit start_time / end_time window (in addition to morning/afternoon/evening/night flags)
         if ($request->filled('start_time') || $request->filled('end_time')) {

@@ -144,6 +144,7 @@ class ProfileListingController extends Controller
                 $request,
                 $modelClass,
                 $applyEventSessionFilters,
+                true,
             );
         }
 
