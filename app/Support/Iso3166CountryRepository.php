@@ -35,7 +35,11 @@ final class Iso3166CountryRepository
                 $code = strtoupper(trim((string) ($row['code'] ?? '')));
                 $name = trim((string) ($row['name'] ?? ''));
                 if (strlen($code) === 2 && $name !== '') {
-                    $out[] = ['code' => $code, 'name' => $name];
+                    $out[] = [
+                        'code' => $code,
+                        'name' => $name,
+                        'flag' => self::flagForCode($code),
+                    ];
                 }
             }
 
@@ -86,5 +90,20 @@ final class Iso3166CountryRepository
         }
 
         return null;
+    }
+
+    public static function flagForCode(?string $code): string
+    {
+        if ($code === null || strlen(trim($code)) !== 2) {
+            return '';
+        }
+        $upper = strtoupper(trim($code));
+        $chars = str_split($upper);
+        if (count($chars) !== 2) {
+            return '';
+        }
+
+        return mb_chr(0x1F1E6 + ord($chars[0]) - 65)
+            .mb_chr(0x1F1E6 + ord($chars[1]) - 65);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Resources\V2;
 use App\Helpers\MediaHelper;
 use App\Http\Resources\V2\Concerns\HydratesProfileEventLists;
 use App\Support\Iso3166CountryRepository;
+use App\Support\TalentNationalities;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
 use App\Support\TalentDateOfBirth;
@@ -126,7 +127,11 @@ class TalentResource extends JsonResource
             // Talent-specific
             'fan_club_url' => $this->fan_club_url,
             'nationality' => $this->nationality,
-            'nationality_name' => Iso3166CountryRepository::nameForCode($this->nationality) ?? $this->nationality,
+            'nationality_name' => Iso3166CountryRepository::nameForCode(
+                TalentNationalities::parse($this->nationality)[0] ?? $this->nationality
+            ) ?? $this->nationality,
+            'nationalities' => TalentNationalities::parse($this->nationality),
+            'nationality_list' => TalentNationalities::toApiList($this->nationality),
             'show_nationality' => $this->show_nationality,
             'date_of_birth' => TalentDateOfBirth::toApiDate($this->date_of_birth),
             'age' => TalentDateOfBirth::resolvedAge($this->age, $this->date_of_birth),

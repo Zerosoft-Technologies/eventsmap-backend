@@ -5,6 +5,7 @@ namespace App\Http\Requests\V2;
 use App\Http\Requests\Concerns\NormalizesTalentDateOfBirth;
 use App\Data\TalentLanguages;
 use App\Support\Iso3166CountryRepository;
+use App\Support\TalentNationalities;
 use App\Support\ProfilePublicationStatus;
 use App\Support\TalentDateOfBirth;
 use App\Support\PublishStatus;
@@ -29,6 +30,11 @@ class UpdateTalentRequest extends FormRequest
         if ($this->has('nationality')) {
             $code = Iso3166CountryRepository::resolveCode($this->input('nationality'));
             $this->merge(['nationality' => $code]);
+        }
+
+        if ($this->has('nationalities')) {
+            $encoded = TalentNationalities::encode($this->input('nationalities'));
+            $this->merge(['nationality' => $encoded]);
         }
     }
 
@@ -57,7 +63,9 @@ class UpdateTalentRequest extends FormRequest
             'instagram_url' => 'nullable|url|max:500',
             'tiktok_url' => 'nullable|url|max:500',
             'fan_club_url' => 'nullable|url|max:500',
-            'nationality' => ['nullable', 'string', Rule::in(Iso3166CountryRepository::codes())],
+            'nationality' => ['nullable', 'string', 'max:10'],
+            'nationalities' => 'nullable|array|max:'.TalentNationalities::MAX_COUNT,
+            'nationalities.*' => ['nullable', 'string', Rule::in(Iso3166CountryRepository::codes())],
             'show_nationality' => 'nullable|string|max:32',
             'date_of_birth' => 'nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
             'birth_date' => 'nullable|date|after_or_equal:'.TalentDateOfBirth::MIN_DATE.'|before_or_equal:today',
