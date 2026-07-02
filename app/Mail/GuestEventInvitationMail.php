@@ -33,7 +33,7 @@ class GuestEventInvitationMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "You've been invited to join EventsMap",
+            subject: "You've been invited to join The Events Map",
             from: config('mail.from.address'),
             replyTo: [$this->invitation->sender->email ?? config('mail.from.address')],
         );

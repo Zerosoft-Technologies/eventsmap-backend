@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
     <meta name="supported-color-schemes" content="light dark">
-    <title>You've been invited to join EventsMap</title>
+    <title>You've been invited to join The Events Map</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f1f5f9;padding:32px 16px;">
@@ -14,7 +14,7 @@
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">
                 <tr>
                     <td style="background:linear-gradient(135deg,#0061FF 0%,#004bb5 100%);padding:28px 32px;">
-                        <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.85);">EventsMap</p>
+                        <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.85);">The Events Map</p>
                         <h1 style="margin:12px 0 0;font-size:22px;line-height:1.3;font-weight:700;color:#ffffff;">You're invited</h1>
                     </td>
                 </tr>
@@ -22,7 +22,7 @@
                     <td style="padding:32px;">
                         <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#334155;">Hello{{ $invitation->invitee_name ? ' '.$invitation->invitee_name : '' }},</p>
                         <p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#334155;">
-                            You have been invited to join an event on <strong style="color:#0061FF;">EventsMap</strong>.
+                            You have been invited to join an event on <strong style="color:#0061FF;">The Events Map</strong>.
                         </p>
                         <p style="margin:0 0 8px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;">Your role</p>
                         <p style="margin:0 0 24px;font-size:18px;font-weight:700;color:#0f172a;">{{ $roleLabel }}</p>
@@ -59,7 +59,7 @@
                 </tr>
                 <tr>
                     <td style="padding:20px 32px;border-top:1px solid #e2e8f0;background:#f8fafc;">
-                        <p style="margin:0;font-size:13px;color:#64748b;">Thank you,<br><strong style="color:#334155;">EventsMap Team</strong></p>
+                        <p style="margin:0;font-size:13px;color:#64748b;">Thank you,<br><strong style="color:#334155;">The Events Map Team</strong></p>
                     </td>
                 </tr>
             </table>
