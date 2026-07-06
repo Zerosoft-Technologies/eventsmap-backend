@@ -8,19 +8,18 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Writes invitation notifications to Firestore via REST API so invited users
+ * Writes invitation and chat notifications to Firestore via REST API so users
  * see real-time in-app notifications. No gRPC extension required.
  *
- * Firestore structure (matches frontend {@code invitation_notifications} listener):
- *   Collection: invitation_notifications
- *   Document ID: invitation_{invitation_id}
- *   Fields: receiver_id (string), invitation_id, event_id, event_title,
- *           sender_id, sender_name, receiver_type, message,
- *           status ('pending'|'completed'), created_at, completed_at (optional)
+ * Collections:
+ * - invitation_notifications (doc id: invitation_{id})
+ * - chat_notifications (doc id: chat_{conversationId}_{uniqid})
  */
 class FirebaseNotificationService
 {
     private const COLLECTION = 'invitation_notifications';
+
+    private const CHAT_COLLECTION = 'chat_notifications';
 
     private const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore';
 
@@ -42,6 +41,80 @@ class FirebaseNotificationService
         ]);
 
         $this->upsertPendingNotification($invitation);
+    }
+
+    /**
+     * Record a delivered chat message for the receiver (in-app notification trail).
+     */
+    public function createChatMessageNotification(
+        int $receiverId,
+        int $senderId,
+        string $senderName,
+        string $conversationId,
+        string $messagePreview,
+    ): void {
+        if (! $this->firebaseService->isConfigured()) {
+            Log::debug('Firebase not configured, skipping Firestore chat notification');
+
+            return;
+        }
+
+        try {
+            $token = $this->getAccessToken();
+            $projectId = $this->getProjectId();
+        } catch (\Throwable $e) {
+            Log::warning('Firestore not available for chat notification', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
+        $safeConversationId = preg_replace('/[^a-zA-Z0-9_-]/', '_', $conversationId) ?: 'unknown';
+        $docId = 'chat_'.$safeConversationId.'_'.uniqid('', true);
+        $fields = [
+            'receiver_id' => ['stringValue' => (string) $receiverId],
+            'sender_id' => ['integerValue' => (string) $senderId],
+            'sender_name' => ['stringValue' => $senderName],
+            'conversation_id' => ['stringValue' => $conversationId],
+            'message' => ['stringValue' => $messagePreview],
+            'status' => ['stringValue' => 'pending'],
+            'created_at' => ['timestampValue' => $this->timestampRfc3339()],
+        ];
+
+        $createUrl = sprintf(
+            '%s/%s?documentId=%s',
+            $this->baseUrl($projectId),
+            self::CHAT_COLLECTION,
+            $docId
+        );
+
+        try {
+            $response = Http::withToken($token)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->post($createUrl, ['fields' => $fields]);
+
+            if ($response->successful()) {
+                Log::info('Firestore chat notification created', [
+                    'receiver_id' => $receiverId,
+                    'sender_id' => $senderId,
+                    'conversation_id' => $conversationId,
+                ]);
+
+                return;
+            }
+
+            Log::warning('Firestore chat notification create failed', [
+                'receiver_id' => $receiverId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to create Firestore chat notification', [
+                'receiver_id' => $receiverId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

@@ -184,6 +184,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/chat/block/{user_id}', [ChatController::class, 'unblockUser'])->whereNumber('user_id');
     Route::post('/chat/validate-message', [ChatController::class, 'validateMessage'])
         ->middleware('global.chat.ratelimit');
+    Route::post('/chat/notify-message', [ChatController::class, 'notifyMessage'])
+        ->middleware('global.chat.ratelimit');
 
     // ──────────────────────────────────────
     // Chat Permissions (Event-based)

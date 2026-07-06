@@ -6,15 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\EventInvitation;
 use App\Models\User;
 use App\Services\V2\ChatBlockService;
+use App\Services\V2\FirebaseNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class ChatController extends Controller
 {
     public function __construct(
         private readonly ChatBlockService $chatBlockService,
+        private readonly FirebaseNotificationService $firebaseNotificationService,
     ) {}
 
     /**
@@ -80,6 +83,55 @@ class ChatController extends Controller
         return response()->json([
             'success' => true,
             'can_send' => true,
+        ]);
+    }
+
+    /**
+     * POST /api/v2/chat/notify-message
+     *
+     * Record a delivered chat message in Firestore for the receiver (in-app notification trail).
+     */
+    public function notifyMessage(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'receiver_id' => ['required', 'integer', 'min:1'],
+            'conversation_id' => ['required', 'string', 'max:128'],
+            'message' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $user = $request->user();
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication required.',
+            ], 401);
+        }
+
+        if ((int) $validated['receiver_id'] === $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid receiver.',
+            ], 422);
+        }
+
+        if ($this->chatBlockService->isMessagingBlocked($user->id, (int) $validated['receiver_id'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Messaging is blocked.',
+            ], 403);
+        }
+
+        $this->firebaseNotificationService->createChatMessageNotification(
+            receiverId: (int) $validated['receiver_id'],
+            senderId: $user->id,
+            senderName: $user->name ?? 'Someone',
+            conversationId: $validated['conversation_id'],
+            messagePreview: Str::limit($validated['message'], 120),
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Chat notification recorded.',
         ]);
     }
 
