@@ -3,6 +3,8 @@
 namespace App\Services\V2;
 
 use App\Models\EventInvitation;
+use App\Models\EventV2;
+use App\Models\User;
 use Google\Auth\Credentials\ServiceAccountCredentials;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -20,6 +22,10 @@ class FirebaseNotificationService
     private const COLLECTION = 'invitation_notifications';
 
     private const CHAT_COLLECTION = 'chat_notifications';
+
+    private const CANCELLATION_COLLECTION = 'event_cancellation_notifications';
+
+    private const UPDATE_COLLECTION = 'event_update_notifications';
 
     private const FIRESTORE_SCOPE = 'https://www.googleapis.com/auth/datastore';
 
@@ -111,6 +117,170 @@ class FirebaseNotificationService
             ]);
         } catch (\Throwable $e) {
             Log::warning('Failed to create Firestore chat notification', [
+                'receiver_id' => $receiverId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Notify an accepted invitee that their event occurrence was cancelled.
+     */
+    public function createEventCancellationNotification(
+        EventV2 $event,
+        EventInvitation $invitation,
+        User $actor,
+    ): void {
+        if (! $this->firebaseService->isConfigured()) {
+            Log::debug('Firebase not configured, skipping event cancellation notification');
+
+            return;
+        }
+
+        try {
+            $token = $this->getAccessToken();
+            $projectId = $this->getProjectId();
+        } catch (\Throwable $e) {
+            Log::warning('Firestore not available for event cancellation notification', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
+        $invitation->loadMissing(['receiver', 'event']);
+        $receiverId = (string) $invitation->receiver_id;
+        $docId = $this->cancellationDocumentId($event->id, (int) $invitation->receiver_id);
+        $publisherName = $event->user?->name ?? $actor->name ?? 'Event Publisher';
+        $eventTitle = $event->title ?? 'Event';
+        $message = "The event \"{$eventTitle}\" has been cancelled by {$publisherName}.";
+
+        $fields = [
+            'receiver_id' => ['stringValue' => $receiverId],
+            'event_id' => ['integerValue' => (string) $event->id],
+            'event_title' => ['stringValue' => $eventTitle],
+            'invitation_id' => ['integerValue' => (string) $invitation->id],
+            'receiver_type' => ['stringValue' => (string) ($invitation->receiver_type ?? '')],
+            'actor_id' => ['integerValue' => (string) $actor->id],
+            'actor_name' => ['stringValue' => $publisherName],
+            'message' => ['stringValue' => $message],
+            'status' => ['stringValue' => 'pending'],
+            'created_at' => ['timestampValue' => $this->timestampRfc3339()],
+        ];
+
+        $createUrl = sprintf(
+            '%s/%s?documentId=%s',
+            $this->baseUrl($projectId),
+            self::CANCELLATION_COLLECTION,
+            $docId
+        );
+
+        try {
+            $response = Http::withToken($token)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->post($createUrl, ['fields' => $fields]);
+
+            if ($response->successful()) {
+                Log::info('Firestore event cancellation notification created', [
+                    'event_id' => $event->id,
+                    'receiver_id' => $receiverId,
+                    'invitation_id' => $invitation->id,
+                ]);
+
+                return;
+            }
+
+            Log::warning('Firestore event cancellation notification create failed', [
+                'event_id' => $event->id,
+                'receiver_id' => $receiverId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to create Firestore event cancellation notification', [
+                'event_id' => $event->id,
+                'receiver_id' => $receiverId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Notify an accepted invitee that their event occurrence was updated.
+     */
+    public function createEventUpdateNotification(
+        EventV2 $event,
+        EventInvitation $invitation,
+        User $actor,
+    ): void {
+        if (! $this->firebaseService->isConfigured()) {
+            Log::debug('Firebase not configured, skipping event update notification');
+
+            return;
+        }
+
+        try {
+            $token = $this->getAccessToken();
+            $projectId = $this->getProjectId();
+        } catch (\Throwable $e) {
+            Log::warning('Firestore not available for event update notification', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
+        $invitation->loadMissing(['receiver', 'event']);
+        $receiverId = (string) $invitation->receiver_id;
+        $docId = $this->updateDocumentId($event->id, (int) $invitation->receiver_id);
+        $publisherName = $event->user?->name ?? $actor->name ?? 'Event Publisher';
+        $eventTitle = $event->title ?? 'Event';
+        $message = "The event \"{$eventTitle}\" has been updated by {$publisherName}.";
+
+        $fields = [
+            'receiver_id' => ['stringValue' => $receiverId],
+            'event_id' => ['integerValue' => (string) $event->id],
+            'event_title' => ['stringValue' => $eventTitle],
+            'invitation_id' => ['integerValue' => (string) $invitation->id],
+            'receiver_type' => ['stringValue' => (string) ($invitation->receiver_type ?? '')],
+            'actor_id' => ['integerValue' => (string) $actor->id],
+            'actor_name' => ['stringValue' => $publisherName],
+            'message' => ['stringValue' => $message],
+            'status' => ['stringValue' => 'pending'],
+            'created_at' => ['timestampValue' => $this->timestampRfc3339()],
+        ];
+
+        $createUrl = sprintf(
+            '%s/%s?documentId=%s',
+            $this->baseUrl($projectId),
+            self::UPDATE_COLLECTION,
+            $docId
+        );
+
+        try {
+            $response = Http::withToken($token)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->post($createUrl, ['fields' => $fields]);
+
+            if ($response->successful()) {
+                Log::info('Firestore event update notification created', [
+                    'event_id' => $event->id,
+                    'receiver_id' => $receiverId,
+                    'invitation_id' => $invitation->id,
+                ]);
+
+                return;
+            }
+
+            Log::warning('Firestore event update notification create failed', [
+                'event_id' => $event->id,
+                'receiver_id' => $receiverId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to create Firestore event update notification', [
+                'event_id' => $event->id,
                 'receiver_id' => $receiverId,
                 'error' => $e->getMessage(),
             ]);
@@ -302,6 +472,16 @@ class FirebaseNotificationService
     private function documentId(int $invitationId): string
     {
         return 'invitation_'.$invitationId;
+    }
+
+    private function cancellationDocumentId(int $eventId, int $receiverId): string
+    {
+        return 'event_cancel_'.$eventId.'_'.$receiverId;
+    }
+
+    private function updateDocumentId(int $eventId, int $receiverId): string
+    {
+        return 'event_update_'.$eventId.'_'.$receiverId.'_'.uniqid('', true);
     }
 
     private function timestampRfc3339(?\DateTimeInterface $at = null): string

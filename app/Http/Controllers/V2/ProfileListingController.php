@@ -14,6 +14,7 @@ use App\Models\VenueV2;
 use App\Support\V2ListingEventFilters;
 use App\Support\V2ProfileListingTaxonomy;
 use App\Services\V2\EventInvitationService;
+use App\Services\V2\OrganiserProfileEventService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +26,8 @@ use Illuminate\Http\Request;
 class ProfileListingController extends Controller
 {
     public function __construct(
-        private readonly EventInvitationService $eventInvitationService
+        private readonly EventInvitationService $eventInvitationService,
+        private readonly OrganiserProfileEventService $organiserProfileEventService,
     ) {}
 
     public function talents(Request $request): JsonResponse
@@ -177,7 +179,10 @@ class ProfileListingController extends Controller
         $items = $paginator->items();
         $this->hydrateSubcategoriesForListing($items);
         $receiverType = $this->invitationReceiverTypeForProfileModel($modelClass);
-        if ($receiverType !== null) {
+        if ($modelClass === OrganiserV2::class) {
+            $this->organiserProfileEventService->hydrateUpcomingPublicEventsOnProfiles($items);
+            $this->organiserProfileEventService->hydratePastPublicEventsOnProfiles($items);
+        } elseif ($receiverType !== null) {
             $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles($items, $receiverType);
             $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles($items, $receiverType);
         }

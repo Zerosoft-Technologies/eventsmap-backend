@@ -31,6 +31,9 @@ class EventSidebarResource extends JsonResource
             'publish_status_label' => PublishStatus::labels()[$this->publish_status ?? PublishStatus::DRAFT]
                 ?? ($this->publish_status ?? PublishStatus::DRAFT),
             'is_approved' => $this->is_approved ?? false,
+            'series_id' => $this->series_id,
+            'is_modified' => (bool) ($this->is_modified ?? false),
+            'is_series_instance' => $this->resource->isSeriesInstance(),
             'venue_name' => $this->venue_name,
             'image_url' => $this->when($this->image_path, function () {
                 // Check if image_path is a UUID format

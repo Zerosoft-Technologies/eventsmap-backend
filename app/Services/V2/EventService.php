@@ -46,7 +46,7 @@ class EventService
     private function loadEventWithSubcategories(EventV2 $event): EventV2
     {
         return $event->load(['category', 'venue', 'organisers', 'talents', 'user'])
-            ->setAttribute('subcategories', $event->subcategories_from_ids);
+            ->setRelation('subcategories', $event->subcategories_from_ids);
     }
 
     /**
@@ -58,9 +58,9 @@ class EventService
      *
      * @throws \Throwable If database transaction fails
      */
-    public function create(array $data, User $user): EventV2
+    public function create(array $data, User $user, bool $sendInvitations = true): EventV2
     {
-        return DB::transaction(function () use ($data, $user) {
+        return DB::transaction(function () use ($data, $user, $sendInvitations) {
             $data = $this->normalizeInvitationProfileIds($data);
 
             $eventType = $data['event_type'] ?? 'free';
@@ -106,7 +106,24 @@ class EventService
                 }
             }
 
-            if (Schema::hasColumn('events_v2', 'is_approved')) {
+            if (array_key_exists('series_id', $data)) {
+                $eventData['series_id'] = $data['series_id'];
+            }
+            if (array_key_exists('is_modified', $data)) {
+                $eventData['is_modified'] = (bool) $data['is_modified'];
+            }
+            if (array_key_exists('publish_status', $data)) {
+                $eventData['publish_status'] = $data['publish_status'];
+            }
+            if (array_key_exists('is_approved', $data) && Schema::hasColumn('events_v2', 'is_approved')) {
+                $eventData['is_approved'] = (bool) $data['is_approved'];
+                if ($data['is_approved']) {
+                    $eventData['approved_at'] = $data['approved_at'] ?? now();
+                    $eventData['approved_by'] = $data['approved_by'] ?? $user->id;
+                }
+            }
+
+            if (Schema::hasColumn('events_v2', 'is_approved') && ! array_key_exists('is_approved', $eventData)) {
                 $eventData['is_approved'] = false;
             }
 
@@ -171,7 +188,7 @@ class EventService
 
                 Log::info('Event created', ['event_id' => $event->id, 'user_id' => $user->id]);
 
-                if ($this->eventHasInvitedUsers($event)) {
+                if ($sendInvitations && $this->eventHasInvitedUsers($event)) {
                     $this->createInvitationsForEvent($event, $user);
                 }
 
@@ -215,10 +232,13 @@ class EventService
      *
      * @throws \Throwable If database transaction fails
      */
-    public function update(EventV2 $event, array $data, ?Request $request = null): EventV2
+    public function update(EventV2 $event, array $data, ?Request $request = null, bool $sendInvitations = true): EventV2
     {
-        return DB::transaction(function () use ($event, $data, $request) {
+        return DB::transaction(function () use ($event, $data, $request, $sendInvitations) {
             $data = $this->normalizeInvitationProfileIds($data);
+
+            // Clients cannot reassign series linkage or override modification flag via generic update.
+            unset($data['series_id'], $data['is_modified']);
 
             $allowedFields = [
                 'title', 'event_type', 'category_id', 'subcategory_ids', 'event_date', 'start_time', 'end_time',
@@ -333,7 +353,7 @@ class EventService
 
             $event = $event->fresh();
 
-            if ($this->eventHasInvitedUsers($event)) {
+            if ($sendInvitations && $this->eventHasInvitedUsers($event)) {
                 $this->createInvitationsForEvent($event, $event->user);
             }
 
@@ -351,10 +371,39 @@ class EventService
     public function delete(EventV2 $event): void
     {
         DB::transaction(function () use ($event) {
-            // Note: Image is NOT deleted on soft delete (can be restored)
-            $event->delete();
-            Log::info('Event soft deleted', ['event_id' => $event->id]);
+            $this->deleteWithoutTransaction($event);
         });
+    }
+
+    /**
+     * Soft delete without opening a nested transaction (for lifecycle batches).
+     */
+    public function deleteWithoutTransaction(EventV2 $event): void
+    {
+        $event->delete();
+        Log::info('Event soft deleted', ['event_id' => $event->id]);
+    }
+
+    /**
+     * Cancel an event occurrence (organizer or admin).
+     */
+    public function cancelOccurrence(EventV2 $event, User $actor): EventV2
+    {
+        if ($event->status === EventV2::STATUS_CANCELLED) {
+            return $event;
+        }
+
+        $event->update([
+            'status' => EventV2::STATUS_CANCELLED,
+        ]);
+
+        Log::info('Event occurrence cancelled', [
+            'event_id' => $event->id,
+            'actor_id' => $actor->id,
+            'series_id' => $event->series_id,
+        ]);
+
+        return $event->fresh();
     }
 
     /**

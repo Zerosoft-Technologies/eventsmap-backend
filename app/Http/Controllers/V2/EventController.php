@@ -332,7 +332,7 @@ class EventController extends Controller
      */
     public function show(Request $request, int $id): JsonResponse
     {
-        $event = EventV2::with(['category', 'venue', 'organisers', 'talents', 'user'])->findOrFail($id);
+        $event = EventV2::with(['category', 'venue', 'organisers', 'talents', 'user', 'recurringSeries'])->findOrFail($id);
 
         // Manually load subcategories from IDs
         $event->setRelation('subcategories', $event->subcategories_from_ids);
@@ -383,6 +383,16 @@ class EventController extends Controller
             'booking_instructions' => $event->booking_instructions,
             'is_recurring' => (bool) ($event->is_recurring ?? false),
             'is_copy_event' => (bool) ($event->is_copy_event ?? false),
+            'series_id' => $event->series_id,
+            'is_modified' => (bool) $event->is_modified,
+            'is_series_instance' => $event->isSeriesInstance(),
+            'recurring_series' => $event->recurringSeries ? [
+                'id' => $event->recurringSeries->id,
+                'recurrence_type' => $event->recurringSeries->recurrence_type,
+                'timezone' => $event->recurringSeries->timezone,
+                'start_date' => $event->recurringSeries->start_date?->format('Y-m-d'),
+                'end_date' => $event->recurringSeries->end_date?->format('Y-m-d'),
+            ] : null,
             'show_upcoming_events' => (bool) ($event->show_upcoming_events ?? false),
             'show_past_events' => (bool) ($event->show_past_events ?? false),
             'invited_talents' => is_array($event->invited_talents) ? $event->invited_talents : [],
@@ -458,6 +468,13 @@ class EventController extends Controller
                 'success' => false,
                 'message' => 'Unauthorized',
             ], 403);
+        }
+
+        if ($event->isSeriesInstance()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This event is part of a recurring series. Use PUT /api/v2/events/{id}/occurrence to edit a single occurrence.',
+            ], 422);
         }
 
         $data = $request->validated();
@@ -548,6 +565,13 @@ class EventController extends Controller
                 'success' => false,
                 'message' => 'Unauthorized',
             ], 403);
+        }
+
+        if ($event->isSeriesInstance()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This event is part of a recurring series. Use POST /api/v2/events/{id}/occurrence/cancel to remove a single occurrence.',
+            ], 422);
         }
 
         $this->eventService->delete($event);

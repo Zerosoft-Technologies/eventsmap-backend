@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\UploadGalleryImageRequest;
 use App\Models\GalleryImage;
+use App\Support\Premium\PremiumAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -28,11 +29,8 @@ class GalleryImageController extends Controller
             ], 401);
         }
 
-        if (!$user->isPremiumAccount()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Only premium users can access gallery',
-            ], 403);
+        if ($denied = PremiumAccess::denyLegacyResponseUnlessEntitled($user, 'Only premium users can access gallery')) {
+            return $denied;
         }
 
         $perPage = (int) $request->input('per_page', 10);
@@ -91,11 +89,8 @@ class GalleryImageController extends Controller
             ], 401);
         }
 
-        if (!$user->isPremiumAccount()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Only premium users can upload images',
-            ], 403);
+        if ($denied = PremiumAccess::denyLegacyResponseUnlessEntitled($user, 'Only premium users can upload images')) {
+            return $denied;
         }
 
         try {
@@ -173,11 +168,8 @@ class GalleryImageController extends Controller
             ], 401);
         }
 
-        if (!$user->isPremiumAccount()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Only premium users can access gallery',
-            ], 403);
+        if ($denied = PremiumAccess::denyLegacyResponseUnlessEntitled($user, 'Only premium users can access gallery')) {
+            return $denied;
         }
 
         $image = GalleryImage::where('image_id', $image_id)

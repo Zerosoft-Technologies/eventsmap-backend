@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\AdminProfileV2TaxonomyController;
 use App\Http\Controllers\Admin\AdminTalentV2Controller;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminVenueV2Controller;
+use App\Http\Controllers\Admin\AdminRecurringSeriesController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\BulkOperationsController;
@@ -256,6 +257,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::post('/{id}/unapprove', [AdminEventV2Controller::class, 'unapprove']);
         Route::post('/{id}/suspend', [AdminEventV2Controller::class, 'suspend']);
         Route::post('/{id}/unsuspend', [AdminEventV2Controller::class, 'unsuspend']);
+        Route::post('/{id}/cancel-occurrence', [AdminEventV2Controller::class, 'cancelOccurrence'])->whereNumber('id');
 
         // Trash management
         Route::patch('/{id}/restore', [AdminEventV2Controller::class, 'restore']);
@@ -326,6 +328,22 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         // Moderation
         Route::post('/{id}/approve', [AdminVenueV2Controller::class, 'approve']);
         Route::post('/{id}/unapprove', [AdminVenueV2Controller::class, 'unapprove']);
+    });
+
+    // ──────────────────────────────────────
+    // Recurring Series Admin Management
+    // ──────────────────────────────────────
+    Route::prefix('recurring-series')->group(function () {
+        Route::get('/', [AdminRecurringSeriesController::class, 'index']);
+        Route::get('/stats', [AdminRecurringSeriesController::class, 'stats']);
+        Route::get('/{id}', [AdminRecurringSeriesController::class, 'show'])->whereNumber('id');
+        Route::delete('/{id}', [AdminRecurringSeriesController::class, 'destroy'])->whereNumber('id');
+        Route::post('/{id}/cancel', [AdminRecurringSeriesController::class, 'cancel'])->whereNumber('id');
+        Route::post('/{id}/approve', [AdminRecurringSeriesController::class, 'approve'])->whereNumber('id');
+        Route::post('/{id}/reject', [AdminRecurringSeriesController::class, 'reject'])->whereNumber('id');
+        Route::post('/{id}/unapprove', [AdminRecurringSeriesController::class, 'unapprove'])->whereNumber('id');
+        Route::post('/{id}/suspend', [AdminRecurringSeriesController::class, 'suspend'])->whereNumber('id');
+        Route::post('/{id}/unsuspend', [AdminRecurringSeriesController::class, 'unsuspend'])->whereNumber('id');
     });
 
     // Organizer API routes

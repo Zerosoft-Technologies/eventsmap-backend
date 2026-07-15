@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PublishStatus;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -46,6 +47,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property \Carbon\Carbon $updated_at
  * @property \Carbon\Carbon|null $deleted_at
  *
+ * @property int|null $series_id
+ * @property bool $is_modified
+ *
+ * @property-read RecurringSeries|null $recurringSeries
  * @property-read string $computed_status Dynamic status based on date/time
  * @property-read \Carbon\Carbon $event_start_datetime Full start datetime
  * @property-read \Carbon\Carbon $event_end_datetime Full end datetime
@@ -146,6 +151,8 @@ class EventV2 extends Model
 
     protected $fillable = [
         'user_id',
+        'series_id',
+        'is_modified',
         'title',
         'slug',
         'event_type',
@@ -215,6 +222,8 @@ class EventV2 extends Model
             'end_date' => 'date',
             'start_datetime' => 'datetime',
             'end_datetime' => 'datetime',
+            'series_id' => 'integer',
+            'is_modified' => 'boolean',
             'latitude' => 'decimal:8',
             'longitude' => 'decimal:8',
             'entrance_fee' => 'decimal:2',
@@ -250,6 +259,14 @@ class EventV2 extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Parent recurring series when this row is a materialized instance.
+     */
+    public function recurringSeries(): BelongsTo
+    {
+        return $this->belongsTo(RecurringSeries::class, 'series_id');
     }
 
     public function category(): BelongsTo
@@ -340,6 +357,44 @@ class EventV2 extends Model
     public function scopeByCategory(Builder $query, int $categoryId): Builder
     {
         return $query->where('category_id', $categoryId);
+    }
+
+    /**
+     * Events that belong to a recurring series.
+     */
+    public function scopePartOfSeries(Builder $query, ?int $seriesId = null): Builder
+    {
+        $query->whereNotNull('series_id');
+
+        if ($seriesId !== null) {
+            $query->where('series_id', $seriesId);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Standalone events (not generated from a series).
+     */
+    public function scopeStandalone(Builder $query): Builder
+    {
+        return $query->whereNull('series_id');
+    }
+
+    /**
+     * Series instances that were individually edited (exceptions).
+     */
+    public function scopeModifiedInstances(Builder $query): Builder
+    {
+        return $query->where('is_modified', true)->whereNotNull('series_id');
+    }
+
+    /**
+     * Series instances still matching the series template.
+     */
+    public function scopeUnmodifiedInstances(Builder $query): Builder
+    {
+        return $query->where('is_modified', false)->whereNotNull('series_id');
     }
 
     // ──────────────────────────────────────
@@ -558,6 +613,7 @@ class EventV2 extends Model
     public function scopePublicVisible(Builder $query): Builder
     {
         return $query->where('is_approved', true)
+            ->where('publish_status', PublishStatus::PUBLISHED)
             ->whereNotIn('status', [self::STATUS_SUSPENDED, self::STATUS_CANCELLED, self::STATUS_DRAFT]);
     }
 
@@ -752,5 +808,13 @@ class EventV2 extends Model
     public function decrementLikes(): void
     {
         $this->decrement('like_count');
+    }
+
+    /**
+     * Whether this event is an instance of a recurring series.
+     */
+    public function isSeriesInstance(): bool
+    {
+        return $this->series_id !== null;
     }
 }

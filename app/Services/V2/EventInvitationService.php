@@ -29,7 +29,7 @@ class EventInvitationService
     /**
      * Create invitations for all invited users when an event is created/updated.
      */
-    public function createInvitationsForEvent(EventV2 $event, User $sender): array
+    public function createInvitationsForEvent(EventV2 $event, User $sender, bool $sendNotifications = true): array
     {
         $created = [];
         $skipped = [];
@@ -43,6 +43,7 @@ class EventInvitationService
             'invited_talents' => $invitedTalents,
             'invited_organisers' => $invitedOrganisers,
             'invited_venues' => $invitedVenues,
+            'send_notifications' => $sendNotifications,
         ]);
 
         DB::transaction(function () use ($event, $sender, &$created, &$skipped, $invitedTalents, $invitedOrganisers, $invitedVenues) {
@@ -75,15 +76,27 @@ class EventInvitationService
             }
         });
 
-        foreach ($created as $invitation) {
-            $this->sendInvitationEmail($invitation);
-            $this->pushInvitationNotification($invitation);
+        if ($sendNotifications) {
+            $this->sendNotificationsForInvitations($created);
         }
 
         return [
             'created' => $created,
             'skipped' => $skipped,
         ];
+    }
+
+    /**
+     * Send email + Firestore notifications for invitation rows (e.g. after queued bulk create).
+     *
+     * @param  list<EventInvitation>  $invitations
+     */
+    public function sendNotificationsForInvitations(array $invitations): void
+    {
+        foreach ($invitations as $invitation) {
+            $this->sendInvitationEmail($invitation);
+            $this->pushInvitationNotification($invitation);
+        }
     }
 
     /**

@@ -246,7 +246,11 @@ class PublicEventController extends Controller
 
         $events = Cache::remember($cacheKey, now()->addMinutes(2), function () use ($request, $limit) {
             $query = EventV2::query()
-                ->select(['id', 'title', 'slug', 'latitude', 'longitude', 'venue_name', 'event_date', 'start_time', 'category_id', 'entrance_status'])
+                ->select([
+                    'id', 'title', 'slug', 'latitude', 'longitude', 'venue_name',
+                    'event_date', 'start_time', 'category_id', 'entrance_status',
+                    'series_id', 'is_modified',
+                ])
                 ->publicVisible()
                 ->whereIn('status', [EventV2::STATUS_UPCOMING, EventV2::STATUS_LIVE])
                 ->withinBbox(
@@ -279,6 +283,9 @@ class PublicEventController extends Controller
             'start_time' => $e->start_time,
             'category_id' => $e->category_id,
             'entrance_status' => $e->entrance_status,
+            'series_id' => $e->series_id,
+            'is_modified' => (bool) $e->is_modified,
+            'is_series_instance' => $e->isSeriesInstance(),
         ]);
 
         return response()->json([

@@ -10,9 +10,8 @@ use App\Http\Requests\V2\UpdateProfilePublicationStatusRequest;
 use App\Http\Requests\V2\UpdatePublishStatusRequest;
 use App\Http\Resources\V2\OrganiserResource;
 use App\Http\Resources\V2\OrganiserSidebarResource;
-use App\Models\EventInvitation;
 use App\Models\OrganiserV2;
-use App\Services\V2\EventInvitationService;
+use App\Services\V2\OrganiserProfileEventService;
 use App\Services\V2\OrganiserService;
 use App\Support\ProfilePublicationStatus;
 use App\Support\PublishStatus;
@@ -24,7 +23,7 @@ class OrganiserController extends Controller
 {
     public function __construct(
         private readonly OrganiserService $organiserService,
-        private readonly EventInvitationService $eventInvitationService
+        private readonly OrganiserProfileEventService $organiserProfileEventService,
     ) {}
 
     /**
@@ -54,8 +53,8 @@ class OrganiserController extends Controller
     {
         $organiser = $this->organiserService->create($request->validated(), $request->user());
         $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
-        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
-        $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
+        $this->organiserProfileEventService->hydrateUpcomingPublicEventsOnProfiles([$organiser]);
+        $this->organiserProfileEventService->hydratePastPublicEventsOnProfiles([$organiser]);
 
         return response()->json([
             'success' => true,
@@ -140,16 +139,14 @@ class OrganiserController extends Controller
         $data['additional_image_urls'] = $additionalImageUrls;
 
         if ($organiser->show_upcoming_events ?? false) {
-            $data['upcoming_events'] = $this->eventInvitationService->upcomingAcceptedEventsPayloadForProfileUser(
-                (int) $organiser->user_id,
-                EventInvitation::TYPE_ORGANISER
+            $data['upcoming_events'] = $this->organiserProfileEventService->upcomingPublicEventsPayloadForUser(
+                (int) $organiser->user_id
             );
         }
 
         if ($organiser->show_past_events ?? false) {
-            $data['past_events'] = $this->eventInvitationService->pastAcceptedEventsPayloadForProfileUser(
-                (int) $organiser->user_id,
-                EventInvitation::TYPE_ORGANISER
+            $data['past_events'] = $this->organiserProfileEventService->pastPublicEventsPayloadForUser(
+                (int) $organiser->user_id
             );
         }
 
@@ -218,16 +215,14 @@ class OrganiserController extends Controller
         ];
 
         if ($organiser->show_upcoming_events ?? false) {
-            $data['upcoming_events'] = $this->eventInvitationService->upcomingAcceptedEventsPayloadForProfileUser(
-                (int) $organiser->user_id,
-                EventInvitation::TYPE_ORGANISER
+            $data['upcoming_events'] = $this->organiserProfileEventService->upcomingPublicEventsPayloadForUser(
+                (int) $organiser->user_id
             );
         }
 
         if ($organiser->show_past_events ?? false) {
-            $data['past_events'] = $this->eventInvitationService->pastAcceptedEventsPayloadForProfileUser(
-                (int) $organiser->user_id,
-                EventInvitation::TYPE_ORGANISER
+            $data['past_events'] = $this->organiserProfileEventService->pastPublicEventsPayloadForUser(
+                (int) $organiser->user_id
             );
         }
 
@@ -257,8 +252,8 @@ class OrganiserController extends Controller
         $organiser->refresh();
         $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
 
-        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
-        $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
+        $this->organiserProfileEventService->hydrateUpcomingPublicEventsOnProfiles([$organiser]);
+        $this->organiserProfileEventService->hydratePastPublicEventsOnProfiles([$organiser]);
 
         return response()->json([
             'success' => true,
@@ -286,8 +281,8 @@ class OrganiserController extends Controller
         $organiser->refresh();
         $organiser->load(['category', 'user', 'organiserCategory', 'organiserSubcategories']);
 
-        $this->eventInvitationService->hydrateUpcomingAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
-        $this->eventInvitationService->hydratePastAcceptedInvitationEventsOnProfiles([$organiser], EventInvitation::TYPE_ORGANISER);
+        $this->organiserProfileEventService->hydrateUpcomingPublicEventsOnProfiles([$organiser]);
+        $this->organiserProfileEventService->hydratePastPublicEventsOnProfiles([$organiser]);
 
         return response()->json([
             'success' => true,

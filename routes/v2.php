@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V2\EventController;
+use App\Http\Controllers\V2\EventOccurrenceController;
 use App\Http\Controllers\V2\ProfileListingController;
 use App\Http\Controllers\V2\PublicEventController;
 use App\Http\Controllers\V2\PublicProfileController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\V2\EventInvitationProfileController;
 use App\Http\Controllers\V2\ChatController;
 use App\Http\Controllers\V2\ChatPermissionController;
 use App\Http\Controllers\V2\FirebaseTokenController;
+use App\Http\Controllers\V2\RecurringSeriesController;
 
 /*
 |--------------------------------------------------------------------------
@@ -90,6 +92,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/events', [EventController::class, 'store']);
     Route::get('/events/{id}', [EventController::class, 'show']);
     Route::put('/events/{id}', [EventController::class, 'update']);
+    Route::get('/events/{id}/occurrence', [EventOccurrenceController::class, 'show'])->whereNumber('id');
+    Route::put('/events/{id}/occurrence', [EventOccurrenceController::class, 'update'])->whereNumber('id');
+    Route::post('/events/{id}/occurrence', [EventOccurrenceController::class, 'update'])->whereNumber('id');
+    Route::post('/events/{id}/occurrence/cancel', [EventOccurrenceController::class, 'cancel'])->whereNumber('id');
     Route::delete('/events/{id}', [EventController::class, 'destroy']);
 
     // Organisers CRUD
@@ -109,6 +115,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/venues/{id}', [VenueController::class, 'show']);
     Route::put('/venues/{id}', [VenueController::class, 'update']);
     Route::delete('/venues/{id}', [VenueController::class, 'destroy']);
+
+    // Recurring series CRUD (premium create; owner update/delete)
+    Route::get('/recurring-series/event-templates/{eventId}', [RecurringSeriesController::class, 'eventTemplate'])->whereNumber('eventId');
+    Route::get('/recurring-series', [RecurringSeriesController::class, 'index']);
+    Route::get('/recurring-series/{id}', [RecurringSeriesController::class, 'show'])->whereNumber('id');
+    Route::put('/recurring-series/{id}', [RecurringSeriesController::class, 'update'])->whereNumber('id');
+    Route::post('/recurring-series/{id}/cancel', [RecurringSeriesController::class, 'cancel'])->whereNumber('id');
+    Route::post('/recurring-series/{id}/regenerate', [RecurringSeriesController::class, 'regenerate'])->whereNumber('id');
+    Route::delete('/recurring-series/{id}', [RecurringSeriesController::class, 'destroy'])->whereNumber('id');
+    Route::post('/recurring-series', [RecurringSeriesController::class, 'store'])
+        ->middleware('premium.active');
 
     Route::patch('/talents/{id}/status', [TalentController::class, 'updateStatus'])->whereNumber('id');
     Route::patch('/venues/{id}/status', [VenueController::class, 'updateStatus'])->whereNumber('id');

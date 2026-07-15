@@ -219,6 +219,14 @@ final class V2ListingEventFilters
     ): void {
         $profileQ->whereExists(function ($exists) use ($request, $profileTable, $includeSessions, $upcomingOnly) {
             $exists->selectRaw('1')
+                ->from('events_v2')
+                ->whereColumn('events_v2.user_id', "{$profileTable}.user_id")
+                ->whereNull('events_v2.deleted_at');
+            self::applyPublishedBrowsableEventConstraints($exists, $request, $includeSessions, $upcomingOnly);
+        });
+
+        $profileQ->orWhereExists(function ($exists) use ($request, $profileTable, $includeSessions, $upcomingOnly) {
+            $exists->selectRaw('1')
                 ->from('event_invitations')
                 ->join('events_v2', 'events_v2.id', '=', 'event_invitations.event_id')
                 ->whereColumn('event_invitations.receiver_id', "{$profileTable}.user_id")

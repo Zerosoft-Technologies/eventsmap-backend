@@ -4,12 +4,14 @@ namespace App\Services\Stripe;
 
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\V2\RecurringSeriesLifecycleService;
 use Illuminate\Support\Facades\DB;
 
 final class SubscriptionUserStateService
 {
     public function __construct(
         private readonly SubscriptionAccountPolicy $policy,
+        private readonly RecurringSeriesLifecycleService $recurringSeriesLifecycleService,
     ) {}
 
     public function applyFromSubscriptionRecord(Subscription $record, ?User $user = null): void
@@ -38,11 +40,13 @@ final class SubscriptionUserStateService
 
         DB::transaction(function () use ($user, $record, $grant, $downgrade, $pending): void {
             $updates = [];
+            $shouldProcessPremiumExpiry = false;
 
             if ($downgrade) {
                 $updates['account_type'] = User::ACCOUNT_FREE;
                 $updates['status'] = User::STATUS_ACTIVE;
                 $updates['stripe_subscription_id'] = null;
+                $shouldProcessPremiumExpiry = $user->account_type === User::ACCOUNT_PREMIUM;
             } elseif ($grant) {
                 $updates['account_type'] = User::ACCOUNT_PREMIUM;
                 if ($pending) {
@@ -68,6 +72,10 @@ final class SubscriptionUserStateService
 
             if ($updates !== []) {
                 $user->update($updates);
+            }
+
+            if ($shouldProcessPremiumExpiry) {
+                $this->recurringSeriesLifecycleService->handlePremiumExpiry($user, $user);
             }
         });
     }

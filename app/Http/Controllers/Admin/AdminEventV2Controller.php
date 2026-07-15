@@ -12,6 +12,7 @@ use App\Models\EventV2;
 use App\Models\GalleryImage;
 use App\Services\V2\EventInvitedEntitiesService;
 use App\Services\V2\EventService;
+use App\Services\V2\RecurringSeriesLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -32,6 +33,7 @@ class AdminEventV2Controller extends Controller
     public function __construct(
         private readonly EventService $eventService,
         private readonly EventInvitedEntitiesService $eventInvitedEntitiesService,
+        private readonly RecurringSeriesLifecycleService $recurringSeriesLifecycleService,
     ) {}
 
     // ──────────────────────────────────────
@@ -608,7 +610,9 @@ class AdminEventV2Controller extends Controller
         $event = match ($action) {
             'approve' => $this->eventService->approve($event, $admin),
             'suspend' => $this->eventService->suspend($event, $admin, $request->input('reason')),
-            'cancel' => $this->eventService->cancel($event, $admin),
+            'cancel' => $event->isSeriesInstance()
+                ? $this->cancelSeriesOccurrence($event, $admin)
+                : $this->eventService->cancel($event, $admin),
             'complete' => $this->eventService->markCompleted($event, $admin),
             'unsuspend' => $this->eventService->unsuspend($event, $admin),
         };
@@ -1209,5 +1213,47 @@ class AdminEventV2Controller extends Controller
             'message' => 'Event venues fetched successfully',
             'data' => $venues,
         ]);
+    }
+
+    /**
+     * POST /api/admin/events-v2/{id}/cancel-occurrence
+     *
+     * Cancel or remove a recurring series occurrence (with invitee notifications when cancelled).
+     */
+    public function cancelOccurrence(Request $request, int $id): JsonResponse
+    {
+        $request->validate(['confirm' => 'required|accepted']);
+
+        $event = EventV2::findOrFail($id);
+
+        if (! $event->isSeriesInstance()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This event is not a recurring series occurrence.',
+            ], 422);
+        }
+
+        $lifecycle = $this->recurringSeriesLifecycleService->cancelOccurrence(
+            $event,
+            $request->user(),
+            'admin_occurrence_cancel',
+        );
+
+        $event->refresh();
+        $this->eventInvitedEntitiesService->hydrate([$event]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Event occurrence processed successfully',
+            'data' => new AdminEventV2Resource($event),
+            'lifecycle' => $lifecycle,
+        ]);
+    }
+
+    private function cancelSeriesOccurrence(EventV2 $event, $admin): EventV2
+    {
+        $this->recurringSeriesLifecycleService->cancelOccurrence($event, $admin, 'admin_occurrence_cancel');
+
+        return $event->fresh(['category', 'subcategories', 'venue', 'organisers', 'talents', 'user']);
     }
 }

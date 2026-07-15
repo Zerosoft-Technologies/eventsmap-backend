@@ -204,6 +204,24 @@ class EventResource extends JsonResource
             'view_count' => $this->view_count ?? 0,
             'like_count' => $this->like_count ?? 0,
 
+            // Recurring series occurrence linkage
+            'series_id' => $this->series_id,
+            'is_modified' => (bool) $this->is_modified,
+            'is_series_instance' => $this->resource->isSeriesInstance(),
+            'recurring_series' => $this->whenLoaded('recurringSeries', function () {
+                if (! $this->recurringSeries) {
+                    return null;
+                }
+
+                return [
+                    'id' => $this->recurringSeries->id,
+                    'recurrence_type' => $this->recurringSeries->recurrence_type,
+                    'timezone' => $this->recurringSeries->timezone,
+                    'start_date' => $this->recurringSeries->start_date?->format('Y-m-d'),
+                    'end_date' => $this->recurringSeries->end_date?->format('Y-m-d'),
+                ];
+            }),
+
             // Admin moderation (only included when fields exist)
             'is_approved' => $this->is_approved ?? false,
             'approved_at' => $this->when($this->approved_at, fn () => $this->approved_at?->toIso8601String()),

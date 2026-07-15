@@ -65,6 +65,8 @@ class UpdateEventRequest extends FormRequest
             'show_past_events' => 'nullable|boolean',
             'show_photo_map_marker' => 'nullable|boolean',
             'publish_status' => ['nullable', 'string', Rule::in(PublishStatus::ALL)],
+            'series_id' => 'prohibited',
+            'is_modified' => 'prohibited',
         ];
 
         // Image validation: accept either file upload (for free events) or UUID string (for premium events)
